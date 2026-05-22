@@ -1,4 +1,7 @@
-// ─── Data: Static Workout Definition ─────────────────────────────
+// ==========================================
+// ─── STATE (Data & Initialization) ───
+// ==========================================
+
 const workouts = [
   {
     id: 'session_thu',
@@ -106,43 +109,172 @@ const workouts = [
   }
 ];
 
-// ─── State: Dynamic User Progress ────────────────────────────────
 const STORAGE_KEY = 'pf_tracker_v3';
 const REST_DURATION = 90;
+const CURRENT_STATE_VERSION = 1;
+const DEV_MODE = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-let state = {
-  version: 1,
-  activeSessionId: 'session_thu',
-  exercises: {}, // e.g. { 'thu_row': ['done', 'failed', '', ''] }
-  lastDone: {}   // e.g. { 'session_thu': 168434343 }
-};
+let state = null; // initialized during boot
 
 let restInterval = null;
 let restRemaining = 0;
 let restTotal = REST_DURATION;
+let lastSetClick = { exId: '', idx: -1, timestamp: 0 };
+let hasLoggedWarning = false;
+let hasRendered = false;
 
-// ─── Initialization & Persistence ────────────────────────────────
-function init() {
-  loadState();
-  if (!state.activeSessionId) state.activeSessionId = workouts[0].id;
-  
-  initializeExerciseKeys();
-  renderApp();
-  setupEventDelegation();
-}
-
-function initializeExerciseKeys() {
-  const exercises = { ...state.exercises };
-  let modified = false;
-
+function createDefaultState() {
+  const defaultState = {
+    version: CURRENT_STATE_VERSION,
+    activeSessionId: workouts[0].id,
+    exercises: {},
+    lastDone: {}
+  };
   workouts.forEach(session => {
     session.blocks.forEach(block => {
       block.exercises.forEach(ex => {
-        if (!exercises[ex.id]) {
-          exercises[ex.id] = Array(ex.sets).fill('');
-          modified = true;
-        } else if (exercises[ex.id].length !== ex.sets) {
-          const arr = [...exercises[ex.id]];
+        defaultState.exercises[ex.id] = Array(ex.sets).fill('');
+      });
+    });
+  });
+  return defaultState;
+}
+
+function init() {
+  loadState();
+  // Standard initialization/normalization action dispatch
+  commitStateChange('RECONCILE_WORKOUTS');
+  setupEventDelegation();
+}
+
+// ==========================================
+// ─── REDUCER (State Transitions ONLY) ───
+// ==========================================
+
+const ALLOWED_ACTIONS = {
+  SET_ACTIVE_SESSION: ['sessionId'],
+  UPDATE_SET: ['exId', 'idx', 'status'],
+  RESET_ALL: [],
+  IMPORT_STATE: ['data'],
+  RECONCILE_WORKOUTS: []
+};
+
+function validateAction(type, payload) {
+  if (!ALLOWED_ACTIONS.hasOwnProperty(type)) {
+    throw new Error(`Invalid action type: ${type}`);
+  }
+  if (payload === undefined) {
+    throw new Error(`Payload must not be undefined for action: ${type}`);
+  }
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error(`Payload must be a plain object for action: ${type}`);
+  }
+  const requiredKeys = ALLOWED_ACTIONS[type];
+  for (const key of requiredKeys) {
+    if (!(key in payload)) {
+      throw new Error(`Missing required key: "${key}" in payload for action: ${type}`);
+    }
+  }
+  
+  if (type === 'UPDATE_SET') {
+    const { status } = payload;
+    if (status !== '' && status !== 'done' && status !== 'failed') {
+      throw new Error(`Invalid set status: "${status}"`);
+    }
+  }
+  if (type === 'IMPORT_STATE') {
+    const { data } = payload;
+    if (!isBasicStateStructure(data)) {
+      throw new Error('Imported data does not have a basic state structure');
+    }
+  }
+}
+
+function reducer(currentState, action) {
+  switch (action.type) {
+    case 'SET_ACTIVE_SESSION': {
+      const { sessionId } = action.payload;
+      if (currentState.activeSessionId === sessionId) {
+        return currentState;
+      }
+      return {
+        ...currentState,
+        activeSessionId: sessionId
+      };
+    }
+    case 'UPDATE_SET': {
+      const { exId, idx, status } = action.payload;
+      
+      const updatedExerciseArray = [...(currentState.exercises[exId] || [])];
+      updatedExerciseArray[idx] = status;
+      
+      const nextExercises = {
+        ...currentState.exercises,
+        [exId]: updatedExerciseArray
+      };
+      
+      let nextLastDone = currentState.lastDone;
+      
+      // Check session completion with the updated exercises
+      const activeSession = workouts.find(s => s.id === currentState.activeSessionId);
+      const tempState = {
+        ...currentState,
+        exercises: nextExercises
+      };
+      
+      if (activeSession && isSessionComplete(activeSession, tempState)) {
+        if (!currentState.lastDone[activeSession.id]) {
+          nextLastDone = {
+            ...currentState.lastDone,
+            [activeSession.id]: Date.now()
+          };
+        }
+      }
+      
+      return {
+        ...currentState,
+        exercises: nextExercises,
+        lastDone: nextLastDone
+      };
+    }
+    case 'RESET_ALL': {
+      return createDefaultState();
+    }
+    case 'IMPORT_STATE': {
+      const { data } = action.payload;
+      let importedState = migrateState(data);
+      importedState = normalizeStateWithWorkouts(importedState);
+      return importedState;
+    }
+    case 'RECONCILE_WORKOUTS': {
+      return normalizeStateWithWorkouts(currentState);
+    }
+    default:
+      throw new Error(`Unhandled action type in reducer: ${action.type}`);
+  }
+}
+
+function migrateState(targetState) {
+  const migrated = { ...targetState };
+  // Perform future migrations here if needed
+  migrated.version = CURRENT_STATE_VERSION;
+  return migrated;
+}
+
+function normalizeStateWithWorkouts(targetState) {
+  const normalized = {
+    ...targetState,
+    exercises: { ...targetState.exercises }
+  };
+  
+  workouts.forEach(session => {
+    session.blocks.forEach(block => {
+      block.exercises.forEach(ex => {
+        const currentSets = normalized.exercises[ex.id];
+        if (!currentSets) {
+          normalized.exercises[ex.id] = Array(ex.sets).fill('');
+        } else if (currentSets.length !== ex.sets) {
+          const arr = [...currentSets];
           if (arr.length > ex.sets) {
             arr.length = ex.sets;
           } else {
@@ -150,144 +282,53 @@ function initializeExerciseKeys() {
               arr.push('');
             }
           }
-          exercises[ex.id] = arr;
-          modified = true;
+          normalized.exercises[ex.id] = arr;
         }
       });
     });
   });
-
-  if (modified) {
-    state.exercises = exercises;
-    saveState();
-  }
+  return normalized;
 }
 
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.version === state.version) {
-        state = { ...state, ...parsed };
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load state', e);
-  }
-}
+// ==========================================
+// ─── DERIVED (Pure Computations) ───
+// ==========================================
 
-function saveState() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
-    console.error('Failed to save state', e);
-  }
-}
-
-// ─── Derived Logic Helpers ───────────────────────────────────────
-function getResolvedSetsCount(session) {
+function getResolvedSetsCount(session, appState) {
   const allExercises = session.blocks.flatMap(b => b.exercises);
   let count = 0;
   allExercises.forEach(ex => {
-    const arr = state.exercises[ex.id] || [];
+    const arr = appState.exercises[ex.id] || [];
     count += arr.filter(s => s === 'done' || s === 'failed').length;
   });
   return count;
 }
 
-function getProgressPct(session) {
+function getProgressPct(session, appState) {
   const allExercises = session.blocks.flatMap(b => b.exercises);
   const totalSets = allExercises.reduce((sum, ex) => sum + ex.sets, 0);
   if (totalSets === 0) return 0;
-  const resolved = getResolvedSetsCount(session);
+  const resolved = getResolvedSetsCount(session, appState);
   return Math.round((resolved / totalSets) * 100);
 }
 
-function isSessionComplete(session) {
+function isSessionComplete(session, appState) {
   const allExercises = session.blocks.flatMap(b => b.exercises);
   if (allExercises.length === 0) return false;
   return allExercises.every(ex => {
-    const arr = state.exercises[ex.id] || [];
+    const arr = appState.exercises[ex.id] || [];
     return arr.length > 0 && arr.every(s => s === 'done' || s === 'failed');
   });
 }
 
-// ─── State Mutation Functions ────────────────────────────────────
-function setActiveSession(sessionId) {
-  if (state.activeSessionId !== sessionId) {
-    state.activeSessionId = sessionId;
-    saveState();
-    renderApp();
-  }
-}
+// ==========================================
+// ─── RENDER (Pure UI Generation) ───
+// ==========================================
 
-function updateSet(exId, idx, status) {
-  if (!state.exercises[exId] || state.exercises[exId][idx] === status) {
-    return;
-  }
-  
-  state.exercises[exId][idx] = status;
-  
-  evaluateSessionCompletion(state.activeSessionId);
-  
-  saveState();
-  renderApp();
-}
-
-function evaluateSessionCompletion(sessionId) {
-  const session = workouts.find(s => s.id === sessionId);
-  if (session && isSessionComplete(session)) {
-    if (!state.lastDone[session.id]) {
-      state.lastDone[session.id] = Date.now();
-    }
-  }
-}
-
-function resetAll() {
-  state.exercises = {};
-  workouts.forEach(session => {
-    session.blocks.forEach(block => {
-      block.exercises.forEach(ex => {
-        state.exercises[ex.id] = Array(ex.sets).fill('');
-      });
-    });
-  });
-  state.lastDone = {};
-  saveState();
-  renderApp();
-}
-
-function importState(data) {
-  if (data && typeof data === 'object' && typeof data.exercises === 'object') {
-    state = {
-      ...state,
-      ...data
-    };
-    saveState();
-    renderApp();
-    return true;
-  }
-  return false;
-}
-
-// ─── Render Functions ────────────────────────────────────────────
-
-function renderApp() {
-  const appEl = document.getElementById('app');
-  if (!appEl) return;
-  
-  const html = `
-    ${renderTabs()}
-    ${workouts.map(session => renderSession(session)).join('')}
-  `;
-  appEl.innerHTML = html;
-}
-
-function renderTabs() {
+function renderTabs(appState) {
   const tabsHtml = workouts.map(session => {
-    const isActive = session.id === state.activeSessionId ? 'active' : '';
-    const lastDoneTs = state.lastDone[session.id];
+    const isActive = session.id === appState.activeSessionId ? 'active' : '';
+    const lastDoneTs = appState.lastDone[session.id];
     let lastDoneText = '';
     if (lastDoneTs) {
       const d = new Date(lastDoneTs);
@@ -307,11 +348,49 @@ function renderTabs() {
   return `<div class="tabs">${tabsHtml}</div>`;
 }
 
-function renderSession(session) {
-  const isActive = session.id === state.activeSessionId ? 'active' : '';
+function renderCard(ex, appState) {
+  const setStates = appState.exercises[ex.id] || Array(ex.sets).fill('');
+  const isCompleted = setStates.length > 0 && setStates.every(s => s === 'done' || s === 'failed');
+  const detail = `${ex.sets} &times; ${ex.reps}${ex.weight ? `<br/>${ex.weight}` : ''}`;
   
-  const progressPct = getProgressPct(session);
-  const sessionComplete = isSessionComplete(session);
+  const setDotsHtml = setStates.map((s, idx) => {
+    let cssClass = 'set-dot';
+    let content = idx + 1;
+    if (s === 'done') {
+      cssClass += ' done';
+      content = '&#10003;';
+    } else if (s === 'failed') {
+      cssClass += ' failed';
+      content = '&#10005;';
+    }
+    return `<button class="${cssClass}" data-ex-id="${ex.id}" data-set-idx="${idx}">${content}</button>`;
+  }).join('');
+  
+  return `
+    <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-ex-id="${ex.id}">
+      <div class="exercise-header">
+        <div class="ex-letter">${ex.letter}</div>
+        <div class="ex-name">${ex.name}</div>
+        <div class="ex-detail">${detail}</div>
+      </div>
+      <div class="set-row">
+        ${setDotsHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderBlock(block, appState) {
+  return `
+    <div class="superset-label">${block.label}</div>
+    ${block.exercises.map(ex => renderCard(ex, appState)).join('')}
+  `;
+}
+
+function renderSession(session, appState) {
+  const isActive = session.id === appState.activeSessionId ? 'active' : '';
+  const progressPct = getProgressPct(session, appState);
+  const sessionComplete = isSessionComplete(session, appState);
 
   return `
     <div class="session ${isActive}" id="${session.id}">
@@ -324,7 +403,7 @@ function renderSession(session) {
       
       <div class="warmup-bar"><strong>WARM-UP</strong><span> &middot; ${session.warmup.replace('Warm-up: ', '')}</span></div>
       
-      ${session.blocks.map(block => renderBlock(block)).join('')}
+      ${session.blocks.map(block => renderBlock(block, appState)).join('')}
       
       <div class="finisher-card">
         <div class="finisher-label">Finisher</div>
@@ -339,94 +418,86 @@ function renderSession(session) {
   `;
 }
 
-function renderBlock(block) {
+function renderApp(appState) {
   return `
-    <div class="superset-label">${block.label}</div>
-    ${block.exercises.map(ex => renderCard(ex)).join('')}
+    ${renderTabs(appState)}
+    ${workouts.map(session => renderSession(session, appState)).join('')}
   `;
 }
 
-function renderCard(ex) {
-  const setStates = state.exercises[ex.id] || Array(ex.sets).fill('');
-  const isCompleted = setStates.length > 0 && setStates.every(s => s === 'done' || s === 'failed');
-  
-  const detail = `${ex.sets} &times; ${ex.reps}${ex.weight ? `<br/>${ex.weight}` : ''}`;
-  
-  return `
-    <div class="exercise-card ${isCompleted ? 'completed' : ''}" data-ex-id="${ex.id}">
-      <div class="exercise-header">
-        <div class="ex-letter">${ex.letter}</div>
-        <div class="ex-name">${ex.name}</div>
-        <div class="ex-detail">${detail}</div>
-      </div>
-      <div class="set-row">
-        ${setStates.map((s, idx) => {
-          let cssClass = 'set-dot';
-          let content = idx + 1;
-          if (s === 'done') { cssClass += ' done'; content = '&#10003;'; }
-          else if (s === 'failed') { cssClass += ' failed'; content = '&#10005;'; }
-          return `<button class="${cssClass}" data-ex-id="${ex.id}" data-set-idx="${idx}">${content}</button>`;
-        }).join('')}
-      </div>
-    </div>
-  `;
+// ==========================================
+// ─── EVENTS (Input & DOM projection) ───
+// ==========================================
+
+function commitStateChange(type, payload) {
+  const resolvedPayload = payload === undefined ? {} : payload;
+  try {
+    validateAction(type, resolvedPayload);
+    const nextState = reducer(state, { type, payload: resolvedPayload });
+    if (!isValidStateSchema(nextState)) {
+      throw new Error("State transition produced an invalid state schema");
+    }
+    
+    if (DEV_MODE) {
+      console.log(`[ACTION] ${type}`, resolvedPayload);
+      console.log('[NEXT STATE]', nextState);
+    }
+    
+    if (state !== nextState || !hasRendered) {
+      state = nextState;
+      saveState();
+      renderAppToDOM(state);
+      hasRendered = true;
+    }
+  } catch (e) {
+    console.error(`State commit rejected for action [${type}]:`, e);
+  }
 }
 
-// ─── Event Delegation ────────────────────────────────────────────
-function setupEventDelegation() {
-  document.addEventListener('click', (e) => {
-    // Tab clicks
-    const tabEl = e.target.closest('.tab');
-    if (tabEl) {
-      const sessionId = tabEl.getAttribute('data-session-id');
-      if (sessionId) {
-        setActiveSession(sessionId);
-      }
-      return;
-    }
+function renderAppToDOM(appState) {
+  const appEl = document.getElementById('app');
+  if (appEl && appState) {
+    appEl.innerHTML = renderApp(appState);
+  }
+}
+
+function startRestTimer() {
+  clearInterval(restInterval);
+  restRemaining = REST_DURATION;
+  restTotal = REST_DURATION;
+  
+  const bar = document.getElementById('rest-timer-bar');
+  const fill = document.getElementById('rest-timer-fill');
+  const count = document.getElementById('rest-timer-count');
+  
+  if (bar && fill && count) {
+    bar.classList.remove('hidden', 'done-state');
+    count.textContent = restRemaining;
+    fill.style.width = '100%';
+    fill.style.transition = 'none';
     
-    // Set dot clicks
-    const dotEl = e.target.closest('.set-dot');
-    if (dotEl) {
-      const exId = dotEl.getAttribute('data-ex-id');
-      const setIdx = parseInt(dotEl.getAttribute('data-set-idx'), 10);
-      handleSetClick(exId, setIdx);
-      return;
-    }
+    // Reflow
+    void fill.offsetWidth;
+    fill.style.transition = '';
     
-    // Export button
-    if (e.target.closest('#export-btn')) {
-      exportState();
-      return;
-    }
-    
-    // Import button
-    if (e.target.closest('#import-btn')) {
-      triggerImport();
-      return;
-    }
-    
-    // Reset button
-    if (e.target.closest('#reset-btn')) {
-      if (confirm('Reset all progress?')) {
+    restInterval = setInterval(() => {
+      restRemaining--;
+      const pct = Math.max(0, (restRemaining / restTotal) * 100);
+      fill.style.width = pct + '%';
+      count.textContent = restRemaining > 0 ? restRemaining : 'GO';
+      
+      if (restRemaining <= 0) {
         clearInterval(restInterval);
-        const timerBar = document.getElementById('rest-timer-bar');
-        if (timerBar) timerBar.classList.add('hidden');
-        resetAll();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        bar.classList.add('done-state');
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        setTimeout(() => {
+          bar.classList.add('hidden');
+          bar.classList.remove('done-state');
+        }, 4000);
       }
-      return;
-    }
-    
-    // Copy button
-    if (e.target.closest('#copy-btn')) {
-      copyWorkout(e.target.closest('#copy-btn'));
-      return;
-    }
-  });
+    }, 1000);
+  }
 }
-
-let lastSetClick = { exId: '', idx: -1, timestamp: 0 };
 
 function handleSetClick(exId, setIdx) {
   const now = Date.now();
@@ -447,10 +518,9 @@ function handleSetClick(exId, setIdx) {
     nextStatus = '';
   }
   
-  updateSet(exId, setIdx, nextStatus);
+  commitStateChange('UPDATE_SET', { exId, idx: setIdx, status: nextStatus });
 }
 
-// ─── Export & Import Handlers ────────────────────────────────────
 function exportState() {
   try {
     const jsonString = JSON.stringify(state, null, 2);
@@ -480,11 +550,7 @@ function triggerImport() {
     reader.onload = (evt) => {
       try {
         const parsed = JSON.parse(evt.target.result);
-        if (importState(parsed)) {
-          alert('Backup imported successfully!');
-        } else {
-          alert('Invalid backup file structure.');
-        }
+        commitStateChange('IMPORT_STATE', { data: parsed });
       } catch (err) {
         alert('Failed to parse backup JSON: ' + err.message);
       }
@@ -494,45 +560,7 @@ function triggerImport() {
   input.click();
 }
 
-// ─── Rest Timer ──────────────────────────────────────────────────
-function startRestTimer() {
-  clearInterval(restInterval);
-  restRemaining = REST_DURATION;
-  restTotal = REST_DURATION;
-  
-  const bar = document.getElementById('rest-timer-bar');
-  const fill = document.getElementById('rest-timer-fill');
-  const count = document.getElementById('rest-timer-count');
-  
-  bar.classList.remove('hidden', 'done-state');
-  count.textContent = restRemaining;
-  fill.style.width = '100%';
-  fill.style.transition = 'none';
-  
-  // Reflow
-  void fill.offsetWidth;
-  fill.style.transition = '';
-  
-  restInterval = setInterval(() => {
-    restRemaining--;
-    const pct = Math.max(0, (restRemaining / restTotal) * 100);
-    fill.style.width = pct + '%';
-    count.textContent = restRemaining > 0 ? restRemaining : 'GO';
-    
-    if (restRemaining <= 0) {
-      clearInterval(restInterval);
-      bar.classList.add('done-state');
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      setTimeout(() => {
-        bar.classList.add('hidden');
-        bar.classList.remove('done-state');
-      }, 4000);
-    }
-  }, 1000);
-}
-
-// ─── Copy Workout ────────────────────────────────────────────────
-function copyWorkout(btn) {
+function copyWorkout(btn, appState) {
   const lines = [];
   lines.push('PLANET FITNESS — STRENGTH PLAN');
   lines.push('3525 Washington St');
@@ -586,5 +614,132 @@ function flashCopied(btn) {
   }, 2500);
 }
 
-// ─── Boot ────────────────────────────────────────────────────────
+function setupEventDelegation() {
+  document.addEventListener('click', (e) => {
+    const tabEl = e.target.closest('.tab');
+    if (tabEl) {
+      const sessionId = tabEl.getAttribute('data-session-id');
+      if (sessionId) {
+        commitStateChange('SET_ACTIVE_SESSION', { sessionId });
+      }
+      return;
+    }
+    
+    const dotEl = e.target.closest('.set-dot');
+    if (dotEl) {
+      const exId = dotEl.getAttribute('data-ex-id');
+      const setIdx = parseInt(dotEl.getAttribute('data-set-idx'), 10);
+      handleSetClick(exId, setIdx);
+      return;
+    }
+    
+    if (e.target.closest('#export-btn')) {
+      exportState();
+      return;
+    }
+    
+    if (e.target.closest('#import-btn')) {
+      triggerImport();
+      return;
+    }
+    
+    if (e.target.closest('#reset-btn')) {
+      if (confirm('Reset all progress?')) {
+        clearInterval(restInterval);
+        const timerBar = document.getElementById('rest-timer-bar');
+        if (timerBar) timerBar.classList.add('hidden');
+        commitStateChange('RESET_ALL', {});
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+    
+    if (e.target.closest('#copy-btn')) {
+      copyWorkout(e.target.closest('#copy-btn'), state);
+      return;
+    }
+  });
+}
+
+// ==========================================
+// ─── PERSISTENCE (Storage IO) ───
+// ==========================================
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      state = createDefaultState();
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    if (!isBasicStateStructure(parsed)) {
+      logCorruptionWarning(parsed);
+      state = createDefaultState();
+      return;
+    }
+    let loadedState = migrateState(parsed);
+    loadedState = normalizeStateWithWorkouts(loadedState);
+    if (!isValidStateSchema(loadedState)) {
+      logCorruptionWarning(loadedState);
+      state = createDefaultState();
+      return;
+    }
+    state = loadedState;
+  } catch (e) {
+    logCorruptionWarning(e);
+    state = createDefaultState();
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error('Persistence failed (localStorage write error):', e);
+  }
+}
+
+function isValidStateSchema(appState) {
+  if (!appState || typeof appState !== 'object') return false;
+  if (typeof appState.version !== 'number') return false;
+  if (typeof appState.activeSessionId !== 'string') return false;
+  if (!appState.exercises || typeof appState.exercises !== 'object') return false;
+  if (!appState.lastDone || typeof appState.lastDone !== 'object') return false;
+  
+  for (const exId in appState.exercises) {
+    const arr = appState.exercises[exId];
+    if (!Array.isArray(arr)) return false;
+    for (const val of arr) {
+      if (val !== '' && val !== 'done' && val !== 'failed') return false;
+    }
+  }
+  return true;
+}
+
+function isBasicStateStructure(appState) {
+  return (
+    appState &&
+    typeof appState === 'object' &&
+    !Array.isArray(appState) &&
+    typeof appState.version === 'number' &&
+    typeof appState.activeSessionId === 'string' &&
+    appState.exercises &&
+    typeof appState.exercises === 'object' &&
+    appState.lastDone &&
+    typeof appState.lastDone === 'object'
+  );
+}
+
+function logCorruptionWarning(details) {
+  if (!hasLoggedWarning) {
+    console.warn('State corruption detected. Rebuilding default state.', details);
+    hasLoggedWarning = true;
+  }
+}
+
+// ==========================================
+// ─── BOOT ───
+// ==========================================
+
 document.addEventListener('DOMContentLoaded', init);
