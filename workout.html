@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Planet Fitness Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Barlow:wght@300;400;500&amp;display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0a0a0a;
+  --bg2: #141414;
+  --bg3: #1e1e1e;
+  --border: #2e2e2e;
+  --border-hi: #444;
+  --white: #f4f4f4;
+  --muted: #888;
+  --dim: #555;
+  --red: #e53935;
+  --green: #43a047;
+  --timer-active: #fdd835;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: 'Barlow', sans-serif;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+header {
+  padding: 22px 18px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.wordmark { line-height: 1; }
+.logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 2.2rem;
+  letter-spacing: 4px;
+  color: var(--white);
+  text-transform: uppercase;
+}
+.logo span { color: var(--muted); font-weight: 400; }
+.subtitle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.reset-btn {
+  background: none;
+  border: 1px solid var(--border-hi);
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  padding: 7px 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.reset-btn:hover { border-color: var(--white); color: var(--white); }
+
+/* ── Rest Timer (fixed floating pill) ── */
+#rest-timer-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  z-index: 50;
+  background: var(--bg3);
+  border: 1px solid var(--border-hi);
+  border-radius: 100px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  width: min(320px, 88vw);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+  transition: opacity 0.25s, transform 0.25s;
+}
+#rest-timer-bar.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(12px);
+}
+#rest-timer-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+#rest-timer-track {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+#rest-timer-fill {
+  height: 100%;
+  background: var(--timer-active);
+  border-radius: 2px;
+  width: 100%;
+  transition: background 0.5s;
+}
+#rest-timer-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--timer-active);
+  width: 38px;
+  text-align: right;
+  flex-shrink: 0;
+  transition: color 0.5s;
+}
+#rest-timer-bar.done-state #rest-timer-fill { background: var(--green); }
+#rest-timer-bar.done-state #rest-timer-count { color: var(--green); }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 69px;
+  z-index: 17;
+}
+.tab {
+  flex: 1;
+  padding: 13px 8px 11px;
+  text-align: center;
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 3px;
+  color: var(--dim);
+  border-bottom: 2px solid transparent;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  position: relative;
+}
+.tab.active { color: var(--white); border-bottom-color: var(--white); }
+.tab .day-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
+  display: block;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 3px;
+  letter-spacing: 1px;
+}
+.tab.active .day-label { color: var(--muted); }
+/* last-done badge */
+.tab .last-done {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.42rem;
+  color: var(--green);
+  display: block;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+  height: 8px;
+}
+
+/* ── Session ── */
+.session { display: none; padding: 0 14px; }
+.session.active { display: block; }
+
+/* ── Progress ── */
+.progress-wrap {
+  padding: 16px 2px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.progress-bar-bg {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--white);
+  border-radius: 1px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+.progress-pct {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--dim);
+  width: 36px;
+  text-align: right;
+  transition: color 0.3s;
+}
+.progress-pct.lit { color: var(--white); }
+
+/* ── Warm-up ── */
+.warmup-bar {
+  margin: 16px 0 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--white);
+  padding: 11px 14px;
+  border-radius: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.warmup-bar strong { color: var(--white); }
+
+/* ── Superset Label ── */
+.superset-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 3px;
+  color: var(--dim);
+  margin: 24px 0 10px 2px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.superset-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Exercise Card ── */
+.exercise-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: opacity 0.4s ease;
+}
+.exercise-card.completed { opacity: 0.32; }
+.exercise-header {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px 10px;
+  gap: 12px;
+}
+.ex-letter {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--dim);
+  width: 14px;
+  flex-shrink: 0;
+  letter-spacing: 1px;
+}
+.ex-name {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--white);
+  line-height: 1.35;
+}
+.ex-detail {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.63rem;
+  color: var(--muted);
+  text-align: right;
+  flex-shrink: 0;
+  line-height: 1.7;
+}
+
+/* ── Set Dots ── */
+.set-row {
+  display: flex;
+  padding: 0 16px 14px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.set-dot {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--border-hi);
+  background: var(--bg);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.set-dot.done {
+  background: var(--white);
+  border-color: var(--white);
+  color: #000;
+  font-size: 1.1rem;
+}
+.set-dot.failed {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+/* ── Finisher ── */
+.finisher-card {
+  margin: 24px 0 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--white);
+  border-radius: 8px;
+  padding: 14px 18px;
+}
+.finisher-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 3px;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.finisher-text {
+  font-size: 0.82rem;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+/* ── Header Buttons ── */
+.header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+#copy-btn {
+  background: none;
+  border: 1px solid var(--border-hi);
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  padding: 7px 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#copy-btn:hover { border-color: var(--white); color: var(--white); }
+#copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+/* ── Complete Banner ── */
+.complete-banner {
+  display: none;
+  margin: 18px 0 0;
+  background: var(--bg3);
+  border: 1px solid var(--border-hi);
+  border-radius: 8px;
+  padding: 20px 16px;
+  text-align: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1.6rem;
+  letter-spacing: 5px;
+  color: var(--white);
+  text-transform: uppercase;
+}
+.complete-banner.visible { display: block; }
+.complete-banner small {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 2px;
+  color: var(--dim);
+  margin-top: 6px;
+  text-transform: uppercase;
+}
+</style>
+</head>
+<body>
+<header>
+<div class="wordmark">
+<div class="logo">Planet <span>Fitness</span></div>
+<div class="subtitle">3525 Washington St · Strength Plan</div>
+</div>
+<div class="header-actions">
+<button id="copy-btn"><span>⎘</span> Copy Workout</button>
+<button class="reset-btn" id="reset-btn">Reset</button>
+</div>
+</header>
+<!-- Rest Timer -->
+<div class="hidden" id="rest-timer-bar">
+<span id="rest-timer-label">REST</span>
+<div id="rest-timer-track"><div id="rest-timer-fill"></div></div>
+<span id="rest-timer-count">90</span>
+</div>
+<div id="app"></div>
+<script src="app.js"></script>
+</body>
+</html>
