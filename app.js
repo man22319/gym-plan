@@ -126,24 +126,41 @@ function init() {
   loadState();
   if (!state.activeSessionId) state.activeSessionId = workouts[0].id;
   
-  // ensure exercise state array exists for all exercises
+  initializeExerciseKeys();
+  renderApp();
+  setupEventDelegation();
+}
+
+function initializeExerciseKeys() {
+  const exercises = { ...state.exercises };
+  let modified = false;
+
   workouts.forEach(session => {
     session.blocks.forEach(block => {
       block.exercises.forEach(ex => {
-        if (!state.exercises[ex.id]) {
-          state.exercises[ex.id] = Array(ex.sets).fill('');
-        } else if (state.exercises[ex.id].length !== ex.sets) {
-          // Adjust length if user changed data sets definition
-          const arr = state.exercises[ex.id];
-          if (arr.length > ex.sets) arr.length = ex.sets;
-          while(arr.length < ex.sets) arr.push('');
+        if (!exercises[ex.id]) {
+          exercises[ex.id] = Array(ex.sets).fill('');
+          modified = true;
+        } else if (exercises[ex.id].length !== ex.sets) {
+          const arr = [...exercises[ex.id]];
+          if (arr.length > ex.sets) {
+            arr.length = ex.sets;
+          } else {
+            while (arr.length < ex.sets) {
+              arr.push('');
+            }
+          }
+          exercises[ex.id] = arr;
+          modified = true;
         }
       });
     });
   });
-  
-  renderApp();
-  setupEventDelegation();
+
+  if (modified) {
+    state.exercises = exercises;
+    saveState();
+  }
 }
 
 function loadState() {
@@ -166,6 +183,92 @@ function saveState() {
   } catch (e) {
     console.error('Failed to save state', e);
   }
+}
+
+// ─── Derived Logic Helpers ───────────────────────────────────────
+function getResolvedSetsCount(session) {
+  const allExercises = session.blocks.flatMap(b => b.exercises);
+  let count = 0;
+  allExercises.forEach(ex => {
+    const arr = state.exercises[ex.id] || [];
+    count += arr.filter(s => s === 'done' || s === 'failed').length;
+  });
+  return count;
+}
+
+function getProgressPct(session) {
+  const allExercises = session.blocks.flatMap(b => b.exercises);
+  const totalSets = allExercises.reduce((sum, ex) => sum + ex.sets, 0);
+  if (totalSets === 0) return 0;
+  const resolved = getResolvedSetsCount(session);
+  return Math.round((resolved / totalSets) * 100);
+}
+
+function isSessionComplete(session) {
+  const allExercises = session.blocks.flatMap(b => b.exercises);
+  if (allExercises.length === 0) return false;
+  return allExercises.every(ex => {
+    const arr = state.exercises[ex.id] || [];
+    return arr.length > 0 && arr.every(s => s === 'done' || s === 'failed');
+  });
+}
+
+// ─── State Mutation Functions ────────────────────────────────────
+function setActiveSession(sessionId) {
+  if (state.activeSessionId !== sessionId) {
+    state.activeSessionId = sessionId;
+    saveState();
+    renderApp();
+  }
+}
+
+function updateSet(exId, idx, status) {
+  if (!state.exercises[exId] || state.exercises[exId][idx] === status) {
+    return;
+  }
+  
+  state.exercises[exId][idx] = status;
+  
+  evaluateSessionCompletion(state.activeSessionId);
+  
+  saveState();
+  renderApp();
+}
+
+function evaluateSessionCompletion(sessionId) {
+  const session = workouts.find(s => s.id === sessionId);
+  if (session && isSessionComplete(session)) {
+    if (!state.lastDone[session.id]) {
+      state.lastDone[session.id] = Date.now();
+    }
+  }
+}
+
+function resetAll() {
+  state.exercises = {};
+  workouts.forEach(session => {
+    session.blocks.forEach(block => {
+      block.exercises.forEach(ex => {
+        state.exercises[ex.id] = Array(ex.sets).fill('');
+      });
+    });
+  });
+  state.lastDone = {};
+  saveState();
+  renderApp();
+}
+
+function importState(data) {
+  if (data && typeof data === 'object' && typeof data.exercises === 'object') {
+    state = {
+      ...state,
+      ...data
+    };
+    saveState();
+    renderApp();
+    return true;
+  }
+  return false;
 }
 
 // ─── Render Functions ────────────────────────────────────────────
@@ -207,32 +310,8 @@ function renderTabs() {
 function renderSession(session) {
   const isActive = session.id === state.activeSessionId ? 'active' : '';
   
-  const allExercises = session.blocks.flatMap(b => b.exercises);
-  const totalSets = allExercises.reduce((sum, ex) => sum + ex.sets, 0);
-  let resolvedSets = 0;
-  
-  allExercises.forEach(ex => {
-    const arr = state.exercises[ex.id] || [];
-    resolvedSets += arr.filter(s => s === 'done' || s === 'failed').length;
-  });
-  
-  const progressPct = totalSets > 0 ? Math.round((resolvedSets / totalSets) * 100) : 0;
-  
-  let cardsDoneCount = 0;
-  allExercises.forEach(ex => {
-    const arr = state.exercises[ex.id] || [];
-    const isCardDone = arr.length > 0 && arr.every(s => s === 'done' || s === 'failed');
-    if (isCardDone) cardsDoneCount++;
-  });
-  
-  const sessionComplete = allExercises.length > 0 && cardsDoneCount === allExercises.length;
-  
-  if (sessionComplete && !state.lastDone[session.id]) {
-    state.lastDone[session.id] = Date.now();
-    saveState();
-    // setTimeout to avoid recursive render in same tick
-    setTimeout(renderApp, 0);
-  }
+  const progressPct = getProgressPct(session);
+  const sessionComplete = isSessionComplete(session);
 
   return `
     <div class="session ${isActive}" id="${session.id}">
@@ -300,10 +379,8 @@ function setupEventDelegation() {
     const tabEl = e.target.closest('.tab');
     if (tabEl) {
       const sessionId = tabEl.getAttribute('data-session-id');
-      if (sessionId && state.activeSessionId !== sessionId) {
-        state.activeSessionId = sessionId;
-        saveState();
-        renderApp();
+      if (sessionId) {
+        setActiveSession(sessionId);
       }
       return;
     }
@@ -317,23 +394,25 @@ function setupEventDelegation() {
       return;
     }
     
+    // Export button
+    if (e.target.closest('#export-btn')) {
+      exportState();
+      return;
+    }
+    
+    // Import button
+    if (e.target.closest('#import-btn')) {
+      triggerImport();
+      return;
+    }
+    
     // Reset button
     if (e.target.closest('#reset-btn')) {
       if (confirm('Reset all progress?')) {
         clearInterval(restInterval);
-        document.getElementById('rest-timer-bar').classList.add('hidden');
-        
-        state.exercises = {};
-        workouts.forEach(session => {
-          session.blocks.forEach(block => {
-            block.exercises.forEach(ex => {
-              state.exercises[ex.id] = Array(ex.sets).fill('');
-            });
-          });
-        });
-        state.lastDone = {};
-        saveState();
-        renderApp();
+        const timerBar = document.getElementById('rest-timer-bar');
+        if (timerBar) timerBar.classList.add('hidden');
+        resetAll();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       return;
@@ -347,7 +426,15 @@ function setupEventDelegation() {
   });
 }
 
+let lastSetClick = { exId: '', idx: -1, timestamp: 0 };
+
 function handleSetClick(exId, setIdx) {
+  const now = Date.now();
+  if (lastSetClick.exId === exId && lastSetClick.idx === setIdx && (now - lastSetClick.timestamp) < 300) {
+    return;
+  }
+  lastSetClick = { exId, idx: setIdx, timestamp: now };
+
   const currentStatus = state.exercises[exId][setIdx];
   let nextStatus = '';
   
@@ -360,9 +447,51 @@ function handleSetClick(exId, setIdx) {
     nextStatus = '';
   }
   
-  state.exercises[exId][setIdx] = nextStatus;
-  saveState();
-  renderApp();
+  updateSet(exId, setIdx, nextStatus);
+}
+
+// ─── Export & Import Handlers ────────────────────────────────────
+function exportState() {
+  try {
+    const jsonString = JSON.stringify(state, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gym-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Failed to export backup: ' + e.message);
+  }
+}
+
+function triggerImport() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const parsed = JSON.parse(evt.target.result);
+        if (importState(parsed)) {
+          alert('Backup imported successfully!');
+        } else {
+          alert('Invalid backup file structure.');
+        }
+      } catch (err) {
+        alert('Failed to parse backup JSON: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 // ─── Rest Timer ──────────────────────────────────────────────────
