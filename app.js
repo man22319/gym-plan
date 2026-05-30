@@ -34,12 +34,13 @@ const workouts = [
       {
         label: 'Superset 4 — Shoulders / Arms',
         exercises: [
-          { id: 'thu_lat_raise', letter: 'A', name: 'Lateral Raise', sets: 3, reps: '12', weight: '10-15 lbs' },
+          { id: 'thu_lat_raise', letter: 'A', name: 'Lateral Raise', sets: 3, reps: '12-15', weight: '10-15 lbs' },
           { id: 'thu_tri_press', letter: 'B', name: 'Triceps Press Machine', sets: 3, reps: '8-10', weight: '70-80 lbs' }
         ]
       }
     ]
   },
+
   {
     id: 'session_sat',
     dayLabel: 'SAT',
@@ -64,13 +65,14 @@ const workouts = [
       {
         label: 'Superset 3 — Arms / Shoulders',
         exercises: [
-          { id: 'sat_lat_raise', letter: 'A', name: 'Lateral Raise', sets: 3, reps: '12-15', weight: '10 lbs' },
+          { id: 'sat_lat_raise', letter: 'A', name: 'Lateral Raise', sets: 3, reps: '12-15', weight: '10-15 lbs' },
           { id: 'sat_tri_press', letter: 'B', name: 'Triceps Press Machine', sets: 3, reps: '8-10', weight: '70-80 lbs' },
           { id: 'sat_hammer', letter: 'C', name: 'Hammer Curl', sets: 3, reps: '10-12', weight: '15 lbs' }
         ]
       }
     ]
   },
+
   {
     id: 'session_mon',
     dayLabel: 'MON',
@@ -79,10 +81,10 @@ const workouts = [
     finisher: 'Incline treadmill · 8 min · 3.3 mph · 2.5% incline',
     blocks: [
       {
-        label: 'Superset 1 — Pull / Shoulders',
+        label: 'Superset 1 — Pull / Push',
         exercises: [
           { id: 'mon_row', letter: 'A', name: 'Supported Single-Arm Row', sets: 3, reps: '8-10', weight: '30 lbs' },
-          { id: 'mon_ohp', letter: 'B', name: 'Overhead Press', sets: 3, reps: '6-8', weight: '20-25 lbs' }
+          { id: 'mon_idbp', letter: 'B', name: 'Incline Dumbbell Bench Press', sets: 3, reps: '8-12', weight: '22.5-25 lbs' }
         ]
       },
       {
@@ -100,9 +102,10 @@ const workouts = [
         ]
       },
       {
-        label: 'Superset 4 — Shoulders / Your Move',
+        label: 'Superset 4 — Shoulders',
         exercises: [
-          { id: 'mon_lat_raise', letter: 'A', name: 'Lateral Raise', sets: 3, reps: '12-15', weight: '10-15 lbs' }
+          { id: 'mon_ohp', letter: 'A', name: 'Overhead Press', sets: 3, reps: '6-8', weight: '20-25 lbs' },
+          { id: 'mon_lat_raise', letter: 'B', name: 'Lateral Raise', sets: 3, reps: '12-15', weight: '10-15 lbs' }
         ]
       }
     ]
@@ -111,6 +114,7 @@ const workouts = [
 
 const STORAGE_KEY = 'pf_tracker_v3';
 const REST_DURATION = 90;
+
 const CURRENT_STATE_VERSION = 1;
 const DEV_MODE = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
