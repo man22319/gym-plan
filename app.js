@@ -11,7 +11,7 @@ const workouts = [
     finisher: 'Incline treadmill · 8 min · 3.3 mph · 2.5% incline',
     blocks: [
       {
-        label: 'Superset 1 — Push / Pull',
+        label: 'Superset 1 — Pull / Push',
         exercises: [
           { id: 'thu_row', letter: 'A', name: 'Seated Row Machine', sets: 4, reps: '6-8', weight: '60 lbs' },
           { id: 'thu_bench', letter: 'B', name: 'Dumbbell Bench Press', sets: 4, reps: '8', weight: '22.5-25 lbs' }
@@ -48,7 +48,7 @@ const workouts = [
     finisher: 'Incline treadmill · 8 min · 3.3 mph · 2.5% incline',
     blocks: [
       {
-        label: 'Superset 1 — Shoulders / Pull',
+        label: 'Superset 1 — Pull / Shoulders',
         exercises: [
           { id: 'sat_row', letter: 'A', name: 'Supported Single-Arm Row', sets: 3, reps: '8-10', weight: '30 lbs' },
           { id: 'sat_arnold_press', letter: 'B', name: 'Arnold Press', sets: 3, reps: '8-10', weight: '25-30 lbs' }
@@ -81,7 +81,7 @@ const workouts = [
       {
         label: 'Superset 1 — Pull / Shoulders',
         exercises: [
-          { id: 'mon_row', letter: 'A', name: 'Supported Single-Arm Row', sets: 3, reps: '8', weight: '25-30 lbs' },
+          { id: 'mon_row', letter: 'A', name: 'Supported Single-Arm Row', sets: 3, reps: '8-10', weight: '30 lbs' },
           { id: 'mon_ohp', letter: 'B', name: 'Overhead Press', sets: 3, reps: '6-8', weight: '20-25 lbs' }
         ]
       },
