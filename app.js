@@ -120,8 +120,6 @@ let restInterval = null;
 let restRemaining = 0;
 let restTotal = REST_DURATION;
 let lastSetClick = { exId: '', idx: -1, timestamp: 0 };
-let hasLoggedWarning = false;
-let hasRendered = false;
 
 function createDefaultState() {
   const defaultState = {
@@ -142,8 +140,7 @@ function createDefaultState() {
 
 function init() {
   loadState();
-  // Standard initialization/normalization action dispatch
-  commitStateChange('RECONCILE_WORKOUTS');
+  renderAppToDOM(state);
   setupEventDelegation();
 }
 
@@ -153,10 +150,9 @@ function init() {
 
 const ALLOWED_ACTIONS = {
   SET_ACTIVE_SESSION: ['sessionId'],
-  UPDATE_SET: ['exId', 'idx', 'status'],
+  TOGGLE_SET: ['exId', 'idx'],
   RESET_ALL: [],
-  IMPORT_STATE: ['data'],
-  RECONCILE_WORKOUTS: []
+  IMPORT_STATE: ['data']
 };
 
 function validateAction(type, payload) {
@@ -176,18 +172,18 @@ function validateAction(type, payload) {
     }
   }
   
-  if (type === 'UPDATE_SET') {
-    const { status } = payload;
-    if (status !== '' && status !== 'done' && status !== 'failed') {
-      throw new Error(`Invalid set status: "${status}"`);
-    }
-  }
   if (type === 'IMPORT_STATE') {
     const { data } = payload;
-    if (!isBasicStateStructure(data)) {
-      throw new Error('Imported data does not have a basic state structure');
+    if (!data || typeof data !== 'object') {
+      throw new Error('Imported data must be an object');
     }
   }
+}
+
+function cycle(status) {
+  if (status === '') return 'done';
+  if (status === 'done') return 'failed';
+  return '';
 }
 
 function reducer(currentState, action) {
@@ -202,39 +198,19 @@ function reducer(currentState, action) {
         activeSessionId: sessionId
       };
     }
-    case 'UPDATE_SET': {
-      const { exId, idx, status } = action.payload;
+    case 'TOGGLE_SET': {
+      const { exId, idx } = action.payload;
       
-      const updatedExerciseArray = [...(currentState.exercises[exId] || [])];
-      updatedExerciseArray[idx] = status;
-      
-      const nextExercises = {
-        ...currentState.exercises,
-        [exId]: updatedExerciseArray
-      };
-      
-      let nextLastDone = currentState.lastDone;
-      
-      // Check session completion with the updated exercises
-      const activeSession = workouts.find(s => s.id === currentState.activeSessionId);
-      const tempState = {
-        ...currentState,
-        exercises: nextExercises
-      };
-      
-      if (activeSession && isSessionComplete(activeSession, tempState)) {
-        if (!currentState.lastDone[activeSession.id]) {
-          nextLastDone = {
-            ...currentState.lastDone,
-            [activeSession.id]: Date.now()
-          };
-        }
-      }
+      const currentSets = currentState.exercises[exId] || [];
+      const updatedExerciseArray = [...currentSets];
+      updatedExerciseArray[idx] = cycle(updatedExerciseArray[idx] || '');
       
       return {
         ...currentState,
-        exercises: nextExercises,
-        lastDone: nextLastDone
+        exercises: {
+          ...currentState.exercises,
+          [exId]: updatedExerciseArray
+        }
       };
     }
     case 'RESET_ALL': {
@@ -242,12 +218,7 @@ function reducer(currentState, action) {
     }
     case 'IMPORT_STATE': {
       const { data } = action.payload;
-      let importedState = migrateState(data);
-      importedState = normalizeStateWithWorkouts(importedState);
-      return importedState;
-    }
-    case 'RECONCILE_WORKOUTS': {
-      return normalizeStateWithWorkouts(currentState);
+      return data;
     }
     default:
       throw new Error(`Unhandled action type in reducer: ${action.type}`);
@@ -255,71 +226,71 @@ function reducer(currentState, action) {
 }
 
 function migrateState(targetState) {
-  const migrated = { ...targetState };
-  // Perform future migrations here if needed
+  if (!targetState || typeof targetState !== 'object') {
+    return createDefaultState();
+  }
+  const migrated = {
+    activeSessionId: targetState.activeSessionId || workouts[0].id,
+    exercises: targetState.exercises || {},
+    lastDone: targetState.lastDone || {},
+    ...targetState
+  };
   migrated.version = CURRENT_STATE_VERSION;
   return migrated;
 }
 
-function normalizeStateWithWorkouts(targetState) {
-  const normalized = {
-    ...targetState,
-    exercises: { ...targetState.exercises }
-  };
-  
-  workouts.forEach(session => {
-    session.blocks.forEach(block => {
-      block.exercises.forEach(ex => {
-        const currentSets = normalized.exercises[ex.id];
-        if (!currentSets) {
-          normalized.exercises[ex.id] = Array(ex.sets).fill('');
-        } else if (currentSets.length !== ex.sets) {
-          const arr = [...currentSets];
-          if (arr.length > ex.sets) {
-            arr.length = ex.sets;
-          } else {
-            while (arr.length < ex.sets) {
-              arr.push('');
-            }
-          }
-          normalized.exercises[ex.id] = arr;
-        }
-      });
+// ==========================================
+// ─── DERIVED (Selectors API) ───
+// ==========================================
+
+const selectors = {
+  getSession(sessionId) {
+    return workouts.find(s => s.id === sessionId);
+  },
+  getActiveSessionId(state) {
+    return state.activeSessionId;
+  },
+  getLastDone(state, sessionId) {
+    return state.lastDone[sessionId];
+  },
+  getExerciseSets(state, exId) {
+    return state.exercises[exId] || [];
+  },
+  getResolvedSetsCount(state, sessionId) {
+    const session = this.getSession(sessionId);
+    if (!session) return 0;
+    const allExercises = session.blocks.flatMap(b => b.exercises);
+    let count = 0;
+    allExercises.forEach(ex => {
+      const arr = state.exercises[ex.id] || [];
+      count += arr.filter(s => s === 'done' || s === 'failed').length;
     });
-  });
-  return normalized;
-}
-
-// ==========================================
-// ─── DERIVED (Pure Computations) ───
-// ==========================================
-
-function getResolvedSetsCount(session, appState) {
-  const allExercises = session.blocks.flatMap(b => b.exercises);
-  let count = 0;
-  allExercises.forEach(ex => {
-    const arr = appState.exercises[ex.id] || [];
-    count += arr.filter(s => s === 'done' || s === 'failed').length;
-  });
-  return count;
-}
-
-function getProgressPct(session, appState) {
-  const allExercises = session.blocks.flatMap(b => b.exercises);
-  const totalSets = allExercises.reduce((sum, ex) => sum + ex.sets, 0);
-  if (totalSets === 0) return 0;
-  const resolved = getResolvedSetsCount(session, appState);
-  return Math.round((resolved / totalSets) * 100);
-}
-
-function isSessionComplete(session, appState) {
-  const allExercises = session.blocks.flatMap(b => b.exercises);
-  if (allExercises.length === 0) return false;
-  return allExercises.every(ex => {
-    const arr = appState.exercises[ex.id] || [];
+    return count;
+  },
+  getSessionProgress(state, sessionId) {
+    const session = this.getSession(sessionId);
+    if (!session) return 0;
+    const allExercises = session.blocks.flatMap(b => b.exercises);
+    const totalSets = allExercises.reduce((sum, ex) => sum + ex.sets, 0);
+    if (totalSets === 0) return 0;
+    const resolved = this.getResolvedSetsCount(state, sessionId);
+    return Math.round((resolved / totalSets) * 100);
+  },
+  isSessionComplete(state, sessionId) {
+    const session = this.getSession(sessionId);
+    if (!session) return false;
+    const allExercises = session.blocks.flatMap(b => b.exercises);
+    if (allExercises.length === 0) return false;
+    return allExercises.every(ex => {
+      const arr = state.exercises[ex.id] || [];
+      return arr.length > 0 && arr.every(s => s === 'done' || s === 'failed');
+    });
+  },
+  isExerciseComplete(state, exId) {
+    const arr = state.exercises[exId] || [];
     return arr.length > 0 && arr.every(s => s === 'done' || s === 'failed');
-  });
-}
+  }
+};
 
 // ==========================================
 // ─── RENDER (Pure UI Generation) ───
@@ -327,8 +298,8 @@ function isSessionComplete(session, appState) {
 
 function renderTabs(appState) {
   const tabsHtml = workouts.map(session => {
-    const isActive = session.id === appState.activeSessionId ? 'active' : '';
-    const lastDoneTs = appState.lastDone[session.id];
+    const isActive = session.id === selectors.getActiveSessionId(appState) ? 'active' : '';
+    const lastDoneTs = selectors.getLastDone(appState, session.id);
     let lastDoneText = '';
     if (lastDoneTs) {
       const d = new Date(lastDoneTs);
@@ -349,8 +320,8 @@ function renderTabs(appState) {
 }
 
 function renderCard(ex, appState) {
-  const setStates = appState.exercises[ex.id] || Array(ex.sets).fill('');
-  const isCompleted = setStates.length > 0 && setStates.every(s => s === 'done' || s === 'failed');
+  const setStates = selectors.getExerciseSets(appState, ex.id);
+  const isCompleted = selectors.isExerciseComplete(appState, ex.id);
   const detail = `${ex.sets} &times; ${ex.reps}${ex.weight ? `<br/>${ex.weight}` : ''}`;
   
   const setDotsHtml = setStates.map((s, idx) => {
@@ -388,9 +359,9 @@ function renderBlock(block, appState) {
 }
 
 function renderSession(session, appState) {
-  const isActive = session.id === appState.activeSessionId ? 'active' : '';
-  const progressPct = getProgressPct(session, appState);
-  const sessionComplete = isSessionComplete(session, appState);
+  const isActive = session.id === selectors.getActiveSessionId(appState) ? 'active' : '';
+  const progressPct = selectors.getSessionProgress(appState, session.id);
+  const sessionComplete = selectors.isSessionComplete(appState, session.id);
 
   return `
     <div class="session ${isActive}" id="${session.id}">
@@ -425,29 +396,109 @@ function renderApp(appState) {
   `;
 }
 
-// ==========================================
-// ─── EVENTS (Input & DOM projection) ───
-// ==========================================
+function updateSessionCompletion(prevState, nextState) {
+  const activeSessionId = nextState.activeSessionId;
+  const wasComplete = prevState ? selectors.isSessionComplete(prevState, activeSessionId) : false;
+  const isComplete = selectors.isSessionComplete(nextState, activeSessionId);
 
-function commitStateChange(type, payload) {
-  const resolvedPayload = payload === undefined ? {} : payload;
+  if (wasComplete === isComplete) {
+    return nextState;
+  }
+
+  const nextLastDone = { ...nextState.lastDone };
+  if (isComplete) {
+    nextLastDone[activeSessionId] = Date.now();
+  } else {
+    delete nextLastDone[activeSessionId];
+  }
+
+  return {
+    ...nextState,
+    lastDone: nextLastDone
+  };
+}
+
+function normalizeState(state) {
+  if (!state || typeof state !== 'object') {
+    state = {};
+  }
+  const normalized = {
+    activeSessionId: state.activeSessionId || workouts[0].id,
+    lastDone: state.lastDone || {},
+    ...state,
+    exercises: { ...(state.exercises || {}) }
+  };
+
+  workouts.forEach(session => {
+    session.blocks.forEach(block => {
+      block.exercises.forEach(ex => {
+        const arr = normalized.exercises[ex.id];
+
+        if (!arr || !Array.isArray(arr)) {
+          normalized.exercises[ex.id] = Array(ex.sets).fill('');
+          return;
+        }
+
+        const copy = [...arr];
+        if (copy.length > ex.sets) copy.length = ex.sets;
+        while (copy.length < ex.sets) copy.push('');
+
+        normalized.exercises[ex.id] = copy;
+      });
+    });
+  });
+
+  return normalized;
+}
+
+function commitStateChange(type, payload = {}) {
   try {
-    validateAction(type, resolvedPayload);
-    const nextState = reducer(state, { type, payload: resolvedPayload });
-    if (!isValidStateSchema(nextState)) {
-      throw new Error("State transition produced an invalid state schema");
+    validateAction(type, payload);
+
+    if (type === 'TOGGLE_SET') {
+      const now = Date.now();
+      const { exId, idx } = payload;
+      if (lastSetClick.exId === exId && lastSetClick.idx === idx && (now - lastSetClick.timestamp) < 300) {
+        return;
+      }
+      lastSetClick = { exId, idx, timestamp: now };
     }
-    
+
+    const prevState = state;
+    let nextState = reducer(state, { type, payload });
+
+    // Derive completion metadata outside of the reducer
+    nextState = updateSessionCompletion(prevState, nextState);
+
+    // Check set done status directly from the action payload without tree-walking
+    let isSetDone = false;
+    if (type === 'TOGGLE_SET') {
+      const { exId, idx } = payload;
+      const prevVal = (prevState && prevState.exercises[exId] || [])[idx] || '';
+      const nextVal = (nextState.exercises[exId] || [])[idx] || '';
+      if (nextVal === 'done' && prevVal !== 'done') {
+        isSetDone = true;
+      }
+    }
+
+    const prevComplete = prevState ? selectors.isSessionComplete(prevState, nextState.activeSessionId) : false;
+    const nextComplete = selectors.isSessionComplete(nextState, nextState.activeSessionId);
+
     if (DEV_MODE) {
-      console.log(`[ACTION] ${type}`, resolvedPayload);
+      console.log(`[ACTION] ${type}`, payload);
       console.log('[NEXT STATE]', nextState);
     }
-    
-    if (state !== nextState || !hasRendered) {
-      state = nextState;
-      saveState();
-      renderAppToDOM(state);
-      hasRendered = true;
+
+    state = nextState;
+    saveState();
+    renderAppToDOM(state);
+
+    // Trigger non-critical, explicit UI side-effects
+    if (isSetDone) {
+      startRestTimer();
+    }
+    if (nextComplete && !prevComplete) {
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
     }
   } catch (e) {
     console.error(`State commit rejected for action [${type}]:`, e);
@@ -500,25 +551,7 @@ function startRestTimer() {
 }
 
 function handleSetClick(exId, setIdx) {
-  const now = Date.now();
-  if (lastSetClick.exId === exId && lastSetClick.idx === setIdx && (now - lastSetClick.timestamp) < 300) {
-    return;
-  }
-  lastSetClick = { exId, idx: setIdx, timestamp: now };
-
-  const currentStatus = state.exercises[exId][setIdx];
-  let nextStatus = '';
-  
-  if (currentStatus === '') {
-    nextStatus = 'done';
-    startRestTimer();
-  } else if (currentStatus === 'done') {
-    nextStatus = 'failed';
-  } else {
-    nextStatus = '';
-  }
-  
-  commitStateChange('UPDATE_SET', { exId, idx: setIdx, status: nextStatus });
+  commitStateChange('TOGGLE_SET', { exId, idx: setIdx });
 }
 
 function exportState() {
@@ -550,9 +583,16 @@ function triggerImport() {
     reader.onload = (evt) => {
       try {
         const parsed = JSON.parse(evt.target.result);
-        commitStateChange('IMPORT_STATE', { data: parsed });
+        const migrated = migrateState(parsed);
+        const normalized = normalizeState(migrated);
+        
+        if (!isValidStateSchema(normalized)) {
+          throw new Error('Imported data does not match a valid state schema');
+        }
+        
+        commitStateChange('IMPORT_STATE', { data: normalized });
       } catch (err) {
-        alert('Failed to parse backup JSON: ' + err.message);
+        alert('Failed to parse or validate backup JSON: ' + err.message);
       }
     };
     reader.readAsText(file);
@@ -666,37 +706,62 @@ function setupEventDelegation() {
 // ==========================================
 
 function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      state = createDefaultState();
-      return;
+  const sources = [
+    STORAGE_KEY,
+    STORAGE_KEY + '_backup',
+    STORAGE_KEY + '_lkg'
+  ];
+
+  for (const key of sources) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+
+    try {
+      const parsed = JSON.parse(raw);
+      const migrated = migrateState(parsed);
+      const normalized = normalizeState(migrated);
+      if (isValidStateSchema(normalized)) {
+        state = normalized;
+        return;
+      }
+    } catch (e) {
+      // JSON parse error, ignore and check next key
     }
-    const parsed = JSON.parse(raw);
-    if (!isBasicStateStructure(parsed)) {
-      logCorruptionWarning(parsed);
-      state = createDefaultState();
-      return;
-    }
-    let loadedState = migrateState(parsed);
-    loadedState = normalizeStateWithWorkouts(loadedState);
-    if (!isValidStateSchema(loadedState)) {
-      logCorruptionWarning(loadedState);
-      state = createDefaultState();
-      return;
-    }
-    state = loadedState;
-  } catch (e) {
-    logCorruptionWarning(e);
-    state = createDefaultState();
   }
+
+  // Fallback to default state if all recovery options fail
+  state = createDefaultState();
+}
+
+let writeCounter = 0;
+function incrementWriteCounter() {
+  writeCounter++;
+}
+function getWriteCounter() {
+  return writeCounter;
 }
 
 function saveState() {
+  const primary = STORAGE_KEY;
+  const backup = STORAGE_KEY + '_backup';
+  const lkg = STORAGE_KEY + '_lkg';
+
+  if (DEV_MODE) {
+    console.assert(isValidStateSchema(state), 'State schema is invalid!', state);
+  }
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const serialized = JSON.stringify(state);
+
+    localStorage.setItem(backup, localStorage.getItem(primary));
+    localStorage.setItem(primary, serialized);
+
+    incrementWriteCounter();
+    if (getWriteCounter() >= 2) {
+      localStorage.setItem(lkg, serialized);
+    }
   } catch (e) {
-    console.error('Persistence failed (localStorage write error):', e);
+    console.error('Save failed', e);
   }
 }
 
@@ -715,27 +780,6 @@ function isValidStateSchema(appState) {
     }
   }
   return true;
-}
-
-function isBasicStateStructure(appState) {
-  return (
-    appState &&
-    typeof appState === 'object' &&
-    !Array.isArray(appState) &&
-    typeof appState.version === 'number' &&
-    typeof appState.activeSessionId === 'string' &&
-    appState.exercises &&
-    typeof appState.exercises === 'object' &&
-    appState.lastDone &&
-    typeof appState.lastDone === 'object'
-  );
-}
-
-function logCorruptionWarning(details) {
-  if (!hasLoggedWarning) {
-    console.warn('State corruption detected. Rebuilding default state.', details);
-    hasLoggedWarning = true;
-  }
 }
 
 // ==========================================
