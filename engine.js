@@ -210,7 +210,23 @@ function reducer(currentState, action) {
       const { exId, idx } = payload;
       const sets = [...(currentState.exercises[exId] || [])];
       const existing = sets[idx] || makeSet();
-      sets[idx] = { ...existing, s: cycleStatus(existing.s) };
+      const nextStatus = cycleStatus(existing.s);
+
+      // When transitioning to 'done' via a simple tap, auto-fill defaults
+      // so the dot always displays a real value (never '?×?').
+      // If the set already has user-supplied values, preserve them.
+      // When cycling back to '' (reset), clear w/r so it returns to pristine state.
+      let nextW = existing.w;
+      let nextR = existing.r;
+      if (nextStatus === 'done') {
+        nextW = resolveWeight(existing.w, exId);
+        nextR = resolveReps(existing.r, exId);
+      } else if (nextStatus === '') {
+        nextW = null;
+        nextR = null;
+      }
+
+      sets[idx] = { ...existing, s: nextStatus, w: nextW, r: nextR };
       return {
         ...currentState,
         exercises: { ...currentState.exercises, [exId]: sets }
@@ -267,7 +283,12 @@ function applyCompletionSideEffect(prevState, nextState) {
     const session = workouts.find(s => s.id === sessionId);
     const exerciseSnapshot = {};
     session.blocks.flatMap(b => b.exercises).forEach(ex => {
-      exerciseSnapshot[ex.id] = nextState.exercises[ex.id].map(s => ({ ...s }));
+      exerciseSnapshot[ex.id] = nextState.exercises[ex.id].map(s => ({
+        ...s,
+        // Guarantee numeric-only values in history — no range strings, no nulls on done sets.
+        w: s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, ex.id) : s.w,
+        r: s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, ex.id)   : s.r,
+      }));
     });
 
     const entry = {
@@ -439,7 +460,7 @@ function normalize(appState) {
       block.exercises.forEach(ex => {
         const arr = exercises[ex.id];
         if (!Array.isArray(arr)) {
-          exercises[ex.id] = Array.from({ length: ex.sets }, makeSet);
+          exercises[ex.id] = Array.from({ length: ex.sets }, () => makeSet());
           return;
         }
         const copy = arr.slice(0, ex.sets).map(s => ({ s: s.s ?? '', w: s.w ?? null, r: s.r ?? null }));

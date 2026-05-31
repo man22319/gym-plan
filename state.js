@@ -20,7 +20,7 @@ function makeDefaultExercises() {
   workouts.forEach(session =>
     session.blocks.forEach(block =>
       block.exercises.forEach(ex => {
-        result[ex.id] = Array.from({ length: ex.sets }, makeSet);
+        result[ex.id] = Array.from({ length: ex.sets }, () => makeSet());
       })
     )
   );
