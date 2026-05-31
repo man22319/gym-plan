@@ -132,6 +132,165 @@ const query = {
       weightDelta: (prevW !== null && currW !== null) ? +(currW - prevW).toFixed(1) : null,
       repsDelta:   (prevR !== null && currR !== null) ? +(currR - prevR).toFixed(1) : null
     };
+  },
+
+  // ── A: Progression recommendation ──
+  // Examines the last logged session for exId.
+  // Returns { action: 'increase'|'maintain'|'reduce', suggestedWeight, label } or null.
+  progressionRecommendation(appState, exId) {
+    const sets = this.lastExerciseSets(appState, exId);
+    if (!sets || !sets.length) return null;
+
+    const ex = EXERCISE_INDEX[exId];
+    const doneSets = sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+    if (!doneSets.length) return null;
+
+    const failedSets = sets.filter(s => s.s === 'failed');
+    const repMax = ex?.reps ? (('max' in ex.reps) ? ex.reps.max : (ex.reps.fixed ?? ex.reps.value ?? null)) : null;
+    const repMin = ex?.reps ? (('min' in ex.reps) ? ex.reps.min : (ex.reps.fixed ?? ex.reps.value ?? null)) : null;
+
+    // Any failed sets → reduce
+    if (failedSets.length > 0) {
+      const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
+      const reduction = avgW >= 50 ? 5 : 2.5;
+      const suggestedWeight = Math.max(0, +(avgW - reduction).toFixed(1));
+      return { action: 'reduce', suggestedWeight, label: `↓ Reduce to ${suggestedWeight} lbs` };
+    }
+
+    // All done sets hit repMax → increase
+    const allAtTop = repMax !== null && doneSets.every(s => s.r >= repMax);
+    if (allAtTop) {
+      const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
+      const increment = avgW >= 50 ? 5 : 2.5;
+      const suggestedWeight = +(avgW + increment).toFixed(1);
+      return { action: 'increase', suggestedWeight, label: `✓ Increase to ${suggestedWeight} lbs` };
+    }
+
+    // Any set below repMin → reduce
+    const anyBelowMin = repMin !== null && doneSets.some(s => s.r < repMin);
+    if (anyBelowMin) {
+      const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
+      const reduction = avgW >= 50 ? 5 : 2.5;
+      const suggestedWeight = Math.max(0, +(avgW - reduction).toFixed(1));
+      return { action: 'reduce', suggestedWeight, label: `↓ Reduce to ${suggestedWeight} lbs` };
+    }
+
+    // Within range → maintain
+    const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
+    return { action: 'maintain', suggestedWeight: avgW, label: `→ Maintain ${avgW} lbs` };
+  },
+
+  // ── D: Personal Records ──
+  // Returns { heaviestSet, highestVolume, mostReps } for an exercise across all history.
+  // Each record: { w, r, date (timestamp), volume }
+  personalRecords(appState, exId) {
+    const history = this.exerciseHistory(appState, exId);
+    let heaviestSet = null;
+    let highestVolume = null;
+    let mostReps = null;
+
+    for (const entry of history) {
+      const doneSets = entry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+      const volume = doneSets.reduce((n, s) => n + s.w * s.r, 0);
+
+      for (const s of doneSets) {
+        // Heaviest weight
+        if (!heaviestSet || s.w > heaviestSet.w || (s.w === heaviestSet.w && s.r > heaviestSet.r)) {
+          heaviestSet = { w: s.w, r: s.r, date: entry.timestamp };
+        }
+        // Most reps at any weight
+        if (!mostReps || s.r > mostReps.r || (s.r === mostReps.r && s.w > mostReps.w)) {
+          mostReps = { w: s.w, r: s.r, date: entry.timestamp };
+        }
+      }
+      // Highest session volume
+      if (volume > 0 && (!highestVolume || volume > highestVolume.volume)) {
+        highestVolume = { volume, date: entry.timestamp };
+      }
+    }
+    return { heaviestSet, highestVolume, mostReps };
+  },
+
+  // Check whether the current live sets for exId set any PRs vs historical records.
+  // Returns array of PR type strings: 'weight', 'reps', 'volume'
+  currentSetPRs(appState, exId) {
+    const currentSets = appState.exercises[exId] || [];
+    const doneSets = currentSets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+    if (!doneSets.length) return [];
+
+    // Get records WITHOUT the current (in-progress) session — compare against history only
+    const sessionId = EX_SESSION_INDEX[exId];
+    const histEntries = this.sessionHistory(appState, sessionId).filter(e => {
+      // Exclude the most recent entry if it matches the live exercise state
+      // (it might be a just-completed session that was auto-added)
+      return true;
+    });
+
+    let prWeight = null, prReps = null, prVolume = null;
+    for (const entry of histEntries) {
+      const sets = (entry.exercises[exId] || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+      for (const s of sets) {
+        if (prWeight === null || s.w > prWeight) prWeight = s.w;
+        if (prReps   === null || s.r > prReps)   prReps   = s.r;
+      }
+      const vol = sets.reduce((n, s) => n + s.w * s.r, 0);
+      if (vol > 0 && (prVolume === null || vol > prVolume)) prVolume = vol;
+    }
+
+    if (prWeight === null && prReps === null) return []; // no history to compare against
+
+    const prs = [];
+    const currMaxW = Math.max(...doneSets.map(s => s.w));
+    const currMaxR = Math.max(...doneSets.map(s => s.r));
+    const currVol  = doneSets.reduce((n, s) => n + s.w * s.r, 0);
+
+    if (prWeight !== null && currMaxW > prWeight) prs.push('weight');
+    if (prReps   !== null && currMaxR > prReps)   prs.push('reps');
+    if (prVolume !== null && currVol  > prVolume) prs.push('volume');
+    return prs;
+  },
+
+  // ── C: Session PRs from a completed history entry ──
+  // Returns map of exId → array of PR types ('weight', 'reps', 'volume')
+  sessionPRsFromEntry(appState, entry) {
+    const result = {};
+    const session = workouts.find(s => s.id === entry.sessionId);
+    if (!session) return result;
+
+    // History excluding this entry
+    const priorHistory = (appState.history || []).filter(e => e.timestamp < entry.timestamp);
+    const priorState = { ...appState, history: priorHistory };
+
+    for (const block of session.blocks) {
+      for (const ex of block.exercises) {
+        const exId = ex.id;
+        const entrySets = (entry.exercises[exId] || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+        if (!entrySets.length) continue;
+
+        const prior = query.exerciseHistory(priorState, exId);
+        let prWeight = null, prReps = null, prVolume = null;
+        for (const h of prior) {
+          const sets = h.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+          for (const s of sets) {
+            if (prWeight === null || s.w > prWeight) prWeight = s.w;
+            if (prReps   === null || s.r > prReps)   prReps   = s.r;
+          }
+          const vol = sets.reduce((n, s) => n + s.w * s.r, 0);
+          if (vol > 0 && (prVolume === null || vol > prVolume)) prVolume = vol;
+        }
+
+        const prs = [];
+        if (prWeight === null && prReps === null) continue; // no prior history
+        const currMaxW = Math.max(...entrySets.map(s => s.w));
+        const currMaxR = Math.max(...entrySets.map(s => s.r));
+        const currVol  = entrySets.reduce((n, s) => n + s.w * s.r, 0);
+        if (prWeight !== null && currMaxW > prWeight) prs.push('weight');
+        if (prReps   !== null && currMaxR > prReps)   prs.push('reps');
+        if (prVolume !== null && currVol  > prVolume) prs.push('volume');
+        if (prs.length) result[exId] = prs;
+      }
+    }
+    return result;
   }
 };
 
@@ -185,7 +344,8 @@ const ALLOWED_ACTIONS = {
   TOGGLE_SET:          ['exId', 'idx'],
   LOG_AND_MARK_DONE:   ['exId', 'idx', 'weight', 'reps'],
   RESET_SESSION:       [],
-  IMPORT_STATE:        ['data']
+  IMPORT_STATE:        ['data'],
+  START_SESSION:       []
 };
 
 function validateAction(type, payload) {
@@ -263,12 +423,19 @@ function reducer(currentState, action) {
     case 'RESET_SESSION': {
       return {
         ...currentState,
-        exercises: makeDefaultExercises()
+        exercises: makeDefaultExercises(),
+        sessionStarted: null
       };
     }
 
     case 'IMPORT_STATE': {
       return payload.data;
+    }
+
+    // Records when the user begins logging the first set of a session.
+    case 'START_SESSION': {
+      if (currentState.sessionStarted !== null) return currentState;
+      return { ...currentState, sessionStarted: Date.now() };
     }
 
     default:
@@ -302,13 +469,15 @@ function applyCompletionSideEffect(prevState, nextState) {
     const entry = {
       sessionId,
       timestamp: Date.now(),
+      startTimestamp: nextState.sessionStarted ?? null,
       exercises: exerciseSnapshot
     };
 
     const history = [...(nextState.history || []), entry]
       .sort((a, b) => a.timestamp - b.timestamp);
 
-    return { ...nextState, history };
+    // Clear sessionStarted after capturing it into the entry
+    return { ...nextState, history, sessionStarted: null };
   }
 
   return nextState;
@@ -329,6 +498,16 @@ function dispatch(type, payload = {}) {
       const now = Date.now();
       if (lastTap.key === key && now - lastTap.ts < 300) return;
       lastTap = { key, ts: now };
+    }
+
+    // Auto-start session timer on first set action
+    if ((type === 'TOGGLE_SET' || type === 'LOG_AND_MARK_DONE') && state.sessionStarted === null) {
+      // Check that the session isn't already complete (e.g. re-tapping after done)
+      if (!query.isSessionComplete(state, state.activeSessionId)) {
+        const withStart = reducer(state, { type: 'START_SESSION', payload: {} });
+        state = withStart;
+        // Don't persist yet — will persist after main action
+      }
     }
 
     const prevState = state;
@@ -360,7 +539,15 @@ function dispatch(type, payload = {}) {
     const justFinished =
       !query.isSessionComplete(prevState, nextState.activeSessionId) &&
       query.isSessionComplete(nextState, nextState.activeSessionId);
-    if (justFinished && navigator.vibrate) navigator.vibrate([100, 50, 100]);
+    if (justFinished) {
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+      // Find the entry we just added and show the summary modal
+      const sessionEntries = query.sessionHistory(nextState, nextState.activeSessionId);
+      const completedEntry = sessionEntries[sessionEntries.length - 1];
+      if (completedEntry) {
+        setTimeout(() => openSessionSummaryModal(completedEntry, nextState), 600);
+      }
+    }
 
   } catch (err) {
     console.error(`[dispatch] ${type} rejected:`, err);
@@ -445,10 +632,12 @@ function migrate(raw) {
   return {
     version:         STATE_VERSION,
     activeSessionId: raw.activeSessionId ?? workouts[0].id,
+    sessionStarted:  raw.sessionStarted ?? null,
     history:         (raw.history || []).map(entry => ({
-      sessionId:  entry.sessionId,
-      timestamp:  entry.timestamp,
-      exercises:  Object.fromEntries(
+      sessionId:      entry.sessionId,
+      timestamp:      entry.timestamp,
+      startTimestamp: entry.startTimestamp ?? null,  // v6→v7: add startTimestamp
+      exercises:      Object.fromEntries(
         Object.entries(entry.exercises || {}).map(([id, sets]) => [
           id,
           (Array.isArray(sets) ? sets : []).map(s =>

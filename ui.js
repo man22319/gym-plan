@@ -24,6 +24,36 @@ function formatWeight(weight) {
   return `${weight.min}–${weight.max} ${weight.unit}`;
 }
 
+/**
+ * Format a duration in milliseconds into "Xh Ym" or "Ym" string.
+ */
+function formatDuration(ms) {
+  if (!ms || ms <= 0) return null;
+  const totalMin = Math.round(ms / 60000);
+  if (totalMin < 1) return '< 1 min';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m} min`;
+  return `${h}h ${m}m`;
+}
+
+/**
+ * Format timestamp into short date string: "May 23"
+ */
+function formatDate(ts) {
+  const d = new Date(ts);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
+}
+
+/**
+ * Format timestamp into "5:12 PM"
+ */
+function formatTime(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
 // ==========================================
 // ─── RENDER ───
 // ==========================================
@@ -83,16 +113,22 @@ function buildCard(ex, appState) {
   const sets      = appState.exercises[ex.id] || [];
   const complete  = query.isExerciseComplete(appState, ex.id);
   const prevSets  = query.lastExerciseSets(appState, ex.id);
-  const wStr   = formatWeight(ex.weight);
-  const detail  = `${ex.sets} × ${formatReps(ex.reps)}${wStr ? `<br>${wStr}` : ''}`;
+  const wStr      = formatWeight(ex.weight);
+  const detail    = `${ex.sets} × ${formatReps(ex.reps)}${wStr ? `<br>${wStr}` : ''}`;
+  const prs       = query.currentSetPRs(appState, ex.id);
+  const hasPR     = prs.length > 0;
 
   return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${ex.id}">
-    <div class="exercise-header">
+    <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${ex.name}" tabindex="0">
       <div class="ex-letter">${ex.letter}</div>
-      <div class="ex-name">${ex.name}</div>
-      <div class="ex-detail">${detail}</div>
+      <div class="ex-name">${ex.name}${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}</div>
+      <div class="ex-info-group">
+        <div class="ex-detail">${detail}</div>
+        <div class="ex-history-hint">TAP FOR HISTORY</div>
+      </div>
     </div>
     ${buildNotesRow(ex)}
+    ${buildProgressionChip(appState, ex)}
     ${buildPrevRow(prevSets, sets)}
     <div class="set-row">
       ${sets.map((s, i) => buildDot(ex.id, i, s)).join('')}
@@ -120,6 +156,21 @@ function buildNotesRow(ex) {
   return `<div class="ex-meta-row">
     ${notesHtml}
     ${hasAlts ? `<div class="ex-alts">${altsHtml}</div>` : ''}
+  </div>`;
+}
+
+// ── A: Progression recommendation chip ──
+function buildProgressionChip(appState, ex) {
+  const rec = query.progressionRecommendation(appState, ex.id);
+  if (!rec) return '';
+
+  const cls = rec.action === 'increase' ? 'prog-increase'
+            : rec.action === 'reduce'   ? 'prog-reduce'
+            : 'prog-maintain';
+
+  return `<div class="progression-chip ${cls}">
+    <span class="prog-label">NEXT SESSION</span>
+    <span class="prog-text">${rec.label}</span>
   </div>`;
 }
 
@@ -189,10 +240,204 @@ function buildDot(exId, idx, setObj) {
     aria-label="Set ${idx + 1}: tap to toggle, hold to log">${inner}</button>`;
 }
 
-function formatDate(ts) {
-  const d = new Date(ts);
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${months[d.getMonth()]} ${d.getDate()}`;
+// ==========================================
+// ─── B: EXERCISE HISTORY MODAL ───
+// ==========================================
+
+let activeHistoryModal = null;
+
+function openHistoryModal(exId) {
+  closeHistoryModal();
+
+  const ex = EXERCISE_INDEX[exId];
+  if (!ex) return;
+
+  const history = query.exerciseHistory(state, exId);
+
+  // Estimated 1RM: Epley formula w * (1 + r/30)
+  function est1RM(w, r) {
+    if (!w || !r) return null;
+    return +(w * (1 + r / 30)).toFixed(1);
+  }
+
+  const hasHistory = history.length > 0;
+
+  // Build table rows — newest first
+  const rows = [...history].reverse().map(entry => {
+    const doneSets = entry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+    const volume = doneSets.reduce((n, s) => n + s.w * s.r, 0);
+    const maxRM   = doneSets.length ? Math.max(...doneSets.map(s => est1RM(s.w, s.r) ?? 0)) : null;
+
+    const setCells = entry.sets.map((s, i) => {
+      if (s.w === null && s.r === null) return `<span class="hist-set-empty">—</span>`;
+      const cls = s.s === 'failed' ? 'hist-set-fail' : 'hist-set-done';
+      return `<span class="${cls}">${s.w ?? '?'}×${s.r ?? '?'}</span>`;
+    }).join('');
+
+    return `<tr>
+      <td class="hist-date">${formatDate(entry.timestamp)}</td>
+      <td class="hist-sets">${setCells}</td>
+      <td class="hist-vol">${volume > 0 ? volume.toLocaleString() : '—'}</td>
+      <td class="hist-1rm">${maxRM !== null ? maxRM : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  // Personal records section
+  const pr = query.personalRecords(state, exId);
+  let prHtml = '';
+  if (pr.heaviestSet || pr.highestVolume) {
+    const prItems = [];
+    if (pr.heaviestSet) prItems.push(`<div class="pr-item"><span class="pr-icon">🏆</span><div><div class="pr-item-label">Heaviest Set</div><div class="pr-item-val">${pr.heaviestSet.w} lbs × ${pr.heaviestSet.r} reps <span class="pr-item-date">${formatDate(pr.heaviestSet.date)}</span></div></div></div>`);
+    if (pr.highestVolume) prItems.push(`<div class="pr-item"><span class="pr-icon">📊</span><div><div class="pr-item-label">Best Volume</div><div class="pr-item-val">${pr.highestVolume.volume.toLocaleString()} lbs <span class="pr-item-date">${formatDate(pr.highestVolume.date)}</span></div></div></div>`);
+    if (pr.mostReps) prItems.push(`<div class="pr-item"><span class="pr-icon">🔁</span><div><div class="pr-item-label">Most Reps</div><div class="pr-item-val">${pr.mostReps.r} reps @ ${pr.mostReps.w} lbs <span class="pr-item-date">${formatDate(pr.mostReps.date)}</span></div></div></div>`);
+    prHtml = `<div class="hist-pr-section"><div class="hist-section-label">PERSONAL RECORDS</div><div class="hist-pr-list">${prItems.join('')}</div></div>`;
+  }
+
+  const tableHtml = hasHistory ? `
+    <div class="hist-table-wrap">
+      <table class="hist-table">
+        <thead>
+          <tr>
+            <th>DATE</th>
+            <th>SETS</th>
+            <th>VOL (lbs)</th>
+            <th>EST 1RM</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  ` : `<div class="hist-empty">No history yet.<br>Complete a session to see trends.</div>`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'history-modal-overlay';
+  overlay.innerHTML = `
+    <div class="history-modal" role="dialog" aria-modal="true" aria-label="History for ${ex.name}">
+      <div class="hist-header">
+        <div>
+          <div class="hist-title">${ex.name}</div>
+          <div class="hist-subtitle">${ex.sets} × ${formatReps(ex.reps)}${ex.weight ? ' · ' + formatWeight(ex.weight) : ''}</div>
+        </div>
+        <button class="hist-close" id="hist-close" aria-label="Close">✕</button>
+      </div>
+      ${prHtml}
+      ${hasHistory ? `<div class="hist-section-label" style="padding: 0 20px 8px;">SESSION LOG</div>` : ''}
+      ${tableHtml}
+    </div>`;
+
+  document.body.appendChild(overlay);
+  activeHistoryModal = overlay;
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeHistoryModal(); });
+  overlay.querySelector('#hist-close').addEventListener('click', closeHistoryModal);
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') closeHistoryModal(); });
+}
+
+function closeHistoryModal() {
+  if (activeHistoryModal) { activeHistoryModal.remove(); activeHistoryModal = null; }
+}
+
+// ==========================================
+// ─── C: SESSION SUMMARY MODAL ───
+// ==========================================
+
+let activeSummaryModal = null;
+
+function openSessionSummaryModal(entry, appState) {
+  closeSessionSummaryModal();
+
+  const session = workouts.find(s => s.id === entry.sessionId);
+  if (!session) return;
+
+  const allEx = session.blocks.flatMap(b => b.exercises);
+
+  // Compute stats
+  let totalVolume = 0, completedEx = 0, failedSets = 0, totalSets = 0;
+  for (const ex of allEx) {
+    const sets = entry.exercises[ex.id] || [];
+    const done = sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+    const failed = sets.filter(s => s.s === 'failed');
+    const exComplete = sets.length > 0 && sets.every(s => s.s === 'done' || s.s === 'failed');
+    if (exComplete) completedEx++;
+    done.forEach(s => { totalVolume += s.w * s.r; });
+    failedSets += failed.length;
+    totalSets  += sets.length;
+  }
+
+  // Duration
+  const durationMs = entry.startTimestamp ? entry.timestamp - entry.startTimestamp : null;
+  const durationStr = durationMs ? formatDuration(durationMs) : null;
+
+  // PRs set this session
+  const sessionPRs = query.sessionPRsFromEntry(appState, entry);
+  const prExIds = Object.keys(sessionPRs);
+
+  // Build stats grid
+  const stats = [];
+  if (durationStr) {
+    stats.push({ label: 'Duration', value: durationStr, icon: '⏱' });
+  }
+  stats.push({ label: 'Total Volume', value: `${totalVolume.toLocaleString()} lbs`, icon: '📦' });
+  stats.push({ label: 'Exercises', value: `${completedEx}/${allEx.length}`, icon: '✓' });
+  if (failedSets > 0) {
+    stats.push({ label: 'Failed Sets', value: String(failedSets), icon: '✗', warn: true });
+  }
+
+  const statsHtml = stats.map(s =>
+    `<div class="summary-stat ${s.warn ? 'summary-stat-warn' : ''}">
+      <div class="summary-stat-icon">${s.icon}</div>
+      <div class="summary-stat-val">${s.value}</div>
+      <div class="summary-stat-label">${s.label}</div>
+    </div>`
+  ).join('');
+
+  // PR list
+  let prHtml = '';
+  if (prExIds.length > 0) {
+    const prItems = prExIds.map(exId => {
+      const ex = EXERCISE_INDEX[exId];
+      const types = sessionPRs[exId].map(t => t === 'weight' ? 'Heaviest' : t === 'reps' ? 'Most Reps' : 'Best Volume').join(', ');
+      return `<div class="summary-pr-item">🏆 <strong>${ex?.name ?? exId}</strong> — ${types}</div>`;
+    }).join('');
+    prHtml = `<div class="summary-pr-section">
+      <div class="summary-section-label">PERSONAL RECORDS SET</div>
+      ${prItems}
+    </div>`;
+  }
+
+  // Time info
+  const timeHtml = entry.startTimestamp
+    ? `<div class="summary-time-row">
+        <span>${formatTime(entry.startTimestamp)}</span>
+        <span class="summary-time-arrow">→</span>
+        <span>${formatTime(entry.timestamp)}</span>
+      </div>`
+    : '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'summary-modal-overlay';
+  overlay.innerHTML = `
+    <div class="summary-modal" role="dialog" aria-modal="true" aria-label="Session Summary">
+      <div class="summary-header">
+        <div class="summary-title">SESSION COMPLETE</div>
+        <div class="summary-subtitle">${session.dayLabel} · ${session.sessionLabel}</div>
+        ${timeHtml}
+      </div>
+      <div class="summary-stats">${statsHtml}</div>
+      ${prHtml}
+      <button class="summary-close-btn" id="summary-close">CLOSE</button>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  activeSummaryModal = overlay;
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSessionSummaryModal(); });
+  overlay.querySelector('#summary-close').addEventListener('click', closeSessionSummaryModal);
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') closeSessionSummaryModal(); });
+}
+
+function closeSessionSummaryModal() {
+  if (activeSummaryModal) { activeSummaryModal.remove(); activeSummaryModal = null; }
 }
 
 // ==========================================
@@ -432,6 +677,13 @@ function setupEvents() {
       return;
     }
 
+    // Exercise header → open history modal (B)
+    const exHeader = e.target.closest('.exercise-header[data-ex-id]');
+    if (exHeader && !e.target.closest('.set-dot')) {
+      openHistoryModal(exHeader.dataset.exId);
+      return;
+    }
+
     if (e.target.closest('#export-btn')) { exportState(); return; }
     if (e.target.closest('#import-btn')) { importState(); return; }
     if (e.target.closest('#copy-btn'))   { copyWorkout(e.target.closest('#copy-btn')); return; }
@@ -444,6 +696,17 @@ function setupEvents() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       return;
+    }
+  });
+
+  // Keyboard accessibility for exercise header
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const exHeader = e.target.closest('.exercise-header[data-ex-id]');
+      if (exHeader) {
+        e.preventDefault();
+        openHistoryModal(exHeader.dataset.exId);
+      }
     }
   });
 }

@@ -2,9 +2,9 @@
 // ─── CONSTANTS ───
 // ==========================================
 
-const STORAGE_KEY      = 'pf_tracker_v6';
+const STORAGE_KEY      = 'pf_tracker_v7';
 const REST_DURATION    = 90; // seconds
-const STATE_VERSION    = 6;
+const STATE_VERSION    = 7;
 const DEV_MODE         = ['localhost','127.0.0.1',''].includes(window.location.hostname);
 
 // ==========================================
@@ -32,6 +32,7 @@ function createDefaultState() {
     version: STATE_VERSION,
     activeSessionId: workouts[0].id,
     exercises: makeDefaultExercises(),
-    history: []
+    history: [],
+    sessionStarted: null   // ms timestamp — set when first set is logged
   };
 }
