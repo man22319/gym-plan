@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Planet Fitness Tracker</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Barlow:wght@300;400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=IBM+Plex+Mono:wght@400;500&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
 :root {
   --bg: #0a0a0a;
@@ -18,6 +18,7 @@
   --red: #e53935;
   --green: #43a047;
   --timer-active: #fdd835;
+  --blue: #42a5f5;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
@@ -74,7 +75,7 @@ header {
 }
 .reset-btn:hover { border-color: var(--white); color: var(--white); }
 
-/* ── Rest Timer (fixed floating pill) ── */
+/* ── Rest Timer ── */
 #rest-timer-bar {
   position: fixed;
   bottom: 24px;
@@ -169,7 +170,6 @@ header {
   letter-spacing: 1px;
 }
 .tab.active .day-label { color: var(--muted); }
-/* last-done badge */
 .tab .last-done {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.42rem;
@@ -292,6 +292,40 @@ header {
   line-height: 1.7;
 }
 
+/* ── Previous Session Data ── */
+.prev-data {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 10px;
+  flex-wrap: wrap;
+}
+.prev-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.48rem;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.prev-set {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--dim);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+.prev-nums {
+  color: var(--muted);
+}
+.prev-failed {
+  color: var(--red);
+  margin-left: 2px;
+}
+
 /* ── Set Dots ── */
 .set-row {
   display: flex;
@@ -300,8 +334,8 @@ header {
   flex-wrap: wrap;
 }
 .set-dot {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   border: 1px solid var(--border-hi);
   background: var(--bg);
@@ -317,18 +351,39 @@ header {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
 }
 .set-dot.done {
   background: var(--white);
   border-color: var(--white);
   color: #000;
-  font-size: 1.1rem;
 }
 .set-dot.failed {
   background: var(--red);
   border-color: var(--red);
   color: #fff;
-  font-size: 0.95rem;
+}
+.dot-num {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.dot-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+  font-size: 0.52rem;
+  gap: 0;
+}
+.dot-x {
+  font-size: 0.4rem;
+  opacity: 0.6;
+}
+/* Long press hint — subtle ring pulse on pending dots */
+.set-dot:not(.done):not(.failed):active {
+  border-color: var(--blue);
 }
 
 /* ── Finisher ── */
@@ -408,6 +463,150 @@ header {
   margin-top: 6px;
   text-transform: uppercase;
 }
+
+/* ── Log Modal ── */
+.log-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.log-modal {
+  background: var(--bg2);
+  border: 1px solid var(--border-hi);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 28px 24px 36px;
+  width: 100%;
+  max-width: 480px;
+  animation: slideUp 0.2s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.log-modal-title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--white);
+  margin-bottom: 2px;
+}
+.log-modal-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 3px;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+
+.log-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.log-field { display: flex; flex-direction: column; gap: 6px; }
+.log-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.log-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--border-hi);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.log-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--white);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.4rem;
+  padding: 12px 12px;
+  width: 0;
+  min-width: 0;
+}
+.log-input::placeholder { color: var(--dim); }
+.log-unit {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--dim);
+  padding: 0 10px 0 0;
+  white-space: nowrap;
+  letter-spacing: 1px;
+}
+
+.log-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 10px;
+}
+.log-btn {
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.12s;
+  border: none;
+}
+.log-btn-cancel {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.log-btn-cancel:hover { border-color: var(--border-hi); color: var(--white); }
+.log-btn-save {
+  background: var(--white);
+  color: #000;
+  font-weight: 500;
+}
+.log-btn-save:hover { background: #e0e0e0; }
+
+/* ── Hint strip ── */
+.log-hint {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.48rem;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 6px 0 0;
+}
+
+/* ── Delta indicators ── */
+.delta-group { display: flex; gap: 4px; align-items: center; margin-left: 2px; }
+.delta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+.delta-up   { background: rgba(67, 160, 71, 0.15); color: #66bb6a; }
+.delta-down { background: rgba(229, 57, 53, 0.12);  color: #ef5350; }
+
+/* ── Log modal prev hint ── */
+.log-modal-prev { color: var(--blue); font-size: 0.55rem; letter-spacing: 1px; }
+
 </style>
 </head>
 <body>
@@ -432,6 +631,9 @@ header {
 <span id="rest-timer-count">90</span>
 </div>
 <div id="app"></div>
+<div class="log-hint" style="padding: 8px 0 80px; text-align: center;">
+  TAP set to toggle · HOLD to log weight &amp; reps
+</div>
 <script src="app.js"></script>
 </body>
 </html>
