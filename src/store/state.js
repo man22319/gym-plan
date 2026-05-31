@@ -2,20 +2,21 @@
 // ─── CONSTANTS ───
 // ==========================================
 
-const STORAGE_KEY      = 'pf_tracker_v7';
-const REST_DURATION    = 90; // seconds
-const STATE_VERSION    = 7;
-const DEV_MODE         = ['localhost','127.0.0.1',''].includes(window.location.hostname);
+export const STORAGE_KEY   = 'pf_tracker_v7';
+export const REST_DURATION = 90; // seconds
+export const STATE_VERSION = 7;
+export const DEV_MODE      = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
 
 // ==========================================
 // ─── FACTORY ───
 // ==========================================
 
-function makeSet(s = '', w = null, r = null, n = '') {
+export function makeSet(s = '', w = null, r = null, n = '') {
   return { s, w, r, n };
 }
 
-function makeDefaultExercises() {
+// Receives the workouts array as a parameter to avoid circular imports.
+export function makeDefaultExercises(workouts) {
   const result = {};
   workouts.forEach(session =>
     session.blocks.forEach(block =>
@@ -27,11 +28,11 @@ function makeDefaultExercises() {
   return result;
 }
 
-function createDefaultState() {
+export function createDefaultState(workouts) {
   return {
     version: STATE_VERSION,
     activeSessionId: workouts[0].id,
-    exercises: makeDefaultExercises(),
+    exercises: makeDefaultExercises(workouts),
     history: [],
     sessionStarted: null   // ms timestamp — set when first set is logged
   };

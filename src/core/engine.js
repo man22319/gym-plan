@@ -1,37 +1,41 @@
+import {
+  STORAGE_KEY, REST_DURATION, STATE_VERSION, DEV_MODE,
+  makeSet, makeDefaultExercises, createDefaultState
+} from '../store/state.js';
+
 // ==========================================
 // ─── RUNTIME SINGLETONS ───
 // ==========================================
 
-// Workout data — populated asynchronously at boot from workouts.json.
-let workouts = [];
-let EXERCISE_INDEX = {};
-let EX_SESSION_INDEX = {};
+// Workout data — populated at boot via initWorkouts(data). workouts.json stays as JSON.
+export let workouts = [];
+export let EXERCISE_INDEX = {};
+export let EX_SESSION_INDEX = {};
 
-// Build O(1) lookup indexes from the loaded workouts array.
-function buildIndexes() {
+/**
+ * Called once at boot with the parsed workouts.json array.
+ * Builds O(1) lookup indexes — no DOM access, no async.
+ */
+export function initWorkouts(data) {
+  workouts = data;
   EXERCISE_INDEX = Object.fromEntries(
-    workouts.flatMap(s => s.blocks.flatMap(b => b.exercises)).map(ex => [ex.id, ex])
+    data.flatMap(s => s.blocks.flatMap(b => b.exercises)).map(ex => [ex.id, ex])
   );
   EX_SESSION_INDEX = Object.fromEntries(
-    workouts.flatMap(s => s.blocks.flatMap(b => b.exercises.map(ex => [ex.id, s.id])))
+    data.flatMap(s => s.blocks.flatMap(b => b.exercises.map(ex => [ex.id, s.id])))
   );
 }
 
-let state = null;
-let restTimerId = null;
+export let state = null;
+export let restTimerId = null;
 let restRemaining = 0;
 let restDuration = 0;
-
-// Per-element press timers: Map<string key → timeoutId>
-// Key format: `${exId}:${setIdx}`
-const pressTimers = new Map();
-const LONG_PRESS_MS = 480;
 
 // ==========================================
 // ─── QUERY LAYER (pure functions, no side effects) ───
 // ==========================================
 
-const query = {
+export const query = {
   // All history entries, guaranteed chronological (newest last).
   chronological(appState) {
     return [...(appState.history || [])].sort((a, b) => a.timestamp - b.timestamp);
@@ -307,7 +311,7 @@ const query = {
  *   { min: N, max: M, unit? } — range; returns the lower bound
  * Returns null for any unrecognised input.
  */
-function lowerBound(obj) {
+export function lowerBound(obj) {
   if (!obj || typeof obj !== 'object') return null;
   if ('fixed' in obj) return obj.fixed;
   if ('value' in obj) return obj.value;
@@ -321,7 +325,7 @@ function lowerBound(obj) {
  *  2. Fall back to the workout definition weight (lower bound of range)
  * Always returns a number or null.
  */
-function resolveWeight(userValue, exId) {
+export function resolveWeight(userValue, exId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
   const ex = EXERCISE_INDEX[exId];
   return ex?.weight ? lowerBound(ex.weight) : null;
@@ -330,7 +334,7 @@ function resolveWeight(userValue, exId) {
 /**
  * Resolve reps for a set log — same logic as resolveWeight.
  */
-function resolveReps(userValue, exId) {
+export function resolveReps(userValue, exId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
   const ex = EXERCISE_INDEX[exId];
   return ex?.reps ? lowerBound(ex.reps) : null;
@@ -340,7 +344,7 @@ function resolveReps(userValue, exId) {
 // ─── ACTIONS / REDUCER ───
 // ==========================================
 
-const ALLOWED_ACTIONS = {
+export const ALLOWED_ACTIONS = {
   SET_ACTIVE_SESSION:  ['sessionId'],
   TOGGLE_SET:          ['exId', 'idx'],
   LOG_AND_MARK_DONE:   ['exId', 'idx', 'weight', 'reps', 'note'],
@@ -349,7 +353,7 @@ const ALLOWED_ACTIONS = {
   START_SESSION:       []
 };
 
-function validateAction(type, payload) {
+export function validateAction(type, payload) {
   if (!Object.prototype.hasOwnProperty.call(ALLOWED_ACTIONS, type))
     throw new Error(`Unknown action: ${type}`);
   if (!payload || typeof payload !== 'object' || Array.isArray(payload))
@@ -359,13 +363,13 @@ function validateAction(type, payload) {
   }
 }
 
-function cycleStatus(s) {
+export function cycleStatus(s) {
   if (s === '')       return 'done';
   if (s === 'done')   return 'failed';
   return '';
 }
 
-function reducer(currentState, action) {
+export function reducer(currentState, action) {
   const { type, payload } = action;
 
   switch (type) {
@@ -427,7 +431,7 @@ function reducer(currentState, action) {
     case 'RESET_SESSION': {
       return {
         ...currentState,
-        exercises: makeDefaultExercises(),
+        exercises: makeDefaultExercises(workouts),
         sessionStarted: null
       };
     }
@@ -451,7 +455,7 @@ function reducer(currentState, action) {
 // ─── SIDE-EFFECT LAYER (history snapshots) ───
 // ==========================================
 
-function applyCompletionSideEffect(prevState, nextState) {
+export function applyCompletionSideEffect(prevState, nextState) {
   const sessionId = nextState.activeSessionId;
   const wasComplete = query.isSessionComplete(prevState, sessionId);
   const isComplete  = query.isSessionComplete(nextState, sessionId);
@@ -492,9 +496,16 @@ function applyCompletionSideEffect(prevState, nextState) {
 // ─── STATE COMMIT (the single dispatch path) ───
 // ==========================================
 
+// Registered by main.js after both engine and ui are imported.
+// Keeps engine DOM-free and prevents circular imports.
+let _renderFn = null;
+let _sessionCompleteFn = null;
+export function onRender(fn) { _renderFn = fn; }
+export function onSessionComplete(fn) { _sessionCompleteFn = fn; }
+
 let lastTap = { key: '', ts: 0 };
 
-function dispatch(type, payload = {}) {
+export function dispatch(type, payload = {}) {
   try {
     validateAction(type, payload);
 
@@ -526,7 +537,7 @@ function dispatch(type, payload = {}) {
 
     state = nextState;
     persist();
-    render(state);
+    _renderFn?.(state);
 
     const isDoneTransition = (() => {
       if (type === 'LOG_AND_MARK_DONE') return true;
@@ -563,11 +574,11 @@ function dispatch(type, payload = {}) {
       query.isSessionComplete(nextState, nextState.activeSessionId);
     if (justFinished) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      // Find the entry we just added and show the summary modal
+      // Notify UI layer via registered callback — engine stays DOM-free.
       const sessionEntries = query.sessionHistory(nextState, nextState.activeSessionId);
       const completedEntry = sessionEntries[sessionEntries.length - 1];
       if (completedEntry) {
-        setTimeout(() => openSessionSummaryModal(completedEntry, nextState), 600);
+        _sessionCompleteFn?.(completedEntry, nextState);
       }
     }
 
@@ -580,7 +591,7 @@ function dispatch(type, payload = {}) {
 // ─── REST TIMER ───
 // ==========================================
 
-function startRestTimer(duration = REST_DURATION) {
+export function startRestTimer(duration = REST_DURATION) {
   clearInterval(restTimerId);
   restDuration = duration;
   restRemaining = duration;
@@ -600,7 +611,7 @@ function startRestTimer(duration = REST_DURATION) {
   startRestTimerLoop();
 }
 
-function startRestTimerLoop() {
+export function startRestTimerLoop() {
   const bar   = document.getElementById('rest-timer-bar');
   const fill  = document.getElementById('rest-timer-fill');
   const count = document.getElementById('rest-timer-count');
@@ -624,7 +635,7 @@ function startRestTimerLoop() {
   }, 1000);
 }
 
-function extendRestTimer(amount = 30) {
+export function extendRestTimer(amount = 30) {
   const bar = document.getElementById('rest-timer-bar');
   if (!bar || bar.classList.contains('hidden')) return;
 
@@ -648,7 +659,7 @@ function extendRestTimer(amount = 30) {
   startRestTimerLoop();
 }
 
-function skipRestTimer() {
+export function skipRestTimer() {
   clearInterval(restTimerId);
   restRemaining = 0;
   const bar = document.getElementById('rest-timer-bar');
@@ -665,7 +676,7 @@ function skipRestTimer() {
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
 let writeCount = 0;
 
-function persist() {
+export function persist() {
   try {
     const json = JSON.stringify(state);
     localStorage.setItem(KEYS.backup, localStorage.getItem(KEYS.primary) ?? '');
@@ -674,7 +685,7 @@ function persist() {
   } catch (e) { console.error('persist() failed:', e); }
 }
 
-function loadState() {
+export function loadState() {
   for (const key of [KEYS.primary, KEYS.backup, KEYS.lkg]) {
     const raw = localStorage.getItem(key);
     if (!raw) continue;
@@ -685,11 +696,11 @@ function loadState() {
       if (validate(normal)) { state = normal; return; }
     } catch (_) {}
   }
-  state = createDefaultState();
+  state = createDefaultState(workouts);
 }
 
-function migrate(raw) {
-  if (!raw || typeof raw !== 'object') return createDefaultState();
+export function migrate(raw) {
+  if (!raw || typeof raw !== 'object') return createDefaultState(workouts);
 
   const exercises = {};
   for (const [id, arr] of Object.entries(raw.exercises || {})) {
@@ -706,7 +717,7 @@ function migrate(raw) {
 
   return {
     version:         STATE_VERSION,
-    activeSessionId: raw.activeSessionId ?? workouts[0].id,
+    activeSessionId: raw.activeSessionId ?? workouts[0]?.id,
     sessionStarted:  raw.sessionStarted ?? null,
     history:         (raw.history || []).map(entry => ({
       sessionId:      entry.sessionId,
@@ -731,7 +742,7 @@ function migrate(raw) {
   };
 }
 
-function normalize(appState) {
+export function normalize(appState) {
   const exercises = { ...appState.exercises };
   workouts.forEach(session =>
     session.blocks.forEach(block =>
@@ -750,7 +761,7 @@ function normalize(appState) {
   return { ...appState, exercises, version: STATE_VERSION };
 }
 
-function validate(appState) {
+export function validate(appState) {
   if (!appState || typeof appState !== 'object') return false;
   if (typeof appState.version !== 'number')       return false;
   if (typeof appState.activeSessionId !== 'string') return false;

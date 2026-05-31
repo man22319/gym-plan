@@ -1,3 +1,15 @@
+import {
+  dispatch, state, query, workouts, EXERCISE_INDEX,
+  lowerBound, migrate, normalize, validate,
+  startRestTimer, extendRestTimer, skipRestTimer
+} from '../core/engine.js';
+import { makeSet } from '../store/state.js';
+
+// Per-element press timers (purely UI concern — moved from engine).
+// Key format: `${exId}:${setIdx}`
+const pressTimers = new Map();
+const LONG_PRESS_MS = 480;
+
 // ==========================================
 // ─── DISPLAY HELPERS ───
 // ==========================================
@@ -58,7 +70,7 @@ function formatTime(ts) {
 // ─── RENDER ───
 // ==========================================
 
-function render(appState) {
+export function render(appState) {
   const el = document.getElementById('app');
   if (el) el.innerHTML = buildApp(appState);
 }
@@ -466,7 +478,7 @@ function closeHistoryModal() {
 
 let activeSummaryModal = null;
 
-function openSessionSummaryModal(entry, appState) {
+export function openSessionSummaryModal(entry, appState) {
   closeSessionSummaryModal();
 
   const session = workouts.find(s => s.id === entry.sessionId);
@@ -773,7 +785,7 @@ function copyWorkout(btn) {
 // ─── EVENT DELEGATION ───
 // ==========================================
 
-function setupEvents() {
+export function setupEvents() {
   document.addEventListener('pointerdown', e => {
     const dot = e.target.closest('.set-dot');
     if (dot) {
@@ -833,8 +845,7 @@ function setupEvents() {
 
     if (e.target.closest('#reset-btn')) {
       if (confirm('Reset current session progress? History is preserved.')) {
-        clearInterval(restTimerId);
-        document.getElementById('rest-timer-bar')?.classList.add('hidden');
+        skipRestTimer();
         dispatch('RESET_SESSION', {});
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
