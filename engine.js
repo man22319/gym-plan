@@ -2,6 +2,21 @@
 // ─── RUNTIME SINGLETONS ───
 // ==========================================
 
+// Workout data — populated asynchronously at boot from workouts.json.
+let workouts = [];
+let EXERCISE_INDEX = {};
+let EX_SESSION_INDEX = {};
+
+// Build O(1) lookup indexes from the loaded workouts array.
+function buildIndexes() {
+  EXERCISE_INDEX = Object.fromEntries(
+    workouts.flatMap(s => s.blocks.flatMap(b => b.exercises)).map(ex => [ex.id, ex])
+  );
+  EX_SESSION_INDEX = Object.fromEntries(
+    workouts.flatMap(s => s.blocks.flatMap(b => b.exercises.map(ex => [ex.id, s.id])))
+  );
+}
+
 let state = null;
 let restTimerId = null;
 let restRemaining = 0;
@@ -125,47 +140,40 @@ const query = {
 // ==========================================
 
 /**
- * Parse a range string like "22.5-25" or "6-8" and return the lower bound.
- * If the value is already a plain number string, returns that number.
- * If parsing fails, returns null.
+ * Returns the lower (or fixed) numeric value from a structured reps/weight object.
+ * Structured objects take one of three forms:
+ *   { fixed: N }              — single prescribed value
+ *   { value: N, unit }        — single prescribed value with unit
+ *   { min: N, max: M, unit? } — range; returns the lower bound
+ * Returns null for any unrecognised input.
  */
-function parseLowerBound(str) {
-  if (str === null || str === undefined) return null;
-  const s = String(str).replace(/\s*(lbs?|lb)\s*/gi, '').trim();
-  // Range: "22.5-25", "6-8", "10-15"
-  const rangeMatch = s.match(/^([\d.]+)\s*[-–]\s*([\d.]+)$/);
-  if (rangeMatch) return parseFloat(rangeMatch[1]);
-  // Plain number
-  const plain = parseFloat(s);
-  return isNaN(plain) ? null : plain;
+function lowerBound(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  if ('fixed' in obj) return obj.fixed;
+  if ('value' in obj) return obj.value;
+  if ('min'   in obj) return obj.min;
+  return null;
 }
 
 /**
  * Resolve weight for a set log:
  *  1. Use user-supplied value if provided (non-null, non-NaN)
- *  2. Fall back to workout definition weight
- *  3. If fallback is a range, pick lower bound
- * Always returns a number or null (should never be null after resolution).
+ *  2. Fall back to the workout definition weight (lower bound of range)
+ * Always returns a number or null.
  */
 function resolveWeight(userValue, exId) {
-  if (userValue !== null && userValue !== undefined && !isNaN(userValue)) {
-    return userValue;
-  }
+  if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
   const ex = EXERCISE_INDEX[exId];
-  if (!ex || !ex.weight) return null;
-  return parseLowerBound(ex.weight);
+  return ex?.weight ? lowerBound(ex.weight) : null;
 }
 
 /**
  * Resolve reps for a set log — same logic as resolveWeight.
  */
 function resolveReps(userValue, exId) {
-  if (userValue !== null && userValue !== undefined && !isNaN(userValue)) {
-    return userValue;
-  }
+  if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
   const ex = EXERCISE_INDEX[exId];
-  if (!ex || !ex.reps) return null;
-  return parseLowerBound(ex.reps);
+  return ex?.reps ? lowerBound(ex.reps) : null;
 }
 
 // ==========================================

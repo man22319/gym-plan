@@ -1,4 +1,30 @@
 // ==========================================
+// ─── DISPLAY HELPERS ───
+// ==========================================
+
+/**
+ * Format a structured reps object for display.
+ *   { fixed: 8 }         → "8"
+ *   { min: 6, max: 8 }   → "6–8"
+ */
+function formatReps(reps) {
+  if (!reps || typeof reps !== 'object') return '—';
+  if ('fixed' in reps) return String(reps.fixed);
+  return `${reps.min}–${reps.max}`;
+}
+
+/**
+ * Format a structured weight object for display.
+ *   { value: 60, unit: 'lbs' }          → "60 lbs"
+ *   { min: 22.5, max: 25, unit: 'lbs' } → "22.5–25 lbs"
+ */
+function formatWeight(weight) {
+  if (!weight || typeof weight !== 'object') return '';
+  if ('value' in weight) return `${weight.value} ${weight.unit}`;
+  return `${weight.min}–${weight.max} ${weight.unit}`;
+}
+
+// ==========================================
 // ─── RENDER ───
 // ==========================================
 
@@ -57,7 +83,8 @@ function buildCard(ex, appState) {
   const sets      = appState.exercises[ex.id] || [];
   const complete  = query.isExerciseComplete(appState, ex.id);
   const prevSets  = query.lastExerciseSets(appState, ex.id);
-  const detail    = `${ex.sets} &times; ${ex.reps}${ex.weight ? `<br>${ex.weight}` : ''}`;
+  const wStr   = formatWeight(ex.weight);
+  const detail  = `${ex.sets} × ${formatReps(ex.reps)}${wStr ? `<br>${wStr}` : ''}`;
 
   return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${ex.id}">
     <div class="exercise-header">
@@ -188,8 +215,8 @@ function openLogModal(exId, setIdx) {
   const prefillR = setObj.r !== null ? setObj.r : '';
 
   // Placeholder: last session's value, then prescribed value as fallback.
-  const defaultW = parseLowerBound(ex?.weight);
-  const defaultR = parseLowerBound(ex?.reps);
+  const defaultW = lowerBound(ex?.weight);
+  const defaultR = lowerBound(ex?.reps);
   const placeholderW = prevSet?.w ?? (defaultW !== null ? defaultW : '—');
   const placeholderR = prevSet?.r ?? (defaultR !== null ? defaultR : '—');
 
@@ -336,7 +363,7 @@ function copyWorkout(btn) {
       lines.push(block.label);
       block.exercises.forEach(ex => {
         lines.push(`  ${ex.letter}  ${ex.name}`);
-        lines.push(`     ${ex.sets} × ${ex.reps}  ${ex.weight}`);
+        lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${formatWeight(ex.weight)}`);
         if (ex.notes) lines.push(`     Note: ${ex.notes}`);
         if (ex.alternatives?.length) lines.push(`     Alt: ${ex.alternatives.join(', ')}`);
       });
