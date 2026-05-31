@@ -534,7 +534,24 @@ function dispatch(type, payload = {}) {
       return false;
     })();
 
-    if (isDoneTransition) startRestTimer();
+    if (isDoneTransition) {
+      // Determine which rest duration to use based on exercise context.
+      let restDuration = REST_DURATION;
+      if (type === 'LOG_AND_MARK_DONE' || type === 'TOGGLE_SET') {
+        const { exId, idx } = payload;
+        const ex = EXERCISE_INDEX[exId];
+        if (ex) {
+          const completedSets = (nextState.exercises[exId] || []);
+          const isLastSet = idx >= ex.sets - 1;
+          if (isLastSet) {
+            restDuration = ex.rest_between_exercises ?? REST_DURATION;
+          } else {
+            restDuration = ex.rest_between_sets ?? REST_DURATION;
+          }
+        }
+      }
+      startRestTimer(restDuration);
+    }
 
     const justFinished =
       !query.isSessionComplete(prevState, nextState.activeSessionId) &&
@@ -558,9 +575,9 @@ function dispatch(type, payload = {}) {
 // ─── REST TIMER ───
 // ==========================================
 
-function startRestTimer() {
+function startRestTimer(duration = REST_DURATION) {
   clearInterval(restTimerId);
-  restRemaining = REST_DURATION;
+  restRemaining = duration;
 
   const bar   = document.getElementById('rest-timer-bar');
   const fill  = document.getElementById('rest-timer-fill');
@@ -576,7 +593,7 @@ function startRestTimer() {
 
   restTimerId = setInterval(() => {
     restRemaining--;
-    fill.style.width = Math.max(0, (restRemaining / REST_DURATION) * 100) + '%';
+    fill.style.width = Math.max(0, (restRemaining / duration) * 100) + '%';
     count.textContent = restRemaining > 0 ? restRemaining : 'GO';
     if (restRemaining <= 0) {
       clearInterval(restTimerId);
