@@ -142,15 +142,18 @@ function parseLowerBound(str) {
 
 /**
  * Resolve weight for a set log:
- *  Returns the user-supplied value if it is a valid number; null otherwise.
- *  Blank / empty inputs are intentionally kept as null — no fallback to the
- *  workout definition, so the stored set reflects exactly what was entered.
+ *  1. Use user-supplied value if provided (non-null, non-NaN)
+ *  2. Fall back to workout definition weight
+ *  3. If fallback is a range, pick lower bound
+ * Always returns a number or null (should never be null after resolution).
  */
 function resolveWeight(userValue, exId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) {
     return userValue;
   }
-  return null;
+  const ex = EXERCISE_INDEX[exId];
+  if (!ex || !ex.weight) return null;
+  return parseLowerBound(ex.weight);
 }
 
 /**
@@ -160,7 +163,9 @@ function resolveReps(userValue, exId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) {
     return userValue;
   }
-  return null;
+  const ex = EXERCISE_INDEX[exId];
+  if (!ex || !ex.reps) return null;
+  return parseLowerBound(ex.reps);
 }
 
 // ==========================================
@@ -213,7 +218,8 @@ function reducer(currentState, action) {
     }
 
     // Atomic: resolve weight/reps to numeric values at dispatch time, then write.
-    // Blank inputs store null — no fallback to workout definition values.
+    // Blank inputs fall back to workout definition values (lower bound if range).
+    // Guarantees all stored sets contain only numbers — never strings, ranges, or null.
     case 'LOG_AND_MARK_DONE': {
       const { exId, idx } = payload;
 
@@ -403,7 +409,7 @@ function migrate(raw) {
     if (!Array.isArray(arr)) continue;
     exercises[id] = arr.map(item => {
       if (typeof item === 'string') return makeSet(item);
-      return { s: item.s ?? '', w: item.w ?? null, r: item.r ?? null };
+      const _s = item.s ?? ''; const _w = (item.w === 0 && _s === '') ? null : (item.w ?? null); const _r = (item.r === 0 && _s === '') ? null : (item.r ?? null); return { s: _s, w: _w, r: _r };
     });
   }
 
@@ -417,7 +423,7 @@ function migrate(raw) {
         Object.entries(entry.exercises || {}).map(([id, sets]) => [
           id,
           (Array.isArray(sets) ? sets : []).map(s =>
-            typeof s === 'string' ? makeSet(s) : { s: s.s ?? '', w: s.w ?? null, r: s.r ?? null }
+            typeof s === 'string' ? makeSet(s) : (() => { const _s = s.s ?? ''; const _w = (s.w === 0 && _s === '') ? null : (s.w ?? null); const _r = (s.r === 0 && _s === '') ? null : (s.r ?? null); return { s: _s, w: _w, r: _r }; })()
           )
         ])
       )

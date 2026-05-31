@@ -182,15 +182,14 @@ function openLogModal(exId, setIdx) {
   const prevSets = query.lastExerciseSets(state, exId);
   const prevSet  = prevSets ? prevSets[setIdx] : null;
 
-  // Resolved defaults — what will be stored if user submits with blank fields.
-  // These are shown as placeholders so the user knows what value will be used.
+  // Pre-fill only from the current session's already-logged value.
+  // Never pre-fill from previous sessions — those belong in the placeholder.
+  const prefillW = setObj.w !== null ? setObj.w : '';
+  const prefillR = setObj.r !== null ? setObj.r : '';
+
+  // Placeholder: last session's value, then prescribed value as fallback.
   const defaultW = parseLowerBound(ex?.weight);
   const defaultR = parseLowerBound(ex?.reps);
-
-  // Pre-fill: current logged values first, then previous session values
-  const prefillW = setObj.w ?? prevSet?.w ?? '';
-  const prefillR = setObj.r ?? prevSet?.r ?? '';
-
   const placeholderW = prevSet?.w ?? (defaultW !== null ? defaultW : '—');
   const placeholderR = prevSet?.r ?? (defaultR !== null ? defaultR : '—');
 
@@ -226,10 +225,6 @@ function openLogModal(exId, setIdx) {
         <button class="log-btn log-btn-cancel" id="log-cancel">Cancel</button>
         <button class="log-btn log-btn-save" id="log-save">Save &amp; Done</button>
       </div>
-      ${(defaultW !== null || defaultR !== null) ? `
-      <div class="log-hint" style="padding-top: 10px;">
-        Blank fields log as prescribed: ${defaultW ?? '?'} lbs × ${defaultR ?? '?'} reps
-      </div>` : ''}
     </div>`;
 
   document.body.appendChild(overlay);
