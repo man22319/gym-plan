@@ -68,15 +68,60 @@ function buildApp(appState) {
     workouts.map(s => buildSession(s, appState)).join('');
 }
 
+function getSuggestedSessionId(appState) {
+  let suggestedId = null;
+  let oldestTs = Infinity;
+
+  for (const session of workouts) {
+    const ts = query.lastDoneTimestamp(appState, session.id);
+    if (ts === null) {
+      return session.id;
+    }
+    if (ts < oldestTs) {
+      oldestTs = ts;
+      suggestedId = session.id;
+    }
+  }
+  return suggestedId;
+}
+
 function buildTabs(appState) {
+  const suggestedId = getSuggestedSessionId(appState);
+
   const tabs = workouts.map(session => {
     const active    = session.id === appState.activeSessionId ? 'active' : '';
     const ts        = query.lastDoneTimestamp(appState, session.id);
-    const dateLabel = ts ? formatDate(ts) : '';
+
+    let recency = '';
+    if (ts) {
+      const diffMs = Date.now() - ts;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      if (diffDays === 0) {
+        const today = new Date();
+        const doneDate = new Date(ts);
+        if (today.toDateString() === doneDate.toDateString()) {
+          recency = 'today';
+        } else {
+          recency = 'yesterday';
+        }
+      } else if (diffDays === 1) {
+        recency = 'yesterday';
+      } else {
+        recency = `${diffDays}d ago`;
+      }
+    } else {
+      recency = 'never';
+    }
+
+    const isSuggested = session.id === suggestedId;
+    const badgeHtml = isSuggested ? `<span class="suggested-badge">due</span>` : '';
+    const dateLabel = ts ? formatDate(ts) : 'never';
+
     return `<div class="tab ${active}" data-session-id="${session.id}">
+      ${badgeHtml}
       ${session.dayLabel}
       <span class="day-label">${session.sessionLabel}</span>
-      <span class="last-done">${dateLabel}</span>
+      <span class="last-done">${dateLabel} · <span class="recency">${recency}</span></span>
     </div>`;
   }).join('');
   return `<div class="tabs">${tabs}</div>`;
@@ -118,6 +163,14 @@ function buildCard(ex, appState) {
   const prs       = query.currentSetPRs(appState, ex.id);
   const hasPR     = prs.length > 0;
 
+  const currentSetsWithNotes = sets.filter(s => s.n && s.n.trim());
+  let currentNotesHtml = '';
+  if (currentSetsWithNotes.length > 0) {
+    currentNotesHtml = `<div class="live-notes-row">
+      ${currentSetsWithNotes.map(s => `<span class="live-note-chip">S${sets.indexOf(s) + 1}: ${s.n}</span>`).join('')}
+    </div>`;
+  }
+
   return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${ex.id}">
     <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${ex.name}" tabindex="0">
       <div class="ex-letter">${ex.letter}</div>
@@ -130,6 +183,7 @@ function buildCard(ex, appState) {
     ${buildNotesRow(ex)}
     ${buildProgressionChip(appState, ex)}
     ${buildPrevRow(prevSets, sets)}
+    ${currentNotesHtml}
     <div class="set-row">
       ${sets.map((s, i) => buildDot(ex.id, i, s)).join('')}
     </div>
@@ -246,6 +300,67 @@ function buildDot(exId, idx, setObj) {
 
 let activeHistoryModal = null;
 
+function buildSparkline(volumes) {
+  if (volumes.length < 2) return '';
+
+  const points = volumes.slice(-10);
+  const width = 280;
+  const height = 40;
+  const padding = 4;
+
+  const maxVal = Math.max(...points);
+  const minVal = Math.min(...points);
+  const range = maxVal - minVal;
+
+  const xStep = (width - padding * 2) / (points.length - 1);
+
+  const coords = points.map((val, idx) => {
+    const x = padding + idx * xStep;
+    const y = range === 0
+      ? height / 2
+      : height - padding - ((val - minVal) / range) * (height - padding * 2);
+    return { x, y, val };
+  });
+
+  const pathData = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+
+  const areaPathData = `
+    ${pathData}
+    L ${coords[coords.length - 1].x.toFixed(1)} ${height}
+    L ${coords[0].x.toFixed(1)} ${height}
+    Z
+  `;
+
+  const lastCoord = coords[coords.length - 1];
+  const delta = points[points.length - 1] - points[0];
+  const isUp = delta >= 0;
+
+  return `
+    <div class="sparkline-container">
+      <div class="sparkline-header">
+        <span class="sparkline-title">Volume Trend (Last ${points.length} Sessions)</span>
+        <span class="sparkline-delta ${isUp ? 'up' : 'down'}">
+          ${isUp ? '▲' : '▼'} ${Math.abs(delta).toLocaleString()} lbs
+        </span>
+      </div>
+      <div class="sparkline-svg-wrap">
+        <svg class="sparkline-svg" width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="sparkline-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="var(--blue)" stop-opacity="0.0"/>
+            </linearGradient>
+          </defs>
+          <path d="${areaPathData}" fill="url(#sparkline-gradient)" />
+          <path d="${pathData}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="${lastCoord.x.toFixed(1)}" cy="${lastCoord.y.toFixed(1)}" r="3.5" fill="var(--white)" />
+          <circle cx="${lastCoord.x.toFixed(1)}" cy="${lastCoord.y.toFixed(1)}" r="7" fill="var(--blue)" fill-opacity="0.4" />
+        </svg>
+      </div>
+    </div>
+  `;
+}
+
 function openHistoryModal(exId) {
   closeHistoryModal();
 
@@ -271,7 +386,8 @@ function openHistoryModal(exId) {
     const setCells = entry.sets.map((s, i) => {
       if (s.w === null && s.r === null) return `<span class="hist-set-empty">—</span>`;
       const cls = s.s === 'failed' ? 'hist-set-fail' : 'hist-set-done';
-      return `<span class="${cls}">${s.w ?? '?'}×${s.r ?? '?'}</span>`;
+      const noteIndicator = s.n ? `<span class="hist-set-note-indicator" title="${s.n.replace(/"/g, '&quot;')}">📝</span>` : '';
+      return `<span class="${cls}" style="display: inline-flex; align-items: center; gap: 2px;">${s.w ?? '?'}×${s.r ?? '?'}${noteIndicator}</span>`;
     }).join('');
 
     return `<tr>
@@ -292,6 +408,12 @@ function openHistoryModal(exId) {
     if (pr.mostReps) prItems.push(`<div class="pr-item"><span class="pr-icon">🔁</span><div><div class="pr-item-label">Most Reps</div><div class="pr-item-val">${pr.mostReps.r} reps @ ${pr.mostReps.w} lbs <span class="pr-item-date">${formatDate(pr.mostReps.date)}</span></div></div></div>`);
     prHtml = `<div class="hist-pr-section"><div class="hist-section-label">PERSONAL RECORDS</div><div class="hist-pr-list">${prItems.join('')}</div></div>`;
   }
+
+  const volumes = history.map(entry => {
+    const doneSets = entry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+    return doneSets.reduce((sum, s) => sum + s.w * s.r, 0);
+  });
+  const sparklineHtml = buildSparkline(volumes);
 
   const tableHtml = hasHistory ? `
     <div class="hist-table-wrap">
@@ -321,6 +443,7 @@ function openHistoryModal(exId) {
         <button class="hist-close" id="hist-close" aria-label="Close">✕</button>
       </div>
       ${prHtml}
+      ${sparklineHtml}
       ${hasHistory ? `<div class="hist-section-label" style="padding: 0 20px 8px;">SESSION LOG</div>` : ''}
       ${tableHtml}
     </div>`;
@@ -458,6 +581,7 @@ function openLogModal(exId, setIdx) {
   // Never pre-fill from previous sessions — those belong in the placeholder.
   const prefillW = setObj.w !== null ? setObj.w : '';
   const prefillR = setObj.r !== null ? setObj.r : '';
+  const prefillN = setObj.n !== null ? setObj.n : '';
 
   // Placeholder: last session's value, then prescribed value as fallback.
   const defaultW = lowerBound(ex?.weight);
@@ -492,6 +616,14 @@ function openLogModal(exId, setIdx) {
             <span class="log-unit">reps</span>
           </div>
         </div>
+        <div class="log-field" style="grid-column: span 2;">
+          <label class="log-label" for="log-note">SET NOTE</label>
+          <div class="log-input-wrap">
+            <input class="log-input" id="log-note" type="text"
+              placeholder="e.g. felt easy, tweaked shoulder" value="${prefillN}"
+              style="font-size: 0.95rem; padding: 12px; font-family: inherit;"/>
+          </div>
+        </div>
       </div>
       <div class="log-modal-actions">
         <button class="log-btn log-btn-cancel" id="log-cancel">Cancel</button>
@@ -504,6 +636,7 @@ function openLogModal(exId, setIdx) {
 
   const weightInput = overlay.querySelector('#log-weight');
   const repsInput   = overlay.querySelector('#log-reps');
+  const noteInput   = overlay.querySelector('#log-note');
 
   setTimeout(() => weightInput?.focus(), 60);
 
@@ -513,8 +646,9 @@ function openLogModal(exId, setIdx) {
   overlay.querySelector('#log-save').addEventListener('click', () => {
     const w = weightInput.value !== '' ? parseFloat(weightInput.value) : null;
     const r = repsInput.value   !== '' ? parseInt(repsInput.value, 10) : null;
+    const n = noteInput.value.trim();
     closeLogModal();
-    dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r });
+    dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r, note: n });
   });
 
   overlay.addEventListener('keydown', e => {
@@ -671,6 +805,15 @@ function setupEvents() {
   });
 
   document.addEventListener('click', e => {
+    if (e.target.closest('#rest-timer-skip')) {
+      skipRestTimer();
+      return;
+    }
+    if (e.target.closest('#rest-timer-extend')) {
+      extendRestTimer(30);
+      return;
+    }
+
     const tab = e.target.closest('.tab');
     if (tab?.dataset.sessionId) {
       dispatch('SET_ACTIVE_SESSION', { sessionId: tab.dataset.sessionId });

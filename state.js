@@ -11,8 +11,8 @@ const DEV_MODE         = ['localhost','127.0.0.1',''].includes(window.location.h
 // ─── FACTORY ───
 // ==========================================
 
-function makeSet(s = '', w = null, r = null) {
-  return { s, w, r };
+function makeSet(s = '', w = null, r = null, n = '') {
+  return { s, w, r, n };
 }
 
 function makeDefaultExercises() {

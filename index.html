@@ -88,8 +88,8 @@ header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px;
-  width: min(320px, 88vw);
+  padding: 10px 16px;
+  width: min(380px, 92vw);
   box-shadow: 0 8px 32px rgba(0,0,0,0.7);
   transition: opacity 0.25s, transform 0.25s;
 }
@@ -132,6 +132,39 @@ header {
 }
 #rest-timer-bar.done-state #rest-timer-fill { background: var(--green); }
 #rest-timer-bar.done-state #rest-timer-count { color: var(--green); }
+
+.timer-action-btn {
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 99px;
+  cursor: pointer;
+  transition: all 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+.timer-action-btn:hover {
+  border-color: var(--white);
+  color: var(--white);
+  background: rgba(255,255,255,0.05);
+}
+.timer-action-btn:active {
+  background: rgba(255,255,255,0.1);
+}
+#rest-timer-skip {
+  font-size: 0.5rem;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+}
 
 /* ── Tabs ── */
 .tabs {
@@ -178,6 +211,27 @@ header {
   letter-spacing: 0.5px;
   margin-top: 2px;
   height: 8px;
+}
+.suggested-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: var(--blue);
+  color: #000;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.38rem;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.tab.active .suggested-badge {
+  background: var(--white);
+}
+.tab .last-done .recency {
+  color: var(--muted);
 }
 
 /* ── Session ── */
@@ -700,6 +754,30 @@ header {
 /* ── Log modal prev hint ── */
 .log-modal-prev { color: var(--blue); font-size: 0.55rem; letter-spacing: 1px; }
 
+/* ── Journal Notes ── */
+.live-notes-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px 10px;
+}
+.live-note-chip {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--blue);
+  background: rgba(66, 165, 245, 0.08);
+  border: 1px solid rgba(66, 165, 245, 0.2);
+  border-radius: 4px;
+  padding: 3px 8px;
+  line-height: 1.4;
+}
+.hist-set-note-indicator {
+  font-size: 0.48rem;
+  line-height: 1;
+  opacity: 0.85;
+  cursor: help;
+}
+
 /* ══════════════════════════════════════════
    B: EXERCISE HISTORY MODAL
 ══════════════════════════════════════════ */
@@ -804,6 +882,43 @@ header {
   color: var(--dim);
   margin-left: 6px;
 }
+.sparkline-container {
+  padding: 12px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sparkline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.sparkline-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.44rem;
+  letter-spacing: 1.5px;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.sparkline-delta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  font-weight: 500;
+}
+.sparkline-delta.up { color: var(--green); }
+.sparkline-delta.down { color: var(--red); }
+.sparkline-svg-wrap {
+  background: rgba(255,255,255,0.01);
+  border: 1px solid rgba(46, 46, 46, 0.4);
+  border-radius: 6px;
+  padding: 8px 12px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+}
+.sparkline-svg {
+  overflow: visible;
+}
+
 .hist-table-wrap {
   overflow-x: auto;
   padding: 0 20px;
@@ -1012,6 +1127,8 @@ header {
 <span id="rest-timer-label">REST</span>
 <div id="rest-timer-track"><div id="rest-timer-fill"></div></div>
 <span id="rest-timer-count">90</span>
+<button id="rest-timer-extend" class="timer-action-btn" title="Add 30 seconds">+30s</button>
+<button id="rest-timer-skip" class="timer-action-btn" title="Skip rest timer">✕</button>
 </div>
 <div id="app"></div>
 <div class="log-hint" style="padding: 8px 0 80px; text-align: center;">

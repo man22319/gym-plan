@@ -20,6 +20,7 @@ function buildIndexes() {
 let state = null;
 let restTimerId = null;
 let restRemaining = 0;
+let restDuration = 0;
 
 // Per-element press timers: Map<string key → timeoutId>
 // Key format: `${exId}:${setIdx}`
@@ -342,7 +343,7 @@ function resolveReps(userValue, exId) {
 const ALLOWED_ACTIONS = {
   SET_ACTIVE_SESSION:  ['sessionId'],
   TOGGLE_SET:          ['exId', 'idx'],
-  LOG_AND_MARK_DONE:   ['exId', 'idx', 'weight', 'reps'],
+  LOG_AND_MARK_DONE:   ['exId', 'idx', 'weight', 'reps', 'note'],
   RESET_SESSION:       [],
   IMPORT_STATE:        ['data'],
   START_SESSION:       []
@@ -386,15 +387,17 @@ function reducer(currentState, action) {
       // When cycling back to '' (reset), clear w/r so it returns to pristine state.
       let nextW = existing.w;
       let nextR = existing.r;
+      let nextN = existing.n ?? '';
       if (nextStatus === 'done') {
         nextW = resolveWeight(existing.w, exId);
         nextR = resolveReps(existing.r, exId);
       } else if (nextStatus === '') {
         nextW = null;
         nextR = null;
+        nextN = '';
       }
 
-      sets[idx] = { ...existing, s: nextStatus, w: nextW, r: nextR };
+      sets[idx] = { ...existing, s: nextStatus, w: nextW, r: nextR, n: nextN };
       return {
         ...currentState,
         exercises: { ...currentState.exercises, [exId]: sets }
@@ -410,10 +413,11 @@ function reducer(currentState, action) {
       // Resolution happens HERE — the single authoritative point.
       const resolvedWeight = resolveWeight(payload.weight, exId);
       const resolvedReps   = resolveReps(payload.reps, exId);
+      const resolvedNote   = payload.note ?? '';
 
       const sets = [...(currentState.exercises[exId] || [])];
       const existing = sets[idx] || makeSet();
-      sets[idx] = { ...existing, s: 'done', w: resolvedWeight, r: resolvedReps };
+      sets[idx] = { ...existing, s: 'done', w: resolvedWeight, r: resolvedReps, n: resolvedNote };
       return {
         ...currentState,
         exercises: { ...currentState.exercises, [exId]: sets }
@@ -463,6 +467,7 @@ function applyCompletionSideEffect(prevState, nextState) {
         // Guarantee numeric-only values in history — no range strings, no nulls on done sets.
         w: s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, ex.id) : s.w,
         r: s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, ex.id)   : s.r,
+        n: s.n ?? ''
       }));
     });
 
@@ -577,6 +582,7 @@ function dispatch(type, payload = {}) {
 
 function startRestTimer(duration = REST_DURATION) {
   clearInterval(restTimerId);
+  restDuration = duration;
   restRemaining = duration;
 
   const bar   = document.getElementById('rest-timer-bar');
@@ -591,17 +597,65 @@ function startRestTimer(duration = REST_DURATION) {
   void fill.offsetWidth;
   fill.style.transition = '';
 
+  startRestTimerLoop();
+}
+
+function startRestTimerLoop() {
+  const bar   = document.getElementById('rest-timer-bar');
+  const fill  = document.getElementById('rest-timer-fill');
+  const count = document.getElementById('rest-timer-count');
+  if (!bar || !fill || !count) return;
+
   restTimerId = setInterval(() => {
     restRemaining--;
-    fill.style.width = Math.max(0, (restRemaining / duration) * 100) + '%';
+    fill.style.width = Math.max(0, (restRemaining / restDuration) * 100) + '%';
     count.textContent = restRemaining > 0 ? restRemaining : 'GO';
     if (restRemaining <= 0) {
       clearInterval(restTimerId);
       bar.classList.add('done-state');
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      setTimeout(() => { bar.classList.add('hidden'); bar.classList.remove('done-state'); }, 4000);
+      setTimeout(() => {
+        if (restRemaining <= 0) {
+          bar.classList.add('hidden');
+          bar.classList.remove('done-state');
+        }
+      }, 4000);
     }
   }, 1000);
+}
+
+function extendRestTimer(amount = 30) {
+  const bar = document.getElementById('rest-timer-bar');
+  if (!bar || bar.classList.contains('hidden')) return;
+
+  const wasFinished = restRemaining <= 0;
+  clearInterval(restTimerId);
+
+  if (wasFinished) {
+    restRemaining = amount;
+    restDuration = amount;
+    bar.classList.remove('done-state');
+  } else {
+    restRemaining += amount;
+    restDuration += amount;
+  }
+
+  const fill  = document.getElementById('rest-timer-fill');
+  const count = document.getElementById('rest-timer-count');
+  if (count) count.textContent = restRemaining;
+  if (fill) fill.style.width = Math.max(0, (restRemaining / restDuration) * 100) + '%';
+
+  startRestTimerLoop();
+}
+
+function skipRestTimer() {
+  clearInterval(restTimerId);
+  restRemaining = 0;
+  const bar = document.getElementById('rest-timer-bar');
+  if (bar) {
+    bar.classList.add('hidden');
+    bar.classList.remove('done-state');
+  }
 }
 
 // ==========================================
@@ -642,7 +696,11 @@ function migrate(raw) {
     if (!Array.isArray(arr)) continue;
     exercises[id] = arr.map(item => {
       if (typeof item === 'string') return makeSet(item);
-      const _s = item.s ?? ''; const _w = (item.w === 0 && _s === '') ? null : (item.w ?? null); const _r = (item.r === 0 && _s === '') ? null : (item.r ?? null); return { s: _s, w: _w, r: _r };
+      const _s = item.s ?? '';
+      const _w = (item.w === 0 && _s === '') ? null : (item.w ?? null);
+      const _r = (item.r === 0 && _s === '') ? null : (item.r ?? null);
+      const _n = item.n ?? '';
+      return { s: _s, w: _w, r: _r, n: _n };
     });
   }
 
@@ -658,7 +716,13 @@ function migrate(raw) {
         Object.entries(entry.exercises || {}).map(([id, sets]) => [
           id,
           (Array.isArray(sets) ? sets : []).map(s =>
-            typeof s === 'string' ? makeSet(s) : (() => { const _s = s.s ?? ''; const _w = (s.w === 0 && _s === '') ? null : (s.w ?? null); const _r = (s.r === 0 && _s === '') ? null : (s.r ?? null); return { s: _s, w: _w, r: _r }; })()
+            typeof s === 'string' ? makeSet(s) : (() => {
+              const _s = s.s ?? '';
+              const _w = (s.w === 0 && _s === '') ? null : (s.w ?? null);
+              const _r = (s.r === 0 && _s === '') ? null : (s.r ?? null);
+              const _n = s.n ?? '';
+              return { s: _s, w: _w, r: _r, n: _n };
+            })()
           )
         ])
       )
@@ -677,7 +741,7 @@ function normalize(appState) {
           exercises[ex.id] = Array.from({ length: ex.sets }, () => makeSet());
           return;
         }
-        const copy = arr.slice(0, ex.sets).map(s => ({ s: s.s ?? '', w: s.w ?? null, r: s.r ?? null }));
+        const copy = arr.slice(0, ex.sets).map(s => ({ s: s.s ?? '', w: s.w ?? null, r: s.r ?? null, n: s.n ?? '' }));
         while (copy.length < ex.sets) copy.push(makeSet());
         exercises[ex.id] = copy;
       })
