@@ -142,18 +142,15 @@ function parseLowerBound(str) {
 
 /**
  * Resolve weight for a set log:
- *  1. Use user-supplied value if provided (non-null, non-NaN)
- *  2. Fall back to workout definition weight
- *  3. If fallback is a range, pick lower bound
- * Always returns a number or null (should never be null after resolution).
+ *  Returns the user-supplied value if it is a valid number; null otherwise.
+ *  Blank / empty inputs are intentionally kept as null — no fallback to the
+ *  workout definition, so the stored set reflects exactly what was entered.
  */
 function resolveWeight(userValue, exId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) {
     return userValue;
   }
-  const ex = EXERCISE_INDEX[exId];
-  if (!ex || !ex.weight) return null;
-  return parseLowerBound(ex.weight);
+  return null;
 }
 
 /**
@@ -163,9 +160,7 @@ function resolveReps(userValue, exId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) {
     return userValue;
   }
-  const ex = EXERCISE_INDEX[exId];
-  if (!ex || !ex.reps) return null;
-  return parseLowerBound(ex.reps);
+  return null;
 }
 
 // ==========================================
@@ -218,8 +213,7 @@ function reducer(currentState, action) {
     }
 
     // Atomic: resolve weight/reps to numeric values at dispatch time, then write.
-    // Blank inputs fall back to workout definition values (lower bound if range).
-    // Guarantees all stored sets contain only numbers — never strings, ranges, or null.
+    // Blank inputs store null — no fallback to workout definition values.
     case 'LOG_AND_MARK_DONE': {
       const { exId, idx } = payload;
 
