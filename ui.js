@@ -65,10 +65,34 @@ function buildCard(ex, appState) {
       <div class="ex-name">${ex.name}</div>
       <div class="ex-detail">${detail}</div>
     </div>
+    ${buildNotesRow(ex)}
     ${buildPrevRow(prevSets, sets)}
     <div class="set-row">
       ${sets.map((s, i) => buildDot(ex.id, i, s)).join('')}
     </div>
+  </div>`;
+}
+
+// Display-only: notes and alternatives from workout definition.
+// Has no effect on logging, analytics, or calculations.
+function buildNotesRow(ex) {
+  const hasNotes = ex.notes && ex.notes.trim();
+  const hasAlts  = ex.alternatives && ex.alternatives.length;
+  if (!hasNotes && !hasAlts) return '';
+
+  const notesHtml = hasNotes
+    ? `<span class="ex-notes">${ex.notes}</span>`
+    : '';
+
+  const altsHtml = hasAlts
+    ? `<span class="ex-alts-label">ALT:</span> ${ex.alternatives.map(a =>
+        `<span class="ex-alt">${a}</span>`
+      ).join('')}`
+    : '';
+
+  return `<div class="ex-meta-row">
+    ${notesHtml}
+    ${hasAlts ? `<div class="ex-alts">${altsHtml}</div>` : ''}
   </div>`;
 }
 
@@ -77,7 +101,6 @@ function buildPrevRow(prevSets, currSets) {
   const logged = prevSets.filter(s => s.w !== null || s.r !== null);
   if (!logged.length) return '';
 
-  // Delta: compare avg weight of previous vs current (only logged curr sets)
   const { weightDelta, repsDelta } = query.compareSets(
     prevSets,
     currSets.filter(s => s.w !== null || s.r !== null)
@@ -159,9 +182,17 @@ function openLogModal(exId, setIdx) {
   const prevSets = query.lastExerciseSets(state, exId);
   const prevSet  = prevSets ? prevSets[setIdx] : null;
 
-  // Pre-fill: current values first, then fall back to previous session values
+  // Resolved defaults — what will be stored if user submits with blank fields.
+  // These are shown as placeholders so the user knows what value will be used.
+  const defaultW = parseLowerBound(ex?.weight);
+  const defaultR = parseLowerBound(ex?.reps);
+
+  // Pre-fill: current logged values first, then previous session values
   const prefillW = setObj.w ?? prevSet?.w ?? '';
   const prefillR = setObj.r ?? prevSet?.r ?? '';
+
+  const placeholderW = prevSet?.w ?? (defaultW !== null ? defaultW : '—');
+  const placeholderR = prevSet?.r ?? (defaultR !== null ? defaultR : '—');
 
   const overlay = document.createElement('div');
   overlay.className = 'log-modal-overlay';
@@ -177,7 +208,7 @@ function openLogModal(exId, setIdx) {
           <div class="log-input-wrap">
             <input class="log-input" id="log-weight" type="number"
               inputmode="decimal" min="0" step="2.5"
-              placeholder="${prevSet?.w ?? '—'}" value="${prefillW}"/>
+              placeholder="${placeholderW}" value="${prefillW}"/>
             <span class="log-unit">lbs</span>
           </div>
         </div>
@@ -186,7 +217,7 @@ function openLogModal(exId, setIdx) {
           <div class="log-input-wrap">
             <input class="log-input" id="log-reps" type="number"
               inputmode="numeric" min="0" step="1"
-              placeholder="${prevSet?.r ?? '—'}" value="${prefillR}"/>
+              placeholder="${placeholderR}" value="${prefillR}"/>
             <span class="log-unit">reps</span>
           </div>
         </div>
@@ -195,6 +226,10 @@ function openLogModal(exId, setIdx) {
         <button class="log-btn log-btn-cancel" id="log-cancel">Cancel</button>
         <button class="log-btn log-btn-save" id="log-save">Save &amp; Done</button>
       </div>
+      ${(defaultW !== null || defaultR !== null) ? `
+      <div class="log-hint" style="padding-top: 10px;">
+        Blank fields log as prescribed: ${defaultW ?? '?'} lbs × ${defaultR ?? '?'} reps
+      </div>` : ''}
     </div>`;
 
   document.body.appendChild(overlay);
@@ -212,7 +247,6 @@ function openLogModal(exId, setIdx) {
     const w = weightInput.value !== '' ? parseFloat(weightInput.value) : null;
     const r = repsInput.value   !== '' ? parseInt(repsInput.value, 10) : null;
     closeLogModal();
-    // Single atomic dispatch — no double-action bug
     dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r });
   });
 
@@ -229,7 +263,6 @@ function closeLogModal() {
 // ==========================================
 // ─── POINTER EVENT HANDLING ───
 // ==========================================
-// Per-element timers keyed by `${exId}:${idx}` to avoid race conditions.
 
 function pressKey(exId, idx) { return `${exId}:${idx}`; }
 
@@ -251,12 +284,10 @@ function cancelPress(key) {
 
 function commitPress(exId, idx) {
   const key = pressKey(exId, idx);
-  // If timer is still running, this was a short tap
   if (pressTimers.has(key)) {
     cancelPress(key);
     dispatch('TOGGLE_SET', { exId, idx });
   }
-  // If timer already fired (long press), modal opened — do nothing
 }
 
 // ==========================================
@@ -311,6 +342,8 @@ function copyWorkout(btn) {
       block.exercises.forEach(ex => {
         lines.push(`  ${ex.letter}  ${ex.name}`);
         lines.push(`     ${ex.sets} × ${ex.reps}  ${ex.weight}`);
+        if (ex.notes) lines.push(`     Note: ${ex.notes}`);
+        if (ex.alternatives?.length) lines.push(`     Alt: ${ex.alternatives.join(', ')}`);
       });
       lines.push('');
     });
@@ -340,7 +373,6 @@ function copyWorkout(btn) {
 // ==========================================
 
 function setupEvents() {
-  // ── Pointer: long-press detection per element
   document.addEventListener('pointerdown', e => {
     const dot = e.target.closest('.set-dot');
     if (dot) {
@@ -357,7 +389,6 @@ function setupEvents() {
       const idx  = parseInt(dot.dataset.setIdx, 10);
       commitPress(exId, idx);
     } else {
-      // Cancel all pending presses if released elsewhere
       for (const [key] of pressTimers) cancelPress(key);
     }
   });
@@ -366,14 +397,12 @@ function setupEvents() {
     for (const [key] of pressTimers) cancelPress(key);
   });
 
-  // Cancel long press if pointer moves significantly
   document.addEventListener('pointermove', e => {
     if (e.movementX ** 2 + e.movementY ** 2 > 16) {
       for (const [key] of pressTimers) cancelPress(key);
     }
   });
 
-  // ── Click delegation for non-dot elements
   document.addEventListener('click', e => {
     const tab = e.target.closest('.tab');
     if (tab?.dataset.sessionId) {

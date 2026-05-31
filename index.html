@@ -292,6 +292,45 @@ header {
   line-height: 1.7;
 }
 
+/* ── Exercise Meta (notes + alternatives) — display only ── */
+.ex-meta-row {
+  padding: 0 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ex-notes {
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.5;
+  font-style: italic;
+}
+.ex-alts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ex-alts-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.45rem;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+.ex-alt {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--dim);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
 /* ── Previous Session Data ── */
 .prev-data {
   display: flex;
@@ -381,7 +420,6 @@ header {
   font-size: 0.4rem;
   opacity: 0.6;
 }
-/* Long press hint — subtle ring pulse on pending dots */
 .set-dot:not(.done):not(.failed):active {
   border-color: var(--blue);
 }

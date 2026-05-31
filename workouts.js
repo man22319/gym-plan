@@ -13,29 +13,69 @@ const workouts = [
       {
         label: 'Superset 1 — Pull / Push',
         exercises: [
-          { id: 'thu_row', letter: 'A', name: 'Seated Row Machine', sets: 4, reps: '6-8', weight: '60 lbs' },
-          { id: 'thu_bench', letter: 'B', name: 'Dumbbell Bench Press', sets: 4, reps: '8', weight: '22.5-25 lbs' }
+          {
+            id: 'thu_row', letter: 'A', name: 'Seated Row Machine',
+            sets: 4, reps: '6-8', weight: '60 lbs',
+            notes: 'Drive elbows back, pause 1s at peak contraction. Keep chest tall.',
+            alternatives: ['Cable Row', 'Resistance Band Row', 'Dumbbell Bent-Over Row']
+          },
+          {
+            id: 'thu_bench', letter: 'B', name: 'Dumbbell Bench Press',
+            sets: 4, reps: '8', weight: '22.5-25 lbs',
+            notes: 'Lower slowly to chest, full extension at top. Feet flat on floor.',
+            alternatives: ['Barbell Bench Press', 'Smith Machine Press', 'Cable Chest Fly']
+          }
         ]
       },
       {
         label: 'Superset 2 — Legs',
         exercises: [
-          { id: 'thu_leg_curl', letter: 'A', name: 'Seated Leg Curl', sets: 4, reps: '10-15', weight: '60 lbs' },
-          { id: 'thu_leg_ext', letter: 'B', name: 'Seated Leg Extension', sets: 4, reps: '10-15', weight: '60-70 lbs' }
+          {
+            id: 'thu_leg_curl', letter: 'A', name: 'Seated Leg Curl',
+            sets: 4, reps: '10-15', weight: '60 lbs',
+            notes: 'Full ROM — extend fully, curl to 90°+. Control the return.',
+            alternatives: ['Lying Leg Curl', 'Nordic Curl', 'Resistance Band Curl']
+          },
+          {
+            id: 'thu_leg_ext', letter: 'B', name: 'Seated Leg Extension',
+            sets: 4, reps: '10-15', weight: '60-70 lbs',
+            notes: 'Pause 1s at full extension. Avoid locking out aggressively.',
+            alternatives: ['Bodyweight Sissy Squat', 'Wall Sit', 'Terminal Knee Extension']
+          }
         ]
       },
       {
         label: 'Superset 3 — Your Moves',
         exercises: [
-          { id: 'thu_leg_press', letter: 'A', name: 'Modified Leg Press (Glute Biased)', sets: 4, reps: '10-12', weight: '140-160 lbs' },
-          { id: 'thu_lat_pull', letter: 'B', name: 'Lat Pulldown', sets: 3, reps: '8-10', weight: '70 lbs' }
+          {
+            id: 'thu_leg_press', letter: 'A', name: 'Modified Leg Press (Glute Biased)',
+            sets: 4, reps: '10-12', weight: '140-160 lbs',
+            notes: 'Feet high and wide on platform. Deep range, drive through heels.',
+            alternatives: ['Sumo Squat', 'Bulgarian Split Squat', 'Hip Thrust']
+          },
+          {
+            id: 'thu_lat_pull', letter: 'B', name: 'Lat Pulldown',
+            sets: 3, reps: '8-10', weight: '70 lbs',
+            notes: 'Pull to upper chest, not behind neck. Slight lean back, chest up.',
+            alternatives: ['Assisted Pull-Up', 'Cable Straight-Arm Pulldown', 'Band Pulldown']
+          }
         ]
       },
       {
         label: 'Superset 4 — Shoulders / Arms',
         exercises: [
-          { id: 'thu_lat_raise', letter: 'A', name: 'Lateral Raise', sets: 3, reps: '12-15', weight: '10-15 lbs' },
-          { id: 'thu_tri_press', letter: 'B', name: 'Triceps Press Machine', sets: 3, reps: '8-10', weight: '70-80 lbs' }
+          {
+            id: 'thu_lat_raise', letter: 'A', name: 'Lateral Raise',
+            sets: 3, reps: '12-15', weight: '10-15 lbs',
+            notes: 'Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.',
+            alternatives: ['Cable Lateral Raise', 'Resistance Band Lateral Raise', 'Machine Lateral Raise']
+          },
+          {
+            id: 'thu_tri_press', letter: 'B', name: 'Triceps Press Machine',
+            sets: 3, reps: '8-10', weight: '70-80 lbs',
+            notes: 'Lock elbows in at sides. Full extension, controlled return.',
+            alternatives: ['Cable Pushdown', 'Dip Machine', 'Overhead Tricep Extension']
+          }
         ]
       }
     ]
@@ -51,23 +91,58 @@ const workouts = [
       {
         label: 'Superset 1 — Pull / Shoulders',
         exercises: [
-          { id: 'sat_row', letter: 'A', name: 'Supported Single-Arm Row', sets: 3, reps: '8-10', weight: '30 lbs' },
-          { id: 'sat_arnold_press', letter: 'B', name: 'Arnold Press', sets: 3, reps: '8-10', weight: '25-30 lbs' }
+          {
+            id: 'sat_row', letter: 'A', name: 'Supported Single-Arm Row',
+            sets: 3, reps: '8-10', weight: '30 lbs',
+            notes: 'Brace on bench, full stretch at bottom. Row to hip, not shoulder.',
+            alternatives: ['Seated Cable Row', 'Machine Row', 'TRX Row']
+          },
+          {
+            id: 'sat_arnold_press', letter: 'B', name: 'Arnold Press',
+            sets: 3, reps: '8-10', weight: '25-30 lbs',
+            notes: 'Rotate palms outward as you press. Controlled rotation both ways.',
+            alternatives: ['Dumbbell Shoulder Press', 'Machine Shoulder Press', 'Landmine Press']
+          }
         ]
       },
       {
         label: 'Superset 2 — Legs',
         exercises: [
-          { id: 'sat_leg_press', letter: 'A', name: 'Leg Press', sets: 4, reps: '10-12', weight: '140-160 lbs' },
-          { id: 'sat_leg_curl', letter: 'B', name: 'Seated Leg Curl', sets: 3, reps: '10-12', weight: '60 lbs' }
+          {
+            id: 'sat_leg_press', letter: 'A', name: 'Leg Press',
+            sets: 4, reps: '10-12', weight: '140-160 lbs',
+            notes: 'Standard foot placement. Knees track over toes, lower to 90°.',
+            alternatives: ['Hack Squat', 'Goblet Squat', 'Smith Machine Squat']
+          },
+          {
+            id: 'sat_leg_curl', letter: 'B', name: 'Seated Leg Curl',
+            sets: 3, reps: '10-12', weight: '60 lbs',
+            notes: 'Full ROM — extend fully, curl to 90°+. Control the return.',
+            alternatives: ['Lying Leg Curl', 'Nordic Curl', 'Resistance Band Curl']
+          }
         ]
       },
       {
         label: 'Superset 3 — Arms / Shoulders',
         exercises: [
-          { id: 'sat_lat_raise', letter: 'A', name: 'Lateral Raise', sets: 3, reps: '12-15', weight: '10-15 lbs' },
-          { id: 'sat_tri_press', letter: 'B', name: 'Triceps Press Machine', sets: 3, reps: '8-10', weight: '70-80 lbs' },
-          { id: 'sat_hammer', letter: 'C', name: 'Hammer Curl', sets: 3, reps: '10-12', weight: '15 lbs' }
+          {
+            id: 'sat_lat_raise', letter: 'A', name: 'Lateral Raise',
+            sets: 3, reps: '12-15', weight: '10-15 lbs',
+            notes: 'Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.',
+            alternatives: ['Cable Lateral Raise', 'Resistance Band Lateral Raise', 'Machine Lateral Raise']
+          },
+          {
+            id: 'sat_tri_press', letter: 'B', name: 'Triceps Press Machine',
+            sets: 3, reps: '8-10', weight: '70-80 lbs',
+            notes: 'Lock elbows in at sides. Full extension, controlled return.',
+            alternatives: ['Cable Pushdown', 'Dip Machine', 'Overhead Tricep Extension']
+          },
+          {
+            id: 'sat_hammer', letter: 'C', name: 'Hammer Curl',
+            sets: 3, reps: '10-12', weight: '15 lbs',
+            notes: 'Neutral grip throughout. Curl to shoulder, lower with control. No swinging.',
+            alternatives: ['Cable Hammer Curl', 'Rope Curl', 'Cross-Body Hammer Curl']
+          }
         ]
       }
     ]
@@ -83,29 +158,69 @@ const workouts = [
       {
         label: 'Superset 1 — Pull / Push',
         exercises: [
-          { id: 'mon_row', letter: 'A', name: 'Supported Single-Arm Row', sets: 3, reps: '8-10', weight: '30 lbs' },
-          { id: 'mon_idbp', letter: 'B', name: 'Incline Dumbbell Bench Press', sets: 3, reps: '8-12', weight: '22.5-25 lbs' }
+          {
+            id: 'mon_row', letter: 'A', name: 'Supported Single-Arm Row',
+            sets: 3, reps: '8-10', weight: '30 lbs',
+            notes: 'Brace on bench, full stretch at bottom. Row to hip, not shoulder.',
+            alternatives: ['Seated Cable Row', 'Machine Row', 'TRX Row']
+          },
+          {
+            id: 'mon_idbp', letter: 'B', name: 'Incline Dumbbell Bench Press',
+            sets: 3, reps: '8-12', weight: '22.5-25 lbs',
+            notes: '30–45° incline. Lower to upper chest. Full press, slight arch.',
+            alternatives: ['Incline Barbell Press', 'Incline Cable Fly', 'Smith Machine Incline']
+          }
         ]
       },
       {
         label: 'Superset 2 — Legs',
         exercises: [
-          { id: 'mon_leg_press', letter: 'A', name: 'Leg Press', sets: 4, reps: '8-12', weight: '140-160 lbs' },
-          { id: 'mon_leg_curl', letter: 'B', name: 'Seated Leg Curl', sets: 3, reps: '10-12', weight: '60 lbs' }
+          {
+            id: 'mon_leg_press', letter: 'A', name: 'Leg Press',
+            sets: 4, reps: '8-12', weight: '140-160 lbs',
+            notes: 'Standard foot placement. Knees track over toes, lower to 90°.',
+            alternatives: ['Hack Squat', 'Goblet Squat', 'Smith Machine Squat']
+          },
+          {
+            id: 'mon_leg_curl', letter: 'B', name: 'Seated Leg Curl',
+            sets: 3, reps: '10-12', weight: '60 lbs',
+            notes: 'Full ROM — extend fully, curl to 90°+. Control the return.',
+            alternatives: ['Lying Leg Curl', 'Nordic Curl', 'Resistance Band Curl']
+          }
         ]
       },
       {
         label: 'Superset 3 — Arms',
         exercises: [
-          { id: 'mon_skull', letter: 'A', name: 'Skull Crushers', sets: 3, reps: '10-12', weight: '15 lbs' },
-          { id: 'mon_curl', letter: 'B', name: 'Barbell Curl', sets: 3, reps: '8-12', weight: '40-50 lbs' }
+          {
+            id: 'mon_skull', letter: 'A', name: 'Skull Crushers',
+            sets: 3, reps: '10-12', weight: '15 lbs',
+            notes: 'Keep upper arms vertical. Lower to forehead/crown, full extension up.',
+            alternatives: ['Cable Overhead Extension', 'Dumbbell Overhead Extension', 'Tricep Kickback']
+          },
+          {
+            id: 'mon_curl', letter: 'B', name: 'Barbell Curl',
+            sets: 3, reps: '8-12', weight: '40-50 lbs',
+            notes: 'Elbows pinned at sides. Supinate at top, full hang at bottom.',
+            alternatives: ['EZ-Bar Curl', 'Dumbbell Curl', 'Cable Curl']
+          }
         ]
       },
       {
         label: 'Superset 4 — Shoulders',
         exercises: [
-          { id: 'mon_ohp', letter: 'A', name: 'Overhead Press', sets: 3, reps: '6-8', weight: '20-25 lbs' },
-          { id: 'mon_lat_raise', letter: 'B', name: 'Lateral Raise', sets: 3, reps: '12-15', weight: '10-15 lbs' }
+          {
+            id: 'mon_ohp', letter: 'A', name: 'Overhead Press',
+            sets: 3, reps: '6-8', weight: '20-25 lbs',
+            notes: 'Press directly overhead — slight forward lean is fine. Lock out at top.',
+            alternatives: ['Seated Dumbbell Press', 'Machine Shoulder Press', 'Landmine Press']
+          },
+          {
+            id: 'mon_lat_raise', letter: 'B', name: 'Lateral Raise',
+            sets: 3, reps: '12-15', weight: '10-15 lbs',
+            notes: 'Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.',
+            alternatives: ['Cable Lateral Raise', 'Resistance Band Lateral Raise', 'Machine Lateral Raise']
+          }
         ]
       }
     ]

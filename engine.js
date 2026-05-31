@@ -91,7 +91,7 @@ const query = {
 
   // ── Derived metrics (NEVER persisted) ──
 
-  // Volume for a set array: Σ(w × r) — skips null values
+  // Volume for a set array: Σ(w × r) — skips null/failed
   setVolume(sets) {
     return sets.reduce((sum, s) => {
       if (s.w !== null && s.r !== null && s.s !== 'failed') {
@@ -121,15 +121,61 @@ const query = {
 };
 
 // ==========================================
+// ─── RESOLUTION HELPERS ───
+// ==========================================
+
+/**
+ * Parse a range string like "22.5-25" or "6-8" and return the lower bound.
+ * If the value is already a plain number string, returns that number.
+ * If parsing fails, returns null.
+ */
+function parseLowerBound(str) {
+  if (str === null || str === undefined) return null;
+  const s = String(str).replace(/\s*(lbs?|lb)\s*/gi, '').trim();
+  // Range: "22.5-25", "6-8", "10-15"
+  const rangeMatch = s.match(/^([\d.]+)\s*[-–]\s*([\d.]+)$/);
+  if (rangeMatch) return parseFloat(rangeMatch[1]);
+  // Plain number
+  const plain = parseFloat(s);
+  return isNaN(plain) ? null : plain;
+}
+
+/**
+ * Resolve weight for a set log:
+ *  1. Use user-supplied value if provided (non-null, non-NaN)
+ *  2. Fall back to workout definition weight
+ *  3. If fallback is a range, pick lower bound
+ * Always returns a number or null (should never be null after resolution).
+ */
+function resolveWeight(userValue, exId) {
+  if (userValue !== null && userValue !== undefined && !isNaN(userValue)) {
+    return userValue;
+  }
+  const ex = EXERCISE_INDEX[exId];
+  if (!ex || !ex.weight) return null;
+  return parseLowerBound(ex.weight);
+}
+
+/**
+ * Resolve reps for a set log — same logic as resolveWeight.
+ */
+function resolveReps(userValue, exId) {
+  if (userValue !== null && userValue !== undefined && !isNaN(userValue)) {
+    return userValue;
+  }
+  const ex = EXERCISE_INDEX[exId];
+  if (!ex || !ex.reps) return null;
+  return parseLowerBound(ex.reps);
+}
+
+// ==========================================
 // ─── ACTIONS / REDUCER ───
 // ==========================================
 
-// Single atomic action: marks a set done AND logs w/r in one transition.
-// Replaces the old LOG_SET + TOGGLE_SET coupling bug.
 const ALLOWED_ACTIONS = {
   SET_ACTIVE_SESSION:  ['sessionId'],
-  TOGGLE_SET:          ['exId', 'idx'],          // tap: cycle status only
-  LOG_AND_MARK_DONE:   ['exId', 'idx', 'weight', 'reps'], // long-press modal: atomic
+  TOGGLE_SET:          ['exId', 'idx'],
+  LOG_AND_MARK_DONE:   ['exId', 'idx', 'weight', 'reps'],
   RESET_SESSION:       [],
   IMPORT_STATE:        ['data']
 };
@@ -171,13 +217,19 @@ function reducer(currentState, action) {
       };
     }
 
-    // Atomic: write w+r AND set status to 'done' in one transition.
-    // No secondary action needed — fixes the double-dispatch bug.
+    // Atomic: resolve weight/reps to numeric values at dispatch time, then write.
+    // Blank inputs fall back to workout definition values (lower bound if range).
+    // Guarantees all stored sets contain only numbers — never strings, ranges, or null.
     case 'LOG_AND_MARK_DONE': {
-      const { exId, idx, weight, reps } = payload;
+      const { exId, idx } = payload;
+
+      // Resolution happens HERE — the single authoritative point.
+      const resolvedWeight = resolveWeight(payload.weight, exId);
+      const resolvedReps   = resolveReps(payload.reps, exId);
+
       const sets = [...(currentState.exercises[exId] || [])];
       const existing = sets[idx] || makeSet();
-      sets[idx] = { ...existing, s: 'done', w: weight, r: reps };
+      sets[idx] = { ...existing, s: 'done', w: resolvedWeight, r: resolvedReps };
       return {
         ...currentState,
         exercises: { ...currentState.exercises, [exId]: sets }
@@ -185,7 +237,6 @@ function reducer(currentState, action) {
     }
 
     case 'RESET_SESSION': {
-      // Clear current working sets; preserve history.
       return {
         ...currentState,
         exercises: makeDefaultExercises()
@@ -205,19 +256,14 @@ function reducer(currentState, action) {
 // ─── SIDE-EFFECT LAYER (history snapshots) ───
 // ==========================================
 
-// Called after every reducer transition.
-// If a session just became complete, snapshot it into history.
-// History entries are IMMUTABLE once written — we never mutate past entries.
 function applyCompletionSideEffect(prevState, nextState) {
   const sessionId = nextState.activeSessionId;
   const wasComplete = query.isSessionComplete(prevState, sessionId);
   const isComplete  = query.isSessionComplete(nextState, sessionId);
 
-  // No change in completion status → nothing to do
   if (wasComplete === isComplete) return nextState;
 
   if (isComplete) {
-    // Take a deep snapshot of current working state for this session's exercises
     const session = workouts.find(s => s.id === sessionId);
     const exerciseSnapshot = {};
     session.blocks.flatMap(b => b.exercises).forEach(ex => {
@@ -230,15 +276,12 @@ function applyCompletionSideEffect(prevState, nextState) {
       exercises: exerciseSnapshot
     };
 
-    // Append and keep sorted (should already be sorted, but enforce it)
     const history = [...(nextState.history || []), entry]
       .sort((a, b) => a.timestamp - b.timestamp);
 
     return { ...nextState, history };
   }
 
-  // If session became incomplete (user toggled something back), don't touch history.
-  // The existing snapshot stays as ground truth of what was achieved.
   return nextState;
 }
 
@@ -246,14 +289,12 @@ function applyCompletionSideEffect(prevState, nextState) {
 // ─── STATE COMMIT (the single dispatch path) ───
 // ==========================================
 
-// Debounce guard for rapid taps on the same dot
 let lastTap = { key: '', ts: 0 };
 
 function dispatch(type, payload = {}) {
   try {
     validateAction(type, payload);
 
-    // Debounce identical rapid taps (not applicable to LOG_AND_MARK_DONE)
     if (type === 'TOGGLE_SET') {
       const key = `${payload.exId}:${payload.idx}`;
       const now = Date.now();
@@ -274,7 +315,6 @@ function dispatch(type, payload = {}) {
     persist();
     render(state);
 
-    // Timer fires when a set is marked done (either path)
     const isDoneTransition = (() => {
       if (type === 'LOG_AND_MARK_DONE') return true;
       if (type === 'TOGGLE_SET') {
@@ -361,7 +401,6 @@ function loadState() {
   state = createDefaultState();
 }
 
-// ── Migration: handle v3 (strings) and v4 (objects) → v5
 function migrate(raw) {
   if (!raw || typeof raw !== 'object') return createDefaultState();
 
@@ -393,7 +432,6 @@ function migrate(raw) {
   };
 }
 
-// ── Normalize: ensure all declared exercises exist with correct length
 function normalize(appState) {
   const exercises = { ...appState.exercises };
   workouts.forEach(session =>
@@ -413,7 +451,6 @@ function normalize(appState) {
   return { ...appState, exercises, version: STATE_VERSION };
 }
 
-// ── Validate: minimum schema check
 function validate(appState) {
   if (!appState || typeof appState !== 'object') return false;
   if (typeof appState.version !== 'number')       return false;
