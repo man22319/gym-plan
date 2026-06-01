@@ -4,6 +4,7 @@
 
 export const STORAGE_KEY   = 'pf_tracker_v7';
 export const REST_DURATION = 90; // seconds
+export const MAX_REST_DURATION = 300; // 5 minutes — hard cap
 export const STATE_VERSION = 7;
 export const DEV_MODE      = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
 
@@ -33,6 +34,8 @@ export function createDefaultState(workouts) {
     version: STATE_VERSION,
     activeSessionId: workouts[0].id,
     exercises: makeDefaultExercises(workouts),
+    exerciseSubstitutions: {},
+    exerciseOverrides: {},
     history: [],
     sessionStarted: null   // ms timestamp — set when first set is logged
   };

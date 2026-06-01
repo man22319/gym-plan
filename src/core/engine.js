@@ -1,5 +1,5 @@
 import {
-  STORAGE_KEY, REST_DURATION, STATE_VERSION, DEV_MODE,
+  STORAGE_KEY, REST_DURATION, MAX_REST_DURATION, STATE_VERSION, DEV_MODE,
   makeSet, makeDefaultExercises, createDefaultState
 } from '../store/state.js';
 
@@ -140,10 +140,15 @@ export const query = {
   },
 
   // ── A: Progression recommendation ──
-  // Examines the last logged session for exId.
-  // Returns { action: 'increase'|'maintain'|'reduce', suggestedWeight, label } or null.
+  // Examines the last 1–2 logged sessions for exId.
+  // Returns { action: 'increase'|'maintain'|'reduce'|'watch', suggestedWeight, label } or null.
   progressionRecommendation(appState, exId) {
-    const sets = this.lastExerciseSets(appState, exId);
+    const history = this.exerciseHistory(appState, exId, 2);
+    if (!history.length) return null;
+
+    const lastEntry = history[history.length - 1];
+    const prevEntry = history.length >= 2 ? history[history.length - 2] : null;
+    const sets = lastEntry.sets;
     if (!sets || !sets.length) return null;
 
     const ex = EXERCISE_INDEX[exId];
@@ -151,13 +156,15 @@ export const query = {
     if (!doneSets.length) return null;
 
     const failedSets = sets.filter(s => s.s === 'failed');
+    const totalSets = sets.length;
     const repMax = ex?.reps ? (('max' in ex.reps) ? ex.reps.max : (ex.reps.fixed ?? ex.reps.value ?? null)) : null;
     const repMin = ex?.reps ? (('min' in ex.reps) ? ex.reps.min : (ex.reps.fixed ?? ex.reps.value ?? null)) : null;
+    const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
+    const reduction = avgW >= 50 ? 5 : 2.5;
+    const increment = avgW >= 50 ? 5 : 2.5;
 
-    // Any failed sets → reduce
-    if (failedSets.length > 0) {
-      const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
-      const reduction = avgW >= 50 ? 5 : 2.5;
+    // ≥25% failed sets → reduce
+    if (failedSets.length > 0 && (failedSets.length / totalSets) >= 0.25) {
       const suggestedWeight = Math.max(0, +(avgW - reduction).toFixed(1));
       return { action: 'reduce', suggestedWeight, label: `↓ Reduce to ${suggestedWeight} lbs` };
     }
@@ -165,23 +172,31 @@ export const query = {
     // All done sets hit repMax → increase
     const allAtTop = repMax !== null && doneSets.every(s => s.r >= repMax);
     if (allAtTop) {
-      const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
-      const increment = avgW >= 50 ? 5 : 2.5;
       const suggestedWeight = +(avgW + increment).toFixed(1);
       return { action: 'increase', suggestedWeight, label: `✓ Increase to ${suggestedWeight} lbs` };
     }
 
-    // Any set below repMin → reduce
+    // Below rep min: check consecutive sessions
     const anyBelowMin = repMin !== null && doneSets.some(s => s.r < repMin);
     if (anyBelowMin) {
-      const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
-      const reduction = avgW >= 50 ? 5 : 2.5;
-      const suggestedWeight = Math.max(0, +(avgW - reduction).toFixed(1));
-      return { action: 'reduce', suggestedWeight, label: `↓ Reduce to ${suggestedWeight} lbs` };
+      // Check if previous session was also below min
+      let prevAlsoBelowMin = false;
+      if (prevEntry && prevEntry.sets) {
+        const prevDone = prevEntry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+        prevAlsoBelowMin = repMin !== null && prevDone.length > 0 && prevDone.some(s => s.r < repMin);
+      }
+
+      if (prevAlsoBelowMin) {
+        // 2 consecutive sessions below min → reduce
+        const suggestedWeight = Math.max(0, +(avgW - reduction).toFixed(1));
+        return { action: 'reduce', suggestedWeight, label: `↓ Reduce to ${suggestedWeight} lbs` };
+      } else {
+        // Single session below min → watch
+        return { action: 'watch', suggestedWeight: avgW, label: `⚠ Watch — below range` };
+      }
     }
 
     // Within range → maintain
-    const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
     return { action: 'maintain', suggestedWeight: avgW, label: `→ Maintain ${avgW} lbs` };
   },
 
@@ -296,6 +311,117 @@ export const query = {
       }
     }
     return result;
+  },
+
+  sessionAnalytics(appState, sessionId) {
+    const history = this.sessionHistory(appState, sessionId, 2);
+    if (!history.length) return null;
+
+    const lastEntry = history[history.length - 1];
+    const prevEntry = history.length >= 2 ? history[history.length - 2] : null;
+
+    let volume = 0;
+    let totalSets = 0;
+    let completedSets = 0;
+    Object.values(lastEntry.exercises).forEach(sets => {
+      totalSets += sets.length;
+      sets.forEach(s => {
+        if (s.s === 'done' || s.s === 'failed') completedSets++;
+        if (s.s === 'done' && s.w !== null && s.r !== null) {
+          volume += s.w * s.r;
+        }
+      });
+    });
+
+    let prevVolume = 0;
+    let prevTotalSets = 0;
+    let prevCompletedSets = 0;
+    if (prevEntry) {
+      Object.values(prevEntry.exercises).forEach(sets => {
+        prevTotalSets += sets.length;
+        sets.forEach(s => {
+          if (s.s === 'done' || s.s === 'failed') prevCompletedSets++;
+          if (s.s === 'done' && s.w !== null && s.r !== null) {
+            prevVolume += s.w * s.r;
+          }
+        });
+      });
+    }
+
+    const durationMs = lastEntry.startTimestamp ? lastEntry.timestamp - lastEntry.startTimestamp : null;
+    const prs = this.sessionPRsFromEntry(appState, lastEntry);
+
+    return {
+      timestamp: lastEntry.timestamp,
+      volume,
+      prevVolume,
+      totalSets,
+      completedSets,
+      prevTotalSets,
+      prevCompletedSets,
+      durationMs,
+      prs
+    };
+  },
+
+  recoveryDashboard(appState) {
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const sevenDaysAgo = now - 7 * oneDay;
+    const fourteenDaysAgo = now - 14 * oneDay;
+    const thirtyDaysAgo = now - 30 * oneDay;
+
+    const entryVolume = entry => {
+      let vol = 0;
+      Object.values(entry.exercises || {}).forEach(sets => {
+        sets.forEach(s => {
+          if (s.s === 'done' && s.w !== null && s.r !== null) {
+            vol += s.w * s.r;
+          }
+        });
+      });
+      return vol;
+    };
+
+    const entryDuration = entry => {
+      if (entry.startTimestamp && entry.timestamp > entry.startTimestamp) {
+        return entry.timestamp - entry.startTimestamp;
+      }
+      return null;
+    };
+
+    const history = appState.history || [];
+
+    const last7DaysEntries = history.filter(e => e.timestamp >= sevenDaysAgo);
+    const workoutsLast7Days = last7DaysEntries.length;
+
+    const vol7 = last7DaysEntries.reduce((sum, e) => sum + entryVolume(e), 0);
+    const prev7DaysEntries = history.filter(e => e.timestamp >= fourteenDaysAgo && e.timestamp < sevenDaysAgo);
+    const volPrev7 = prev7DaysEntries.reduce((sum, e) => sum + entryVolume(e), 0);
+
+    let volumeTrend = null;
+    if (volPrev7 > 0) {
+      volumeTrend = +(((vol7 - volPrev7) / volPrev7) * 100).toFixed(1);
+    }
+
+    const last30DaysEntries = history.filter(e => e.timestamp >= thirtyDaysAgo);
+    const durations = last30DaysEntries.map(entryDuration).filter(d => d !== null);
+    const avgDurationMs = durations.length ? (durations.reduce((sum, d) => sum + d, 0) / durations.length) : null;
+
+    let daysSinceLastWorkout = null;
+    if (history.length > 0) {
+      const lastWorkoutTs = Math.max(...history.map(e => e.timestamp));
+      daysSinceLastWorkout = +((now - lastWorkoutTs) / oneDay).toFixed(1);
+    }
+
+    return {
+      workoutsLast7Days,
+      volumeLast7Days: vol7,
+      volumePrev7Days: volPrev7,
+      volumeTrend,
+      avgDurationMs,
+      daysSinceLastWorkout
+    };
   }
 };
 
@@ -319,6 +445,25 @@ export function lowerBound(obj) {
   return null;
 }
 
+export function getDisplayName(appState, exId) {
+  const sub = appState?.exerciseSubstitutions?.[exId];
+  if (sub) return sub.name;
+  return EXERCISE_INDEX[exId]?.name ?? exId;
+}
+
+export function getEffectiveExercise(appState, exId) {
+  const base = EXERCISE_INDEX[exId];
+  if (!base) return null;
+  const overrides = appState?.exerciseOverrides?.[exId];
+  if (!overrides) return base;
+
+  const result = { ...base };
+  if (overrides.weight) result.weight = overrides.weight;
+  if (overrides.reps) result.reps = overrides.reps;
+  if (overrides.notes) result.notes = overrides.notes;
+  return result;
+}
+
 /**
  * Resolve weight for a set log:
  *  1. Use user-supplied value if provided (non-null, non-NaN)
@@ -327,8 +472,9 @@ export function lowerBound(obj) {
  */
 export function resolveWeight(userValue, exId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
-  const ex = EXERCISE_INDEX[exId];
-  return ex?.weight ? lowerBound(ex.weight) : null;
+  const overrides = state?.exerciseOverrides?.[exId];
+  const weightObj = overrides?.weight ?? EXERCISE_INDEX[exId]?.weight;
+  return weightObj ? lowerBound(weightObj) : null;
 }
 
 /**
@@ -336,8 +482,9 @@ export function resolveWeight(userValue, exId) {
  */
 export function resolveReps(userValue, exId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
-  const ex = EXERCISE_INDEX[exId];
-  return ex?.reps ? lowerBound(ex.reps) : null;
+  const overrides = state?.exerciseOverrides?.[exId];
+  const repsObj = overrides?.reps ?? EXERCISE_INDEX[exId]?.reps;
+  return repsObj ? lowerBound(repsObj) : null;
 }
 
 // ==========================================
@@ -350,7 +497,11 @@ export const ALLOWED_ACTIONS = {
   LOG_AND_MARK_DONE:   ['exId', 'idx', 'weight', 'reps', 'note'],
   RESET_SESSION:       [],
   IMPORT_STATE:        ['data'],
-  START_SESSION:       []
+  START_SESSION:       [],
+  SUBSTITUTE_EXERCISE: ['exId', 'substitution'],
+  UPDATE_EXERCISE_OVERRIDE: ['exId', 'fields'],
+  IMPORT_TEMPLATE:     ['sessions'],
+  IMPORT_HISTORY:      ['history']
 };
 
 export function validateAction(type, payload) {
@@ -428,12 +579,91 @@ export function reducer(currentState, action) {
       };
     }
 
+    case 'SUBSTITUTE_EXERCISE': {
+      const { exId, substitution } = payload;
+      const exerciseSubstitutions = { ...(currentState.exerciseSubstitutions || {}) };
+      if (substitution === null) {
+        delete exerciseSubstitutions[exId];
+      } else {
+        exerciseSubstitutions[exId] = substitution;
+      }
+      return {
+        ...currentState,
+        exerciseSubstitutions
+      };
+    }
+
+    case 'UPDATE_EXERCISE_OVERRIDE': {
+      const { exId, fields } = payload;
+      const exerciseOverrides = { ...(currentState.exerciseOverrides || {}) };
+      if (fields === null) {
+        delete exerciseOverrides[exId];
+      } else {
+        const current = exerciseOverrides[exId] || {};
+        const merged = { ...current };
+        if (fields.weight === null) delete merged.weight;
+        else if (fields.weight !== undefined) merged.weight = fields.weight;
+        if (fields.reps === null) delete merged.reps;
+        else if (fields.reps !== undefined) merged.reps = fields.reps;
+        if (fields.notes === null) delete merged.notes;
+        else if (fields.notes !== undefined) merged.notes = fields.notes;
+
+        if (Object.keys(merged).length === 0) {
+          delete exerciseOverrides[exId];
+        } else {
+          exerciseOverrides[exId] = merged;
+        }
+      }
+      return {
+        ...currentState,
+        exerciseOverrides
+      };
+    }
+
     case 'RESET_SESSION': {
       return createDefaultState(workouts);
     }
 
     case 'IMPORT_STATE': {
       return payload.data;
+    }
+
+    case 'IMPORT_TEMPLATE': {
+      const { sessions } = payload;
+      initWorkouts(sessions);
+      return normalize({
+        ...currentState,
+        activeSessionId: sessions[0]?.id || currentState.activeSessionId
+      });
+    }
+
+    case 'IMPORT_HISTORY': {
+      const importedHistory = payload.history || [];
+      const existingHistory = currentState.history || [];
+      const merged = [...existingHistory];
+      
+      importedHistory.forEach(importedEntry => {
+        const exists = merged.some(e => {
+          if (importedEntry.entryId && e.entryId) {
+            return e.entryId === importedEntry.entryId;
+          }
+          return e.timestamp === importedEntry.timestamp;
+        });
+        if (!exists) {
+          const entryWithId = {
+            ...importedEntry,
+            entryId: importedEntry.entryId || crypto.randomUUID()
+          };
+          merged.push(entryWithId);
+        }
+      });
+      
+      merged.sort((a, b) => a.timestamp - b.timestamp);
+      
+      return {
+        ...currentState,
+        history: merged
+      };
     }
 
     // Records when the user begins logging the first set of a session.
@@ -472,6 +702,7 @@ export function applyCompletionSideEffect(prevState, nextState) {
     });
 
     const entry = {
+      entryId: crypto.randomUUID(),
       sessionId,
       timestamp: Date.now(),
       startTimestamp: nextState.sessionStarted ?? null,
@@ -589,8 +820,8 @@ export function dispatch(type, payload = {}) {
 
 export function startRestTimer(duration = REST_DURATION) {
   clearInterval(restTimerId);
-  restDuration = duration;
-  restRemaining = duration;
+  restDuration = Math.min(duration, MAX_REST_DURATION);
+  restRemaining = restDuration;
 
   const bar   = document.getElementById('rest-timer-bar');
   const fill  = document.getElementById('rest-timer-fill');
@@ -604,6 +835,7 @@ export function startRestTimer(duration = REST_DURATION) {
   void fill.offsetWidth;
   fill.style.transition = '';
 
+  updateExtendButton();
   startRestTimerLoop();
 }
 
@@ -635,16 +867,19 @@ export function extendRestTimer(amount = 30) {
   const bar = document.getElementById('rest-timer-bar');
   if (!bar || bar.classList.contains('hidden')) return;
 
+  // Already at or above max — no-op
+  if (restRemaining >= MAX_REST_DURATION) return;
+
   const wasFinished = restRemaining <= 0;
   clearInterval(restTimerId);
 
   if (wasFinished) {
-    restRemaining = amount;
-    restDuration = amount;
+    restRemaining = Math.min(amount, MAX_REST_DURATION);
+    restDuration = restRemaining;
     bar.classList.remove('done-state');
   } else {
-    restRemaining += amount;
-    restDuration += amount;
+    restRemaining = Math.min(restRemaining + amount, MAX_REST_DURATION);
+    restDuration = Math.min(restDuration + amount, MAX_REST_DURATION);
   }
 
   const fill  = document.getElementById('rest-timer-fill');
@@ -652,7 +887,30 @@ export function extendRestTimer(amount = 30) {
   if (count) count.textContent = restRemaining;
   if (fill) fill.style.width = Math.max(0, (restRemaining / restDuration) * 100) + '%';
 
+  // Update +30s button state
+  updateExtendButton();
+
   startRestTimerLoop();
+}
+
+export function getRestState() {
+  return {
+    remaining: restRemaining,
+    duration: restDuration,
+    isMaxed: restRemaining >= MAX_REST_DURATION
+  };
+}
+
+function updateExtendButton() {
+  const btn = document.getElementById('rest-timer-extend');
+  if (!btn) return;
+  if (restRemaining >= MAX_REST_DURATION) {
+    btn.classList.add('disabled');
+    btn.textContent = 'MAX';
+  } else {
+    btn.classList.remove('disabled');
+    btn.textContent = '+30s';
+  }
 }
 
 export function skipRestTimer() {
@@ -715,7 +973,10 @@ export function migrate(raw) {
     version:         STATE_VERSION,
     activeSessionId: raw.activeSessionId ?? workouts[0]?.id,
     sessionStarted:  raw.sessionStarted ?? null,
+    exerciseSubstitutions: raw.exerciseSubstitutions ?? {},
+    exerciseOverrides: raw.exerciseOverrides ?? {},
     history:         (raw.history || []).map(entry => ({
+      entryId:        entry.entryId ?? crypto.randomUUID(), // Guarantee entryId exists in history
       sessionId:      entry.sessionId,
       timestamp:      entry.timestamp,
       startTimestamp: entry.startTimestamp ?? null,  // v6→v7: add startTimestamp
@@ -754,7 +1015,13 @@ export function normalize(appState) {
       })
     )
   );
-  return { ...appState, exercises, version: STATE_VERSION };
+  return {
+    ...appState,
+    exercises,
+    exerciseSubstitutions: appState.exerciseSubstitutions ?? {},
+    exerciseOverrides: appState.exerciseOverrides ?? {},
+    version: STATE_VERSION
+  };
 }
 
 export function validate(appState) {
@@ -770,5 +1037,7 @@ export function validate(appState) {
       if (!['', 'done', 'failed'].includes(s.s)) return false;
     }
   }
+  if (appState.exerciseSubstitutions && typeof appState.exerciseSubstitutions !== 'object') return false;
+  if (appState.exerciseOverrides && typeof appState.exerciseOverrides !== 'object') return false;
   return true;
 }

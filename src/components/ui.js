@@ -1,13 +1,16 @@
 import {
   dispatch, state, query, workouts, EXERCISE_INDEX,
   lowerBound, migrate, normalize, validate,
-  startRestTimer, extendRestTimer, skipRestTimer
+  startRestTimer, extendRestTimer, skipRestTimer,
+  getDisplayName, getEffectiveExercise
 } from '../core/engine.js';
 import { makeSet } from '../store/state.js';
 
 // Per-element press timers (purely UI concern — moved from engine).
 // Key format: `${exId}:${setIdx}`
 const pressTimers = new Map();
+const tabPressTimers = new Map();
+let editingExId = null;
 const LONG_PRESS_MS = 480;
 const PROGRAM_START_COMPLETED_WORKOUTS = 22;
 
@@ -206,8 +209,14 @@ function buildCard(ex, appState) {
   const sets      = appState.exercises[ex.id] || [];
   const complete  = query.isExerciseComplete(appState, ex.id);
   const prevSets  = query.lastExerciseSets(appState, ex.id);
-  const wStr      = formatWeight(ex.weight);
-  const detail    = `${ex.sets} × ${formatReps(ex.reps)}${wStr ? `<br>${wStr}` : ''}`;
+  
+  const effEx     = getEffectiveExercise(appState, ex.id);
+  const displayName = getDisplayName(appState, ex.id);
+  const isSubstituted = !!appState?.exerciseSubstitutions?.[ex.id];
+  const isOverridden = !!appState?.exerciseOverrides?.[ex.id];
+  
+  const wStr      = formatWeight(effEx.weight);
+  const detail    = `${effEx.sets} × ${formatReps(effEx.reps)}${wStr ? `<br>${wStr}` : ''}`;
   const prs       = query.currentSetPRs(appState, ex.id);
   const hasPR     = prs.length > 0;
 
@@ -219,16 +228,33 @@ function buildCard(ex, appState) {
     </div>`;
   }
 
+  const revertHtml = isSubstituted
+    ? `<span class="ex-revert-link" data-ex-id="${ex.id}" role="button" aria-label="Revert exercise swap">↩ revert</span>`
+    : '';
+
+  const detailHtml = isOverridden
+    ? `<div class="ex-detail overridden" title="Custom targets active">${detail} <span class="ex-override-indicator">●</span></div>`
+    : `<div class="ex-detail">${detail}</div>`;
+
+  const editBtnHtml = `<button class="ex-edit-btn" data-ex-id="${ex.id}" aria-label="Edit targets" title="Edit targets">✎</button>`;
+  const editPanelHtml = (editingExId === ex.id) ? buildEditPanel(ex, appState) : '';
+
   return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${ex.id}">
-    <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${ex.name}" tabindex="0">
+    <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${displayName}" tabindex="0">
       <div class="ex-letter">${ex.letter}</div>
-      <div class="ex-name">${ex.name}${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}</div>
+      <div class="ex-name">
+        <span class="ex-name-text">${displayName}</span>
+        ${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}
+        ${revertHtml}
+      </div>
       <div class="ex-info-group">
-        <div class="ex-detail">${detail}</div>
+        ${detailHtml}
         <div class="ex-history-hint">TAP FOR HISTORY</div>
       </div>
+      ${editBtnHtml}
     </div>
-    ${buildNotesRow(ex)}
+    ${editPanelHtml}
+    ${buildNotesRow(ex, appState)}
     ${buildProgressionChip(appState, ex)}
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
@@ -238,20 +264,86 @@ function buildCard(ex, appState) {
   </div>`;
 }
 
-// Display-only: notes and alternatives from workout definition.
-// Has no effect on logging, analytics, or calculations.
-function buildNotesRow(ex) {
-  const hasNotes = ex.notes && ex.notes.trim();
-  const hasAlts  = ex.alternatives && ex.alternatives.length;
+function buildEditPanel(ex, appState) {
+  const effEx = getEffectiveExercise(appState, ex.id);
+  
+  let weightVal = '';
+  if (effEx.weight) {
+    if ('value' in effEx.weight) {
+      weightVal = effEx.weight.value;
+    } else {
+      weightVal = effEx.weight.min;
+    }
+  }
+
+  let repMin = '';
+  let repMax = '';
+  if (effEx.reps) {
+    if ('fixed' in effEx.reps) {
+      repMin = effEx.reps.fixed;
+      repMax = effEx.reps.fixed;
+    } else {
+      repMin = effEx.reps.min ?? '';
+      repMax = effEx.reps.max ?? '';
+    }
+  }
+
+  const notesVal = effEx.notes ?? '';
+
+  return `
+    <div class="ex-edit-panel" data-ex-id="${ex.id}">
+      <div class="ex-edit-fields">
+        <div class="ex-edit-field">
+          <label for="edit-weight-${ex.id}">Target Weight</label>
+          <div class="ex-edit-input-wrap">
+            <input type="number" class="ex-edit-input" id="edit-weight-${ex.id}" step="2.5" min="0" value="${weightVal}" placeholder="Prescribed weight" />
+            <span class="ex-edit-unit">lbs</span>
+          </div>
+        </div>
+        <div class="ex-edit-field">
+          <label>Reps (Min / Max)</label>
+          <div class="ex-edit-reps-wrap">
+            <input type="number" class="ex-edit-input" id="edit-repmin-${ex.id}" min="0" value="${repMin}" placeholder="Min" />
+            <span class="ex-edit-reps-dash">—</span>
+            <input type="number" class="ex-edit-input" id="edit-repmax-${ex.id}" min="0" value="${repMax}" placeholder="Max" />
+          </div>
+        </div>
+        <div class="ex-edit-field" style="grid-column: span 2;">
+          <label for="edit-notes-${ex.id}">Exercise Notes</label>
+          <div class="ex-edit-input-wrap">
+            <textarea class="ex-edit-textarea" id="edit-notes-${ex.id}" placeholder="e.g. seat height 4, focus on squeeze" rows="2">${notesVal}</textarea>
+          </div>
+        </div>
+      </div>
+      <div class="ex-edit-actions">
+        <button class="ex-edit-btn-cancel" data-ex-id="${ex.id}">Cancel</button>
+        <button class="ex-edit-btn-save" data-ex-id="${ex.id}">Save</button>
+      </div>
+    </div>
+  `;
+}
+
+function buildNotesRow(ex, appState) {
+  const effEx = getEffectiveExercise(appState, ex.id);
+  const sub = appState?.exerciseSubstitutions?.[ex.id];
+
+  const hasNotes = effEx?.notes && effEx.notes.trim();
+  
+  let alts = ex.alternatives || [];
+  if (sub) {
+    alts = [ex.name, ...alts].filter(a => a !== sub.name);
+  }
+  const hasAlts = alts.length > 0;
+
   if (!hasNotes && !hasAlts) return '';
 
   const notesHtml = hasNotes
-    ? `<span class="ex-notes">${ex.notes}</span>`
+    ? `<span class="ex-notes">${effEx.notes}</span>`
     : '';
 
   const altsHtml = hasAlts
-    ? `<span class="ex-alts-label">ALT:</span> ${ex.alternatives.map(a =>
-        `<span class="ex-alt">${a}</span>`
+    ? `<span class="ex-alts-label">ALT:</span> ${alts.map(a =>
+        `<button class="ex-alt" data-ex-id="${ex.id}" data-alt-name="${a.replace(/"/g, '&quot;')}">${a}</button>`
       ).join('')}`
     : '';
 
@@ -268,6 +360,7 @@ function buildProgressionChip(appState, ex) {
 
   const cls = rec.action === 'increase' ? 'prog-increase'
             : rec.action === 'reduce'   ? 'prog-reduce'
+            : rec.action === 'watch'    ? 'prog-watch'
             : 'prog-maintain';
 
   return `<div class="progression-chip ${cls}">
@@ -463,6 +556,23 @@ function openHistoryModal(exId) {
   });
   const sparklineHtml = buildSparkline(volumes);
 
+  // Exercise volume trend summary
+  let volumeTrendHtml = '';
+  if (volumes.length >= 2) {
+    const first = volumes[0];
+    const last = volumes[volumes.length - 1];
+    if (first > 0) {
+      const pctChange = (((last - first) / first) * 100).toFixed(1);
+      const isUp = last >= first;
+      volumeTrendHtml = `<div style="padding: 0 20px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; color: var(--dim);">
+        Volume: <span style="color: ${isUp ? 'var(--green)' : 'var(--red)'}; font-weight: 500;">${isUp ? '+' : ''}${pctChange}%</span> over ${volumes.length} sessions
+      </div>`;
+    }
+  }
+
+  // Notes history — last 10 notes across all sessions
+  const notesHistoryHtml = buildNotesHistory(history);
+
   const tableHtml = hasHistory ? `
     <div class="hist-table-wrap">
       <table class="hist-table">
@@ -492,8 +602,10 @@ function openHistoryModal(exId) {
       </div>
       ${prHtml}
       ${sparklineHtml}
+      ${volumeTrendHtml}
       ${hasHistory ? `<div class="hist-section-label" style="padding: 0 20px 8px;">SESSION LOG</div>` : ''}
       ${tableHtml}
+      ${notesHistoryHtml}
     </div>`;
 
   document.body.appendChild(overlay);
@@ -506,6 +618,142 @@ function openHistoryModal(exId) {
 
 function closeHistoryModal() {
   if (activeHistoryModal) { activeHistoryModal.remove(); activeHistoryModal = null; }
+}
+
+function buildNotesHistory(history) {
+  const notes = [];
+  history.forEach(entry => {
+    (entry.sets || []).forEach((s, idx) => {
+      if (s.n && s.n.trim()) {
+        notes.push({
+          date: formatDate(entry.timestamp),
+          note: s.n.trim(),
+          setNum: idx + 1
+        });
+      }
+    });
+  });
+
+  if (notes.length === 0) return '';
+
+  const recentNotes = notes.slice(-10);
+
+  const itemsHtml = recentNotes.map(item => `
+    <div class="hist-note-item">
+      <span class="hist-note-date">${item.date} (Set ${item.setNum})</span>
+      <span class="hist-note-text">${item.note}</span>
+    </div>
+  `).join('');
+
+  return `
+    <div class="hist-notes-section">
+      <div class="hist-section-label" style="padding: 0 20px 8px;">RECENT NOTES</div>
+      <div class="hist-notes-list" style="padding: 0 20px 16px; display: flex; flex-direction: column; gap: 6px;">
+        ${itemsHtml}
+      </div>
+    </div>
+  `;
+}
+
+let activeAnalyticsSheet = null;
+
+export function openSessionAnalytics(sessionId) {
+  closeSessionAnalytics();
+
+  const session = workouts.find(s => s.id === sessionId);
+  if (!session) return;
+
+  const data = query.sessionAnalytics(state, sessionId);
+  
+  let contentHtml = '';
+  if (!data) {
+    contentHtml = `<div class="analytics-empty">No completed workouts yet for this day.<br>Complete a session to see analytics!</div>`;
+  } else {
+    const durationStr = data.durationMs ? formatDuration(data.durationMs) : '—';
+    
+    let volumeChangeHtml = '';
+    if (data.prevVolume > 0) {
+      const pctChange = (((data.volume - data.prevVolume) / data.prevVolume) * 100).toFixed(1);
+      const isUp = data.volume >= data.prevVolume;
+      const cls = isUp ? 'delta-up' : 'delta-down';
+      const sign = isUp ? '+' : '';
+      volumeChangeHtml = `<span class="analytics-delta ${cls}">${sign}${pctChange}%</span>`;
+    }
+
+    let setsChangeHtml = '';
+    if (data.prevTotalSets > 0) {
+      const diff = data.completedSets - data.prevCompletedSets;
+      const sign = diff >= 0 ? '+' : '';
+      const cls = diff >= 0 ? 'delta-up' : 'delta-down';
+      setsChangeHtml = `<span class="analytics-delta ${cls}">${sign}${diff} sets</span>`;
+    }
+
+    const prExIds = Object.keys(data.prs);
+    let prHtml = '<div class="analytics-prs-none">No PRs recorded in this session.</div>';
+    if (prExIds.length > 0) {
+      const prItems = prExIds.map(exId => {
+        const ex = EXERCISE_INDEX[exId];
+        const types = data.prs[exId].map(t => t === 'weight' ? 'Heaviest' : t === 'reps' ? 'Most Reps' : 'Best Volume').join(', ');
+        return `<div class="analytics-pr-item">🏆 <strong>${ex?.name ?? exId}</strong> — ${types}</div>`;
+      }).join('');
+      prHtml = `<div class="analytics-pr-list">${prItems}</div>`;
+    }
+
+    contentHtml = `
+      <div class="analytics-stats-grid">
+        <div class="analytics-stat">
+          <div class="analytics-stat-val">${data.volume.toLocaleString()} lbs</div>
+          <div class="analytics-stat-label">Total Volume ${volumeChangeHtml}</div>
+        </div>
+        <div class="analytics-stat">
+          <div class="analytics-stat-val">${durationStr}</div>
+          <div class="analytics-stat-label">Session Duration</div>
+        </div>
+        <div class="analytics-stat">
+          <div class="analytics-stat-val">${data.completedSets}/${data.totalSets}</div>
+          <div class="analytics-stat-label">Sets Completed ${setsChangeHtml}</div>
+        </div>
+        <div class="analytics-stat">
+          <div class="analytics-stat-val">${formatDate(data.timestamp)}</div>
+          <div class="analytics-stat-label">Last Completed</div>
+        </div>
+      </div>
+      <div class="analytics-prs-section">
+        <div class="analytics-section-title">Personal Records Set</div>
+        ${prHtml}
+      </div>
+    `;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'analytics-sheet-overlay';
+  overlay.innerHTML = `
+    <div class="analytics-sheet" role="dialog" aria-modal="true" aria-label="Session Analytics">
+      <div class="analytics-header">
+        <div>
+          <div class="analytics-title">${session.dayLabel} Analytics</div>
+          <div class="analytics-subtitle">${session.sessionLabel} · Historical Trend</div>
+        </div>
+        <button class="analytics-close" id="analytics-close" aria-label="Close">✕</button>
+      </div>
+      <div class="analytics-content">
+        ${contentHtml}
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  activeAnalyticsSheet = overlay;
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSessionAnalytics(); });
+  overlay.querySelector('#analytics-close').addEventListener('click', closeSessionAnalytics);
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') closeSessionAnalytics(); });
+}
+
+export function closeSessionAnalytics() {
+  if (activeAnalyticsSheet) {
+    activeAnalyticsSheet.remove();
+    activeAnalyticsSheet = null;
+  }
 }
 
 // ==========================================
@@ -611,6 +859,86 @@ function closeSessionSummaryModal() {
   if (activeSummaryModal) { activeSummaryModal.remove(); activeSummaryModal = null; }
 }
 
+let activeRecoverySheet = null;
+
+export function openRecoveryDashboard() {
+  closeRecoveryDashboard();
+
+  const data = query.recoveryDashboard(state);
+
+  const durationStr = data.avgDurationMs ? formatDuration(data.avgDurationMs) : '—';
+  
+  let lastWorkoutStr = 'never';
+  if (data.daysSinceLastWorkout !== null) {
+    if (data.daysSinceLastWorkout < 0.1) {
+      lastWorkoutStr = 'today';
+    } else if (data.daysSinceLastWorkout < 1.1) {
+      lastWorkoutStr = 'yesterday';
+    } else {
+      lastWorkoutStr = `${Math.round(data.daysSinceLastWorkout)} days ago`;
+    }
+  }
+
+  let trendHtml = '—';
+  if (data.volumeTrend !== null) {
+    const isUp = data.volumeTrend >= 0;
+    const cls = isUp ? 'delta-up' : 'delta-down';
+    const sign = isUp ? '+' : '';
+    trendHtml = `<span class="recovery-trend ${cls}">${sign}${data.volumeTrend}%</span>`;
+  }
+
+  const contentHtml = `
+    <div class="recovery-stats-grid">
+      <div class="recovery-stat">
+        <div class="recovery-stat-val">${data.workoutsLast7Days}/3</div>
+        <div class="recovery-stat-label">Workouts (Last 7d)</div>
+      </div>
+      <div class="recovery-stat">
+        <div class="recovery-stat-val">${trendHtml}</div>
+        <div class="recovery-stat-label">Volume Trend (7d)</div>
+      </div>
+      <div class="recovery-stat">
+        <div class="recovery-stat-val">${durationStr}</div>
+        <div class="recovery-stat-label">Avg Duration (30d)</div>
+      </div>
+      <div class="recovery-stat">
+        <div class="recovery-stat-val" style="font-size: 1.1rem; line-height: 1.6;">${lastWorkoutStr}</div>
+        <div class="recovery-stat-label">Last Session</div>
+      </div>
+    </div>
+  `;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'recovery-sheet-overlay';
+  overlay.innerHTML = `
+    <div class="recovery-sheet" role="dialog" aria-modal="true" aria-label="Recovery Dashboard">
+      <div class="recovery-header">
+        <div>
+          <div class="recovery-title">Recovery Dashboard</div>
+          <div class="recovery-subtitle">Rolling 7-Day &amp; 30-Day Training Metrics</div>
+        </div>
+        <button class="recovery-close" id="recovery-close" aria-label="Close">✕</button>
+      </div>
+      <div class="recovery-content">
+        ${contentHtml}
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  activeRecoverySheet = overlay;
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeRecoveryDashboard(); });
+  overlay.querySelector('#recovery-close').addEventListener('click', closeRecoveryDashboard);
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') closeRecoveryDashboard(); });
+}
+
+export function closeRecoveryDashboard() {
+  if (activeRecoverySheet) {
+    activeRecoverySheet.remove();
+    activeRecoverySheet = null;
+  }
+}
+
 // ==========================================
 // ─── LOG MODAL ───
 // ==========================================
@@ -619,6 +947,7 @@ let activeModal = null;
 
 function openLogModal(exId, setIdx) {
   closeLogModal();
+  const savedScrollY = window.scrollY;
 
   const ex       = EXERCISE_INDEX[exId];
   const setObj   = (state.exercises[exId] || [])[setIdx] || makeSet();
@@ -680,7 +1009,7 @@ function openLogModal(exId, setIdx) {
     </div>`;
 
   document.body.appendChild(overlay);
-  activeModal = { el: overlay, exId, setIdx };
+  activeModal = { el: overlay, exId, setIdx, scrollY: savedScrollY };
 
   const weightInput = overlay.querySelector('#log-weight');
   const repsInput   = overlay.querySelector('#log-reps');
@@ -688,20 +1017,36 @@ function openLogModal(exId, setIdx) {
 
   setTimeout(() => weightInput?.focus(), 60);
 
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeLogModal(); });
-  overlay.querySelector('#log-cancel').addEventListener('click', closeLogModal);
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) {
+      const restoreY = activeModal?.scrollY ?? 0;
+      closeLogModal();
+      requestAnimationFrame(() => window.scrollTo(0, restoreY));
+    }
+  });
+  overlay.querySelector('#log-cancel').addEventListener('click', () => {
+    const restoreY = activeModal?.scrollY ?? 0;
+    closeLogModal();
+    requestAnimationFrame(() => window.scrollTo(0, restoreY));
+  });
 
   overlay.querySelector('#log-save').addEventListener('click', () => {
     const w = weightInput.value !== '' ? parseFloat(weightInput.value) : null;
     const r = repsInput.value   !== '' ? parseInt(repsInput.value, 10) : null;
     const n = noteInput.value.trim();
+    const restoreY = activeModal?.scrollY ?? 0;
     closeLogModal();
     dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r, note: n });
+    requestAnimationFrame(() => window.scrollTo(0, restoreY));
   });
 
   overlay.addEventListener('keydown', e => {
-    if (e.key === 'Enter')  overlay.querySelector('#log-save').click();
-    if (e.key === 'Escape') closeLogModal();
+    if (e.key === 'Enter') overlay.querySelector('#log-save').click();
+    if (e.key === 'Escape') {
+      const restoreY = activeModal?.scrollY ?? 0;
+      closeLogModal();
+      requestAnimationFrame(() => window.scrollTo(0, restoreY));
+    }
   });
 }
 
@@ -739,11 +1084,70 @@ function commitPress(exId, idx) {
   }
 }
 
+function startTabPress(sessionId) {
+  const key = `tab:${sessionId}`;
+  if (tabPressTimers.has(key)) clearTimeout(tabPressTimers.get(key));
+  tabPressTimers.set(key, setTimeout(() => {
+    tabPressTimers.delete(key);
+    openSessionAnalytics(sessionId);
+  }, LONG_PRESS_MS));
+}
+
+function cancelTabPress(key) {
+  if (tabPressTimers.has(key)) {
+    clearTimeout(tabPressTimers.get(key));
+    tabPressTimers.delete(key);
+    return true;
+  }
+  return false;
+}
+
+function commitTabPress(sessionId) {
+  const key = `tab:${sessionId}`;
+  const wasPending = cancelTabPress(key);
+  if (wasPending) {
+    dispatch('SET_ACTIVE_SESSION', { sessionId });
+  }
+}
+
+
 // ==========================================
 // ─── UTILITY ACTIONS ───
 // ==========================================
 
-function exportState() {
+function exportTemplate() {
+  try {
+    const template = { version: 1, sessions: workouts };
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), {
+      href: url,
+      download: `gym-template-${new Date().toISOString().slice(0,10)}.json`
+    });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) { alert('Export template failed: ' + e.message); }
+}
+
+function exportHistory() {
+  try {
+    const hist = { version: 1, history: state.history };
+    const blob = new Blob([JSON.stringify(hist, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), {
+      href: url,
+      download: `gym-history-${new Date().toISOString().slice(0,10)}.json`
+    });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) { alert('Export history failed: ' + e.message); }
+}
+
+function exportBackup() {
   try {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
@@ -755,10 +1159,10 @@ function exportState() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  } catch (e) { alert('Export failed: ' + e.message); }
+  } catch (e) { alert('Export backup failed: ' + e.message); }
 }
 
-function importState() {
+function importTemplate() {
   const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json' });
   input.onchange = e => {
     const file = e.target.files[0];
@@ -766,7 +1170,62 @@ function importState() {
     const reader = new FileReader();
     reader.onload = evt => {
       try {
-        const parsed   = JSON.parse(evt.target.result);
+        const parsed = JSON.parse(evt.target.result);
+        if (parsed.history && !parsed.sessions) {
+          throw new Error('This looks like a history file, not a template.');
+        }
+        if (!parsed.sessions || !Array.isArray(parsed.sessions)) {
+          throw new Error('Missing "sessions" array in template schema.');
+        }
+        dispatch('IMPORT_TEMPLATE', { sessions: parsed.sessions });
+      } catch (err) { alert('Import failed: ' + err.message); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function importHistory() {
+  const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json' });
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        const parsed = JSON.parse(evt.target.result);
+        if (parsed.sessions) {
+          throw new Error('This looks like a template file, not a history file.');
+        }
+        if (parsed.exercises && parsed.activeSessionId) {
+          throw new Error('This looks like a full backup file, not a history file. Use "Import Backup" instead.');
+        }
+        if (!parsed.history || !Array.isArray(parsed.history)) {
+          throw new Error('Missing "history" array in history schema.');
+        }
+        dispatch('IMPORT_HISTORY', { history: parsed.history });
+      } catch (err) { alert('Import failed: ' + err.message); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function importBackup() {
+  const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json' });
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try {
+        const parsed = JSON.parse(evt.target.result);
+        if (parsed.sessions && !parsed.exercises) {
+          throw new Error('This looks like a template file. Use "Import Template" instead.');
+        }
+        if (parsed.history && !parsed.exercises) {
+          throw new Error('This looks like a history file. Use "Import History" instead.');
+        }
         const migrated = migrate(parsed);
         const normal   = normalize(migrated);
         if (!validate(normal)) throw new Error('Schema mismatch');
@@ -824,31 +1283,42 @@ function copyWorkout(btn) {
 export function setupEvents() {
   document.addEventListener('pointerdown', e => {
     const dot = e.target.closest('.set-dot');
+    const tab = e.target.closest('.tab');
     if (dot) {
       const exId = dot.dataset.exId;
       const idx  = parseInt(dot.dataset.setIdx, 10);
       startPress(exId, idx);
+    } else if (tab) {
+      const sessionId = tab.dataset.sessionId;
+      startTabPress(sessionId);
     }
   });
 
   document.addEventListener('pointerup', e => {
     const dot = e.target.closest('.set-dot');
+    const tab = e.target.closest('.tab');
     if (dot) {
       const exId = dot.dataset.exId;
       const idx  = parseInt(dot.dataset.setIdx, 10);
       commitPress(exId, idx);
+    } else if (tab) {
+      const sessionId = tab.dataset.sessionId;
+      commitTabPress(sessionId);
     } else {
       for (const [key] of pressTimers) cancelPress(key);
+      for (const [key] of tabPressTimers) cancelTabPress(key);
     }
   });
 
   document.addEventListener('pointercancel', () => {
     for (const [key] of pressTimers) cancelPress(key);
+    for (const [key] of tabPressTimers) cancelTabPress(key);
   });
 
   document.addEventListener('pointermove', e => {
     if (e.movementX ** 2 + e.movementY ** 2 > 16) {
       for (const [key] of pressTimers) cancelPress(key);
+      for (const [key] of tabPressTimers) cancelTabPress(key);
     }
   });
 
@@ -862,21 +1332,100 @@ export function setupEvents() {
       return;
     }
 
-    const tab = e.target.closest('.tab');
-    if (tab?.dataset.sessionId) {
-      dispatch('SET_ACTIVE_SESSION', { sessionId: tab.dataset.sessionId });
+    const editBtn = e.target.closest('.ex-edit-btn');
+    if (editBtn) {
+      const exId = editBtn.dataset.exId;
+      editingExId = (editingExId === exId) ? null : exId;
+      render(state);
+      return;
+    }
+
+    const cancelBtn = e.target.closest('.ex-edit-btn-cancel');
+    if (cancelBtn) {
+      editingExId = null;
+      render(state);
+      return;
+    }
+
+    const saveBtn = e.target.closest('.ex-edit-btn-save');
+    if (saveBtn) {
+      const exId = saveBtn.dataset.exId;
+      const weightInput = document.getElementById(`edit-weight-${exId}`);
+      const repminInput = document.getElementById(`edit-repmin-${exId}`);
+      const repmaxInput = document.getElementById(`edit-repmax-${exId}`);
+      const notesInput  = document.getElementById(`edit-notes-${exId}`);
+
+      const wVal = weightInput?.value.trim() ?? '';
+      const rMin = repminInput?.value.trim() ?? '';
+      const rMax = repmaxInput?.value.trim() ?? '';
+      const notes = notesInput?.value.trim() ?? '';
+
+      const weight = wVal !== '' ? { value: parseFloat(wVal), unit: 'lbs' } : null;
+      
+      let reps = null;
+      if (rMin !== '' || rMax !== '') {
+        const min = rMin !== '' ? parseInt(rMin, 10) : 0;
+        const max = rMax !== '' ? parseInt(rMax, 10) : min;
+        if (min === max) {
+          reps = { fixed: min };
+        } else {
+          reps = { min, max };
+        }
+      }
+
+      dispatch('UPDATE_EXERCISE_OVERRIDE', {
+        exId,
+        fields: {
+          weight,
+          reps,
+          notes: notes !== '' ? notes : null
+        }
+      });
+      editingExId = null;
+      return;
+    }
+
+    const altBtn = e.target.closest('.ex-alt');
+    if (altBtn) {
+      const exId = altBtn.dataset.exId;
+      const altName = altBtn.dataset.altName;
+      const displayName = getDisplayName(state, exId);
+      if (confirm(`Replace "${displayName}" with "${altName}"?`)) {
+        const subId = 'sub_' + altName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        dispatch('SUBSTITUTE_EXERCISE', {
+          exId,
+          substitution: { id: subId, name: altName }
+        });
+      }
+      return;
+    }
+
+    const revertLink = e.target.closest('.ex-revert-link');
+    if (revertLink) {
+      const exId = revertLink.dataset.exId;
+      if (confirm(`Revert back to the original exercise?`)) {
+        dispatch('SUBSTITUTE_EXERCISE', {
+          exId,
+          substitution: null
+        });
+      }
       return;
     }
 
     // Exercise header → open history modal (B)
     const exHeader = e.target.closest('.exercise-header[data-ex-id]');
-    if (exHeader && !e.target.closest('.set-dot')) {
+    if (exHeader && !e.target.closest('.set-dot') && !e.target.closest('.ex-edit-btn') && !e.target.closest('.ex-revert-link')) {
       openHistoryModal(exHeader.dataset.exId);
       return;
     }
 
-    if (e.target.closest('#export-btn')) { exportState(); return; }
-    if (e.target.closest('#import-btn')) { importState(); return; }
+    if (e.target.closest('#recovery-btn')) { openRecoveryDashboard(); return; }
+    if (e.target.closest('#import-template-btn')) { importTemplate(); return; }
+    if (e.target.closest('#import-history-btn')) { importHistory(); return; }
+    if (e.target.closest('#import-backup-btn')) { importBackup(); return; }
+    if (e.target.closest('#export-template-btn')) { exportTemplate(); return; }
+    if (e.target.closest('#export-history-btn')) { exportHistory(); return; }
+    if (e.target.closest('#export-backup-btn')) { exportBackup(); return; }
     if (e.target.closest('#copy-btn'))   { copyWorkout(e.target.closest('#copy-btn')); return; }
 
     if (e.target.closest('#reset-btn')) {
@@ -893,7 +1442,7 @@ export function setupEvents() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') {
       const exHeader = e.target.closest('.exercise-header[data-ex-id]');
-      if (exHeader) {
+      if (exHeader && !e.target.closest('.ex-edit-btn') && !e.target.closest('.ex-revert-link')) {
         e.preventDefault();
         openHistoryModal(exHeader.dataset.exId);
       }
