@@ -2,127 +2,149 @@
 
 *A simple workout tracker built for fast, distraction-free use in the gym.*
 
-<img width="1320" height="2297" alt="Planet Fitness Tracker home screen" src="https://github.com/user-attachments/assets/d8985699-46d7-406e-9049-c7d0f789d78e" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/d8985699-46d7-406e-9049-c7d0f789d78e" alt="Planet Fitness Tracker home screen" width="420">
+</p>
 
-<p align="center"><em>Home screen showing today's workout, progress tracking, and quick access to workout controls.</em></p>
+<p align="center"><em>Home screen showing today’s workout, progress tracking, and quick access controls.</em></p>
+
+---
 
 ## What It Does
 
 Planet Fitness Tracker helps you track workouts, rest periods, and progress without needing an account, internet connection, or subscription. Everything is stored locally on your device.
 
-<img width="947" height="875" alt="Workout dashboard" src="https://github.com/user-attachments/assets/0a130e87-b738-4a73-bfc7-b88f4d59703a" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/0a130e87-b738-4a73-bfc7-b88f4d59703a" alt="Workout dashboard" width="460">
+</p>
 
-<p align="center"><em>Main workout dashboard displaying exercise groups, set tracking, and workout progress.</em></p>
+<p align="center"><em>Main dashboard showing workout structure and current session progress.</em></p>
 
 ---
 
 ## Workout Tracking
 
-Workouts are organized into clear sections rather than one long list of exercises. Supersets are grouped together so related exercises stay connected and easy to follow.
+Workouts are organized into structured sections instead of a flat list. Supersets are grouped so related movements stay connected.
 
 You can:
 
 * Track sets, reps, and weights
-* View target rep and weight ranges
-* See exercise notes and coaching tips
-* View alternative exercises when equipment is unavailable
-* Switch between workout days with a single tap
+* View target ranges
+* See exercise notes and coaching cues
+* View alternatives when equipment is unavailable
+* Switch workout days instantly
 
-<img width="947" height="424" alt="Workout day selector" src="https://github.com/user-attachments/assets/83251e9f-6f46-40f2-bba9-44556b4b0a11" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/713f8012-5105-4d31-ad38-55b7ad7ea8ce" alt="Workout day selector" width="380">
+</p>
 
-<p align="center"><em>Quickly switch between workout days without leaving the current session.</em></p>
+<p align="center"><em>Switch between workout days without leaving the session.</em></p>
 
-<img width="947" height="422" alt="Superset grouping" src="https://github.com/user-attachments/assets/399f0454-b8fd-4175-871a-17e9ef8bf414" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/131d24c5-67dc-44ec-87c5-a92b2e3a4351" alt="Workout persistence view" width="380">
+</p>
 
-<p align="center"><em>Exercises are grouped into supersets for easier workout flow and organization.</em></p>
+<p align="center"><em>Workout state persists across sessions and days.</em></p>
 
-<img width="947" height="646" alt="Exercise details" src="https://github.com/user-attachments/assets/4e11b5ff-a4b4-4d47-bc58-de6958ac39f0" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/56a06f5e-90e5-4795-9a0e-ec64a3914bc1" alt="Superset grouping" width="520">
+</p>
 
-<p align="center"><em>Exercise notes, target ranges, and alternative movements are available directly within the workout view.</em></p>
+<p align="center"><em>Exercises grouped into supersets for cleaner workout flow.</em></p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/4e11b5ff-a4b4-4d47-bc58-de6958ac39f0" alt="Exercise details" width="460">
+</p>
+
+<p align="center"><em>Exercise details include notes, targets, and alternatives.</em></p>
 
 ---
 
 ## Logging Sets
 
-To prevent accidental taps while training, exercises are logged using a short press-and-hold action.
+Sets are logged using a press-and-hold gesture to prevent accidental inputs during training.
 
-The app records:
+The app tracks:
 
 * Completed sets
 * Reps performed
 * Weight used
 * Optional notes
 
-You can also tap an exercise to view your previous workout history and compare performance.
+You can also view past performance for any exercise.
 
-<img width="947" height="482" alt="Exercise history modal" src="https://github.com/user-attachments/assets/ded8b03f-85d1-4692-ae7b-1b141aacd3a5" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ded8b03f-85d1-4692-ae7b-1b141aacd3a5" alt="Exercise history modal" width="460">
+</p>
 
-<p align="center"><em>View previous workout performance for any exercise without leaving the current session.</em></p>
+<p align="center"><em>View past performance without leaving the current workout.</em></p>
 
 ---
 
 ## Rest Timer
 
-After completing a set, a rest timer starts automatically.
+A rest timer starts automatically after each set.
 
-Features include:
+Features:
 
-* Visual countdown bar
-* Add 30 seconds instantly
-* Skip the timer when ready
-* Clear indication of remaining rest time
+* Countdown bar
+* +30s quick extension
+* Skip option
+* Clear visual pacing
 
-<img width="489" height="75" alt="Rest timer" src="https://github.com/user-attachments/assets/aba62dc8-fd09-45a5-8f53-8a0d77ad910f" />
+<p align="center">
+    <img width="320" alt="image" src="https://github.com/user-attachments/assets/f0e246cb-0bbd-4e93-83ef-a8cda6aeffeb" />
+</p>
 
-<p align="center"><em>Automatic rest timer with quick controls for extending or skipping rest periods.</em></p>
+<p align="center"><em>Simple rest timer with quick controls.</em></p>
 
 ---
 
 ## Session Summary
 
-The app tracks your workout duration automatically.
+The app tracks total workout duration automatically.
 
-When you finish a workout, a summary screen shows:
+When finished, it shows:
 
-* Total workout time
+* Total time
 * Completed exercises
 * Session progress
 
-<img width="947" height="894" alt="Workout summary" src="https://github.com/user-attachments/assets/3c8a5a7e-c5df-4724-9ae7-6b0d2682b901" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/3c8a5a7e-c5df-4724-9ae7-6b0d2682b901" alt="Workout summary" width="460">
+</p>
 
-<p align="center"><em>Session summary showing workout duration and overall completion statistics.</em></p>
+<p align="center"><em>End-of-workout summary with full session breakdown.</em></p>
 
 ---
 
 ## Backup & Restore
 
-All data is stored directly in your browser. Nothing is sent to a server.
+All data is stored locally. Nothing is uploaded anywhere.
 
 You can:
 
-* Export your data as a JSON backup file
-* Import backups on another device
-* Keep your workout history when moving devices
+* Export workout data as JSON
+* Import it on another device
+* Preserve full history across devices
 
-<img width="613" height="428" alt="Import export tools" src="https://github.com/user-attachments/assets/c61170e0-0db2-4279-882d-9f1bc6681eeb" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c61170e0-0db2-4279-882d-9f1bc6681eeb" alt="Import export tools" width="420">
+</p>
 
-<p align="center"><em>Built-in import and export tools for backing up or transferring workout data.</em></p>
+<p align="center"><em>Backup and restore tools for moving or saving data.</em></p>
 
 ---
 
 ## Extra Tools
 
-Additional utilities include:
-
-* Copy an entire workout as plain text
-* Reset all stored data (with confirmation)
-* Automatic handling of app updates without losing workout history
+* Copy full workout as text
+* Reset all data (with confirmation)
+* Safe updates without data loss
 
 ---
 
 ## Project Structure
-
-The application is split into separate modules to keep the code organized and maintainable.
 
 ```text
 gym-plan/
@@ -140,29 +162,34 @@ gym-plan/
 
 ### File Overview
 
-| File            | Purpose                                             |
-| --------------- | --------------------------------------------------- |
-| `index.html`    | Main application layout and styling                 |
-| `main.js`       | Starts the application and connects all modules     |
-| `engine.js`     | Handles workout logic, timers, and state updates    |
-| `ui.js`         | Renders the interface and handles user interactions |
-| `state.js`      | Manages saved data and application state            |
-| `workouts.json` | Stores workout routines and exercise definitions    |
+| File            | Purpose                       |
+| --------------- | ----------------------------- |
+| `index.html`    | App layout and styles         |
+| `main.js`       | App startup and wiring        |
+| `engine.js`     | Core logic and state handling |
+| `ui.js`         | Rendering and interactions    |
+| `state.js`      | Data storage layer            |
+| `workouts.json` | Workout definitions           |
 
 ---
 
 ## Technical Details
 
-* Built with plain HTML, CSS, and JavaScript
-* No frameworks or external dependencies
-* No build tools required
-* Works offline after loading
-* Easily deployable on GitHub Pages
+* Pure HTML, CSS, and JavaScript
+* No frameworks or build tools
+* Fully offline after load
+* Deployable on GitHub Pages
 
-<img width="1320" height="2297" alt="Mobile view" src="https://github.com/user-attachments/assets/a447acf7-60d9-4dc7-999e-4334ec275579" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/a447acf7-60d9-4dc7-999e-4334ec275579" alt="Mobile view" width="420">
+</p>
 
-<p align="center"><em>Mobile-first interface optimized for use during workouts.</em></p>
+<p align="center"><em>Mobile-first UI optimized for in-gym use.</em></p>
 
-<img width="1897" height="885" alt="Desktop view" src="https://github.com/user-attachments/assets/8cd35b20-ad2b-42c7-9a3d-96f44839fa6e" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/8cd35b20-ad2b-42c7-9a3d-96f44839fa6e" alt="Desktop view" width="650">
+</p>
 
-<p align="center"><em>Desktop layout for editing routines, reviewing history, and managing workout data.</em></p>
+<p align="center"><em>Desktop view for managing and reviewing workouts.</em></p>
+
+---
