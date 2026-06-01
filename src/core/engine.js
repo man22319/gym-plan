@@ -429,11 +429,7 @@ export function reducer(currentState, action) {
     }
 
     case 'RESET_SESSION': {
-      return {
-        ...currentState,
-        exercises: makeDefaultExercises(workouts),
-        sessionStarted: null
-      };
+      return createDefaultState(workouts);
     }
 
     case 'IMPORT_STATE': {

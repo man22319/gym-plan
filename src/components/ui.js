@@ -9,6 +9,7 @@ import { makeSet } from '../store/state.js';
 // Key format: `${exId}:${setIdx}`
 const pressTimers = new Map();
 const LONG_PRESS_MS = 480;
+const PROGRAM_START_COMPLETED_WORKOUTS = 22;
 
 // ==========================================
 // ─── DISPLAY HELPERS ───
@@ -66,6 +67,34 @@ function formatTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+/**
+ * Calculate the current training week and session based on history length (number of completed workouts).
+ * For a 3-workout cycle, the next session is (completedWorkouts % 3) + 1,
+ * and the current week is floor(completedWorkouts / 3) + 1.
+ * This preserves the correct program progression order no matter how many days or weeks are missed.
+ */
+function getTrainingWeekAndSession(appState) {
+  // June 2, 2026 is Week 8 Session 3 (which corresponds to 23 completed workouts).
+  // Since the user has no history data before Week 8, we anchor from June 2, 2026.
+  const anchorDate = new Date('2026-06-02T00:00:00');
+  
+  // Count workouts completed in history on or after the anchor date
+  const completedSinceAnchor = appState?.history
+    ? appState.history.filter(
+        h =>
+          h.type === 'workout' &&
+          h.completed &&
+          h.timestamp >= anchorDate.getTime()
+      ).length
+    : 0;
+  
+  const totalCompleted = PROGRAM_START_COMPLETED_WORKOUTS + completedSinceAnchor;
+  const week = Math.floor(totalCompleted / 3) + 1;
+  const session = (totalCompleted % 3) + 1;
+  
+  return { week, session };
+}
+
 // ==========================================
 // ─── RENDER ───
 // ==========================================
@@ -73,6 +102,13 @@ function formatTime(ts) {
 export function render(appState) {
   const el = document.getElementById('app');
   if (el) el.innerHTML = buildApp(appState);
+
+  // Update the week & session display in the header
+  const { week, session } = getTrainingWeekAndSession(appState);
+  const weekSessionEl = document.getElementById('week-session-display');
+  if (weekSessionEl) {
+    weekSessionEl.textContent = `Week ${week} · Session ${session}`;
+  }
 }
 
 function buildApp(appState) {
@@ -844,7 +880,7 @@ export function setupEvents() {
     if (e.target.closest('#copy-btn'))   { copyWorkout(e.target.closest('#copy-btn')); return; }
 
     if (e.target.closest('#reset-btn')) {
-      if (confirm('Reset current session progress? History is preserved.')) {
+      if (confirm('Reset all tracker data? This will permanently clear all history, current session progress, and imported data.')) {
         skipRestTimer();
         dispatch('RESET_SESSION', {});
         window.scrollTo({ top: 0, behavior: 'smooth' });
