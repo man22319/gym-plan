@@ -12,7 +12,7 @@ const pressTimers = new Map();
 const tabPressTimers = new Map();
 let editingExId = null;
 const LONG_PRESS_MS = 480;
-const PROGRAM_START_COMPLETED_WORKOUTS = 22;
+const PROGRAM_START_COMPLETED_WORKOUTS = 23;
 
 // ==========================================
 // ─── DISPLAY HELPERS ───
