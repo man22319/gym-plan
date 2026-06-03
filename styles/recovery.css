@@ -1,0 +1,112 @@
+/* ══════════════════════════════════════════
+   RECOVERY — recovery dashboard sheet,
+   recovery metrics, cards, indicators
+══════════════════════════════════════════ */
+
+/* ── Recovery Dashboard Sheet ── */
+.recovery-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.recovery-sheet {
+  background: var(--bg2);
+  border: 1px solid var(--border-hi);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 560px;
+  max-height: 82vh;
+  overflow-y: auto;
+  animation: slideUp 0.22s ease;
+  padding-bottom: 36px;
+}
+.recovery-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 24px 20px 16px;
+  position: sticky;
+  top: 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  z-index: 1;
+}
+.recovery-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  letter-spacing: 2px;
+  color: var(--white);
+  text-transform: uppercase;
+}
+.recovery-subtitle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--dim);
+  margin-top: 3px;
+  letter-spacing: 1px;
+}
+.recovery-close {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.75rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+.recovery-close:hover { border-color: var(--white); color: var(--white); }
+.recovery-content {
+  padding: 20px;
+}
+.recovery-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.recovery-stat {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 14px 12px;
+  text-align: center;
+}
+.recovery-stat-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.recovery-stat-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.44rem;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+.recovery-trend {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.recovery-trend.delta-up { color: #66bb6a; }
+.recovery-trend.delta-down { color: #ef5350; }

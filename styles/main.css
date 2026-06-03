@@ -1,0 +1,11 @@
+/* ══════════════════════════════════════════
+   MAIN — Central stylesheet entry point.
+   Imports all modules in dependency order.
+══════════════════════════════════════════ */
+@import "./variables.css";
+@import "./layout.css";
+@import "./exercises.css";
+@import "./modals.css";
+@import "./analytics.css";
+@import "./recovery.css";
+@import "./summary.css";

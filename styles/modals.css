@@ -1,0 +1,327 @@
+/* ══════════════════════════════════════════
+   MODALS — log modal, history modal,
+   overlays, generic modal components
+══════════════════════════════════════════ */
+
+/* ── Log Modal ── */
+.log-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  animation: fadeIn 0.15s ease;
+}
+
+.log-modal {
+  background: var(--bg2);
+  border: 1px solid var(--border-hi);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 28px 24px 36px;
+  width: 100%;
+  max-width: 480px;
+  animation: slideUp 0.2s ease;
+}
+
+.log-modal-title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--white);
+  margin-bottom: 2px;
+}
+.log-modal-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 3px;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+
+.log-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.log-field { display: flex; flex-direction: column; gap: 6px; }
+.log-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.log-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--border-hi);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.log-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--white);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.4rem;
+  padding: 12px 12px;
+  width: 0;
+  min-width: 0;
+}
+.log-input::placeholder { color: var(--dim); }
+.log-unit {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--dim);
+  padding: 0 10px 0 0;
+  white-space: nowrap;
+  letter-spacing: 1px;
+}
+
+.log-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 10px;
+}
+.log-btn {
+  padding: 14px 16px;
+  border-radius: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.12s;
+  border: none;
+}
+.log-btn-cancel {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.log-btn-cancel:hover { border-color: var(--border-hi); color: var(--white); }
+.log-btn-save {
+  background: var(--white);
+  color: #000;
+  font-weight: 500;
+}
+.log-btn-save:hover { background: #e0e0e0; }
+
+/* ── Hint strip ── */
+.log-hint {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.48rem;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 6px 0 0;
+}
+
+/* ── Delta indicators ── */
+.delta-group { display: flex; gap: 4px; align-items: center; margin-left: 2px; }
+.delta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
+  padding: 2px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+.delta-up   { background: rgba(67, 160, 71, 0.15); color: #66bb6a; }
+.delta-down { background: rgba(229, 57, 53, 0.12);  color: #ef5350; }
+
+/* ── Log modal prev hint ── */
+.log-modal-prev { color: var(--blue); font-size: 0.55rem; letter-spacing: 1px; }
+
+/* ── B: Exercise History Modal ── */
+.history-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.history-modal {
+  background: var(--bg2);
+  border: 1px solid var(--border-hi);
+  border-bottom: none;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 560px;
+  max-height: 82vh;
+  overflow-y: auto;
+  animation: slideUp 0.22s ease;
+  padding-bottom: 36px;
+}
+.hist-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 24px 20px 16px;
+  position: sticky;
+  top: 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  z-index: 1;
+}
+.hist-title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--white);
+}
+.hist-subtitle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--dim);
+  margin-top: 3px;
+  letter-spacing: 1px;
+}
+.hist-close {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.75rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.12s;
+}
+.hist-close:hover { border-color: var(--white); color: var(--white); }
+.hist-section-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.44rem;
+  letter-spacing: 2.5px;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.hist-pr-section {
+  padding: 16px 20px 4px;
+}
+.hist-pr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.pr-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.pr-icon { font-size: 1rem; flex-shrink: 0; line-height: 1.3; }
+.pr-item-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.44rem;
+  letter-spacing: 1.5px;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.pr-item-val {
+  font-size: 0.82rem;
+  color: var(--white);
+  margin-top: 2px;
+}
+.pr-item-date {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
+  color: var(--dim);
+  margin-left: 6px;
+}
+
+.hist-table-wrap {
+  overflow-x: auto;
+  padding: 0 20px;
+}
+.hist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  margin-top: 4px;
+}
+.hist-table th {
+  color: var(--dim);
+  letter-spacing: 1.5px;
+  text-align: left;
+  padding: 8px 6px 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.44rem;
+  white-space: nowrap;
+}
+.hist-table td {
+  padding: 9px 6px;
+  border-bottom: 1px solid rgba(46,46,46,0.6);
+  vertical-align: top;
+}
+.hist-table tr:last-child td { border-bottom: none; }
+.hist-date { color: var(--muted); white-space: nowrap; }
+.hist-sets { display: flex; flex-wrap: wrap; gap: 4px; }
+.hist-vol, .hist-1rm { color: var(--muted); white-space: nowrap; }
+.hist-set-done {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--white);
+  white-space: nowrap;
+}
+.hist-set-fail {
+  background: rgba(229,57,53,0.1);
+  border: 1px solid rgba(229,57,53,0.3);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: #ef5350;
+  white-space: nowrap;
+}
+.hist-set-empty { color: var(--dim); }
+.hist-empty {
+  text-align: center;
+  color: var(--dim);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+  padding: 32px 20px;
+  line-height: 1.8;
+}
+
+.hist-notes-section {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 8px;
+}
+.hist-note-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.hist-note-date {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.hist-note-text {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
