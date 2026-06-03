@@ -1,0 +1,127 @@
+/* ══════════════════════════════════════════
+   PLATEAUS — Stagnation warning banner
+   displayed inside the exercise card,
+   beneath the progression chip.
+══════════════════════════════════════════ */
+
+/* ── Shared Banner Shell ── */
+.plateau-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 16px 10px;
+  margin: 0;
+  animation: plateauFadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes plateauFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Left accent border (colour changes per trend) ── */
+.plateau-banner::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+/* ── Flat trend: amber ── */
+.plateau-flat {
+  background: rgba(253, 216, 53, 0.05);
+  border-top: 1px solid rgba(253, 216, 53, 0.12);
+}
+.plateau-flat::before {
+  background: #fdd835;
+}
+
+/* ── Down trend: red-orange ── */
+.plateau-down {
+  background: rgba(239, 83, 80, 0.07);
+  border-top: 1px solid rgba(239, 83, 80, 0.15);
+}
+.plateau-down::before {
+  background: #ef5350;
+}
+
+/* ── Icon pulse ── */
+.plateau-icon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+  animation: plateauPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes plateauPulse {
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  50%       { opacity: 0.65; transform: scale(0.88); }
+}
+
+/* ── Text block ── */
+.plateau-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* Header row: label + trend badge */
+.plateau-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plateau-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.42rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.plateau-flat .plateau-label { color: #fdd835; }
+.plateau-down .plateau-label { color: #ef5350; }
+
+.plateau-trend-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.45rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.plateau-flat .plateau-trend-badge {
+  background: rgba(253, 216, 53, 0.12);
+  color: #fdd835;
+  border: 1px solid rgba(253, 216, 53, 0.3);
+}
+.plateau-down .plateau-trend-badge {
+  background: rgba(239, 83, 80, 0.12);
+  color: #ef5350;
+  border: 1px solid rgba(239, 83, 80, 0.3);
+}
+
+/* Spark line of E1RM values */
+.plateau-metrics {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.52rem;
+  color: var(--dim);
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+}
+.plateau-flat  .plateau-metrics { color: rgba(253, 216, 53, 0.5); }
+.plateau-down  .plateau-metrics { color: rgba(239, 83, 80, 0.5); }
+
+/* Intervention suggestion text */
+.plateau-intervention {
+  font-size: 0.65rem;
+  line-height: 1.45;
+  font-weight: 400;
+}
+.plateau-flat .plateau-intervention { color: rgba(253, 216, 53, 0.85); }
+.plateau-down .plateau-intervention { color: rgba(239, 83, 80, 0.9);  }
