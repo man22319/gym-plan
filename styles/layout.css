@@ -417,6 +417,32 @@ header {
   margin-top: 6px;
   text-transform: uppercase;
 }
+.finish-workout-btn {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  background: var(--white);
+  color: var(--bg);
+  border: 1px solid var(--white);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.finish-workout-btn:hover {
+  background: transparent;
+  color: var(--white);
+}
+.finish-workout-btn:active {
+  transform: scale(0.98);
+}
 
 /* ── Keyframe animations (shared) ── */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

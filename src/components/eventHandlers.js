@@ -67,6 +67,13 @@ export function setupEvents() {
   });
 
   document.addEventListener('click', e => {
+    const finishBtn = e.target.closest('.finish-workout-btn');
+    if (finishBtn) {
+      const sessionId = finishBtn.dataset.sessionId;
+      dispatch('FINISH_WORKOUT', { sessionId });
+      return;
+    }
+
     if (e.target.closest('#rest-timer-skip')) {
       skipRestTimer();
       return;

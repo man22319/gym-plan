@@ -15,7 +15,8 @@ export const ALLOWED_ACTIONS = {
   SUBSTITUTE_EXERCISE: ['exId', 'substitution'],
   UPDATE_EXERCISE_OVERRIDE: ['exId', 'fields'],
   IMPORT_TEMPLATE:     ['sessions'],
-  IMPORT_HISTORY:      ['history']
+  IMPORT_HISTORY:      ['history'],
+  FINISH_WORKOUT:      ['sessionId']
 };
 
 export function validateAction(type, payload) {
@@ -177,45 +178,64 @@ export function reducer(currentState, action) {
       return { ...currentState, sessionStarted: Date.now() };
     }
 
+    case 'FINISH_WORKOUT': {
+      const { sessionId } = payload;
+      const session = workouts.find(s => s.id === sessionId);
+      if (!session) return currentState;
+
+      const exerciseSnapshot = {};
+      session.blocks.flatMap(b => b.exercises).forEach(ex => {
+        const sets = currentState.exercises[ex.id] || [];
+        exerciseSnapshot[ex.id] = sets.map(s => ({
+          ...s,
+          w: s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, ex.id) : s.w,
+          r: s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, ex.id)   : s.r,
+          n: s.n ?? ''
+        }));
+      });
+
+      const now = Date.now();
+      const today = new Date(now);
+
+      const history = [...(currentState.history || [])];
+      const existingIndex = history.findIndex(e => {
+        if (e.sessionId !== sessionId) return false;
+        const entryDate = new Date(e.timestamp);
+        return entryDate.getFullYear() === today.getFullYear() &&
+               entryDate.getMonth() === today.getMonth() &&
+               entryDate.getDate() === today.getDate();
+      });
+
+      if (existingIndex !== -1) {
+        history[existingIndex] = {
+          ...history[existingIndex],
+          timestamp: now,
+          startTimestamp: currentState.sessionStarted ?? history[existingIndex].startTimestamp ?? null,
+          exercises: exerciseSnapshot
+        };
+      } else {
+        const entry = {
+          entryId: crypto.randomUUID(),
+          sessionId,
+          timestamp: now,
+          startTimestamp: currentState.sessionStarted ?? null,
+          exercises: exerciseSnapshot
+        };
+        history.push(entry);
+      }
+
+      history.sort((a, b) => a.timestamp - b.timestamp);
+
+      return {
+        ...currentState,
+        history,
+        sessionStarted: null
+      };
+    }
+
     default:
       throw new Error(`Unhandled action: ${type}`);
   }
-}
-
-export function applyCompletionSideEffect(prevState, nextState) {
-  const sessionId = nextState.activeSessionId;
-  const wasComplete = query.isSessionComplete(prevState, sessionId);
-  const isComplete  = query.isSessionComplete(nextState, sessionId);
-
-  if (wasComplete === isComplete) return nextState;
-
-  if (isComplete) {
-    const session = workouts.find(s => s.id === sessionId);
-    const exerciseSnapshot = {};
-    session.blocks.flatMap(b => b.exercises).forEach(ex => {
-      exerciseSnapshot[ex.id] = nextState.exercises[ex.id].map(s => ({
-        ...s,
-        w: s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, ex.id) : s.w,
-        r: s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, ex.id)   : s.r,
-        n: s.n ?? ''
-      }));
-    });
-
-    const entry = {
-      entryId: crypto.randomUUID(),
-      sessionId,
-      timestamp: Date.now(),
-      startTimestamp: nextState.sessionStarted ?? null,
-      exercises: exerciseSnapshot
-    };
-
-    const history = [...(nextState.history || []), entry]
-      .sort((a, b) => a.timestamp - b.timestamp);
-
-    return { ...nextState, history, sessionStarted: null };
-  }
-
-  return nextState;
 }
 
 let _renderFn = null;
@@ -246,7 +266,6 @@ export function dispatch(type, payload = {}) {
 
     const prevState = state;
     let nextState = reducer(state, { type, payload });
-    nextState = applyCompletionSideEffect(prevState, nextState);
 
     if (DEV_MODE) {
       console.log(`▶ ${type}`, payload);
@@ -286,12 +305,10 @@ export function dispatch(type, payload = {}) {
       startRestTimer(restDuration);
     }
 
-    const justFinished =
-      !query.isSessionComplete(prevState, nextState.activeSessionId) &&
-      query.isSessionComplete(nextState, nextState.activeSessionId);
+    const justFinished = (type === 'FINISH_WORKOUT');
     if (justFinished) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-      const sessionEntries = query.sessionHistory(nextState, nextState.activeSessionId);
+      const sessionEntries = query.sessionHistory(nextState, payload.sessionId);
       const completedEntry = sessionEntries[sessionEntries.length - 1];
       if (completedEntry) {
         _sessionCompleteFn?.(completedEntry, nextState);

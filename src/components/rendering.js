@@ -152,6 +152,7 @@ export function buildSession(session, appState) {
     </div>
     <div class="complete-banner ${complete ? 'visible' : ''}">
       SESSION COMPLETE<small>Rest up. You earned it.</small>
+      <button class="finish-workout-btn" data-session-id="${session.id}">Finish Workout</button>
     </div>
   </div>`;
 }
