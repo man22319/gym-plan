@@ -5,7 +5,11 @@ import { formatReps, formatWeight } from './rendering.js';
 
 export function exportTemplate() {
   try {
-    const template = { version: 1, sessions: workouts };
+    const template = {
+      version: 2,
+      sessionsPerWeek: state.sessionsPerWeek ?? 3,
+      sessions: state.sessions
+    };
     const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = Object.assign(document.createElement('a'), {
@@ -65,7 +69,8 @@ export function importTemplate() {
         if (!parsed.sessions || !Array.isArray(parsed.sessions)) {
           throw new Error('Missing "sessions" array in template schema.');
         }
-        dispatch('IMPORT_TEMPLATE', { sessions: parsed.sessions });
+        const sessionsPerWeek = parsed.sessionsPerWeek ?? 3;
+        dispatch('IMPORT_TEMPLATE', { sessions: parsed.sessions, sessionsPerWeek });
       } catch (err) { alert('Import failed: ' + err.message); }
     };
     reader.readAsText(file);

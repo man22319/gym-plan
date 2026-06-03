@@ -5,7 +5,7 @@
 export const STORAGE_KEY   = 'pf_tracker_v7';
 export const REST_DURATION = 90; // seconds
 export const MAX_REST_DURATION = 300; // 5 minutes — hard cap
-export const STATE_VERSION = 7;
+export const STATE_VERSION = 8;
 export const DEV_MODE      = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
 
 // ==========================================
@@ -19,9 +19,9 @@ export function makeSet(s = '', w = null, r = null, n = '') {
 // Receives the workouts array as a parameter to avoid circular imports.
 export function makeDefaultExercises(workouts) {
   const result = {};
-  workouts.forEach(session =>
-    session.blocks.forEach(block =>
-      block.exercises.forEach(ex => {
+  (workouts || []).forEach(session =>
+    (session.blocks || []).forEach(block =>
+      (block.exercises || []).forEach(ex => {
         result[ex.id] = Array.from({ length: ex.sets }, () => makeSet());
       })
     )
@@ -32,7 +32,9 @@ export function makeDefaultExercises(workouts) {
 export function createDefaultState(workouts) {
   return {
     version: STATE_VERSION,
-    activeSessionId: workouts[0].id,
+    sessions: JSON.parse(JSON.stringify(workouts || [])),
+    sessionsPerWeek: 3,
+    activeSessionId: workouts && workouts[0] ? workouts[0].id : null,
     exercises: makeDefaultExercises(workouts),
     exerciseSubstitutions: {},
     exerciseOverrides: {},

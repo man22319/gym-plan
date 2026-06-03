@@ -23,6 +23,7 @@ export const query = {
   // Returns Set[] or null.
   lastExerciseSets(appState, exId) {
     const sessionId = EX_SESSION_INDEX[exId];
+    if (!sessionId) return null;
     const entry = this.lastSession(appState, sessionId);
     if (!entry) return null;
     return entry.exercises[exId] || null;
@@ -31,6 +32,7 @@ export const query = {
   // Last N entries for an exercise (for trend analysis).
   exerciseHistory(appState, exId, n = Infinity) {
     const sessionId = EX_SESSION_INDEX[exId];
+    if (!sessionId) return [];
     return this.sessionHistory(appState, sessionId, n).map(e => ({
       timestamp: e.timestamp,
       sets: e.exercises[exId] || []
@@ -46,7 +48,8 @@ export const query = {
   // Derived: is the current working session complete?
   // Depends ONLY on state.exercises — never on history.
   isSessionComplete(appState, sessionId) {
-    const session = workouts.find(s => s.id === sessionId);
+    const session = workouts.find(s => s.id === sessionId)
+      ?? (appState.sessions || []).find(s => s.id === sessionId);
     if (!session) return false;
     const allEx = session.blocks.flatMap(b => b.exercises);
     if (!allEx.length) return false;
@@ -62,7 +65,8 @@ export const query = {
   },
 
   sessionProgress(appState, sessionId) {
-    const session = workouts.find(s => s.id === sessionId);
+    const session = workouts.find(s => s.id === sessionId)
+      ?? (appState.sessions || []).find(s => s.id === sessionId);
     if (!session) return 0;
     const allEx = session.blocks.flatMap(b => b.exercises);
     const total = allEx.reduce((n, ex) => n + ex.sets, 0);
@@ -117,6 +121,7 @@ export const query = {
     if (!sets || !sets.length) return null;
 
     const ex = EXERCISE_INDEX[exId];
+    if (!ex) return null;
     const doneSets = sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
     if (!doneSets.length) return null;
 
@@ -205,6 +210,7 @@ export const query = {
 
     // Get records WITHOUT the current (in-progress) session — compare against history only
     const sessionId = EX_SESSION_INDEX[exId];
+    if (!sessionId) return [];
     const histEntries = this.sessionHistory(appState, sessionId).filter(e => {
       // Exclude the most recent entry if it matches the live exercise state
       // (it might be a just-completed session that was auto-added)
@@ -239,7 +245,8 @@ export const query = {
   // Returns map of exId → array of PR types ('weight', 'reps', 'volume')
   sessionPRsFromEntry(appState, entry) {
     const result = {};
-    const session = workouts.find(s => s.id === entry.sessionId);
+    const session = workouts.find(s => s.id === entry.sessionId)
+      ?? (appState.sessions || []).find(s => s.id === entry.sessionId);
     if (!session) return result;
 
     // History excluding this entry
@@ -385,7 +392,8 @@ export const query = {
       volumePrev7Days: volPrev7,
       volumeTrend,
       avgDurationMs,
-      daysSinceLastWorkout
+      daysSinceLastWorkout,
+      sessionsPerWeek: appState?.sessionsPerWeek ?? 3
     };
   }
 };

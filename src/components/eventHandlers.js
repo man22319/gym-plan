@@ -3,6 +3,7 @@ import { dispatch } from '../core/reducer.js';
 import { getDisplayName } from '../core/helpers.js';
 import { skipRestTimer, extendRestTimer } from '../core/restTimer.js';
 import { editingExId, setEditingExId, render } from './rendering.js';
+import { openTemplateEditor } from './templateEditor.js';
 import {
   openHistoryModal,
   openRecoveryDashboard,
@@ -170,6 +171,7 @@ export function setupEvents() {
     }
 
     if (e.target.closest('#recovery-btn')) { openRecoveryDashboard(); return; }
+    if (e.target.closest('#template-editor-btn')) { openTemplateEditor(); return; }
     if (e.target.closest('#import-template-btn')) { importTemplate(); return; }
     if (e.target.closest('#import-history-btn')) { importHistory(); return; }
     if (e.target.closest('#import-backup-btn')) { importBackup(); return; }

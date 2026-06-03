@@ -1,5 +1,5 @@
 import { STORAGE_KEY, STATE_VERSION, makeSet, createDefaultState } from '../store/state.js';
-import { workouts, state, setState } from './workouts.js';
+import { defaultWorkouts, workouts, state, setState } from './workouts.js';
 
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
 
@@ -28,11 +28,17 @@ export function loadState() {
       }
     } catch (_) {}
   }
-  setState(createDefaultState(workouts));
+  setState(createDefaultState(defaultWorkouts));
 }
 
 export function migrate(raw) {
-  if (!raw || typeof raw !== 'object') return createDefaultState(workouts);
+  if (!raw || typeof raw !== 'object') return createDefaultState(defaultWorkouts);
+
+  const sessions = raw.sessions
+    ? JSON.parse(JSON.stringify(raw.sessions))
+    : JSON.parse(JSON.stringify(defaultWorkouts));
+
+  const sessionsPerWeek = raw.sessionsPerWeek ?? 3;
 
   const exercises = {};
   for (const [id, arr] of Object.entries(raw.exercises || {})) {
@@ -49,7 +55,9 @@ export function migrate(raw) {
 
   return {
     version:         STATE_VERSION,
-    activeSessionId: raw.activeSessionId ?? workouts[0]?.id,
+    sessions,
+    sessionsPerWeek,
+    activeSessionId: raw.activeSessionId ?? sessions[0]?.id ?? null,
     sessionStarted:  raw.sessionStarted ?? null,
     exerciseSubstitutions: raw.exerciseSubstitutions ?? {},
     exerciseOverrides: raw.exerciseOverrides ?? {},
@@ -79,9 +87,10 @@ export function migrate(raw) {
 
 export function normalize(appState) {
   const exercises = { ...appState.exercises };
-  workouts.forEach(session =>
-    session.blocks.forEach(block =>
-      block.exercises.forEach(ex => {
+  const currentSessions = appState.sessions || workouts;
+  currentSessions.forEach(session =>
+    (session.blocks || []).forEach(block =>
+      (block.exercises || []).forEach(ex => {
         const arr = exercises[ex.id];
         if (!Array.isArray(arr)) {
           exercises[ex.id] = Array.from({ length: ex.sets }, () => makeSet());
@@ -105,7 +114,7 @@ export function normalize(appState) {
 export function validate(appState) {
   if (!appState || typeof appState !== 'object') return false;
   if (typeof appState.version !== 'number')       return false;
-  if (typeof appState.activeSessionId !== 'string') return false;
+  if (appState.activeSessionId !== null && typeof appState.activeSessionId !== 'string') return false;
   if (!Array.isArray(appState.history))           return false;
   if (typeof appState.exercises !== 'object')     return false;
   for (const sets of Object.values(appState.exercises)) {
@@ -117,5 +126,7 @@ export function validate(appState) {
   }
   if (appState.exerciseSubstitutions && typeof appState.exerciseSubstitutions !== 'object') return false;
   if (appState.exerciseOverrides && typeof appState.exerciseOverrides !== 'object') return false;
+  if (!Array.isArray(appState.sessions)) return false;
+  if (typeof appState.sessionsPerWeek !== 'number') return false;
   return true;
 }

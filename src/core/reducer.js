@@ -14,9 +14,10 @@ export const ALLOWED_ACTIONS = {
   START_SESSION:       [],
   SUBSTITUTE_EXERCISE: ['exId', 'substitution'],
   UPDATE_EXERCISE_OVERRIDE: ['exId', 'fields'],
-  IMPORT_TEMPLATE:     ['sessions'],
+  IMPORT_TEMPLATE:     ['sessions', 'sessionsPerWeek'],
   IMPORT_HISTORY:      ['history'],
-  FINISH_WORKOUT:      ['sessionId']
+  FINISH_WORKOUT:      ['sessionId'],
+  UPDATE_TEMPLATE:     ['sessions', 'sessionsPerWeek']
 };
 
 export function validateAction(type, payload) {
@@ -128,7 +129,11 @@ export function reducer(currentState, action) {
     }
 
     case 'RESET_SESSION': {
-      return createDefaultState(workouts);
+      const defaultState = createDefaultState(currentState.sessions || workouts);
+      return {
+        ...defaultState,
+        sessionsPerWeek: currentState.sessionsPerWeek ?? 3
+      };
     }
 
     case 'IMPORT_STATE': {
@@ -136,11 +141,24 @@ export function reducer(currentState, action) {
     }
 
     case 'IMPORT_TEMPLATE': {
-      const { sessions } = payload;
-      initWorkouts(sessions);
+      const { sessions, sessionsPerWeek } = payload;
       return normalize({
         ...currentState,
-        activeSessionId: sessions[0]?.id || currentState.activeSessionId
+        sessions: JSON.parse(JSON.stringify(sessions)),
+        sessionsPerWeek: sessionsPerWeek ?? 3,
+        activeSessionId: sessions[0]?.id || null
+      });
+    }
+
+    case 'UPDATE_TEMPLATE': {
+      const { sessions, sessionsPerWeek } = payload;
+      return normalize({
+        ...currentState,
+        sessions: JSON.parse(JSON.stringify(sessions)),
+        sessionsPerWeek,
+        activeSessionId: sessions.some(s => s.id === currentState.activeSessionId)
+          ? currentState.activeSessionId
+          : (sessions[0]?.id || null)
       });
     }
 

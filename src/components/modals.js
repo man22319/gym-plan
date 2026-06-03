@@ -441,7 +441,7 @@ export function openRecoveryDashboard() {
   const contentHtml = `
     <div class="recovery-stats-grid">
       <div class="recovery-stat">
-        <div class="recovery-stat-val">${data.workoutsLast7Days}/3</div>
+        <div class="recovery-stat-val">${data.workoutsLast7Days}/${data.sessionsPerWeek || 3}</div>
         <div class="recovery-stat-label">Workouts (Last 7d)</div>
       </div>
       <div class="recovery-stat">

@@ -2,7 +2,7 @@ import { workouts } from '../core/workouts.js';
 import { query } from '../core/queries.js';
 import { getEffectiveExercise, getDisplayName } from '../core/helpers.js';
 
-export const PROGRAM_START_COMPLETED_WORKOUTS = 23;
+
 
 export let editingExId = null;
 export function setEditingExId(val) { editingExId = val; }
@@ -41,21 +41,16 @@ export function formatTime(ts) {
 }
 
 export function getTrainingWeekAndSession(appState) {
-  const anchorDate = new Date('2026-06-02T00:00:00');
-  
-  const completedSinceAnchor = appState?.history
+  const completedWorkouts = appState?.history
     ? appState.history.filter(
-        h =>
-          h.type === 'workout' &&
-          h.completed &&
-          h.timestamp >= anchorDate.getTime()
+        entry => entry && entry.sessionId && entry.timestamp
       ).length
     : 0;
-  
-  const totalCompleted = PROGRAM_START_COMPLETED_WORKOUTS + completedSinceAnchor;
-  const week = Math.floor(totalCompleted / 3) + 1;
-  const session = (totalCompleted % 3) + 1;
-  
+
+  const sessionsPerWeek = Math.max(1, appState?.sessionsPerWeek || 3);
+  const week = Math.floor(completedWorkouts / sessionsPerWeek) + 1;
+  const session = (completedWorkouts % sessionsPerWeek) + 1;
+
   return { week, session };
 }
 
