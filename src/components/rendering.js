@@ -1,4 +1,4 @@
-import { workouts } from '../core/workouts.js';
+import { workouts, completedSessionsBase } from '../core/workouts.js';
 import { query } from '../core/queries.js';
 import { getEffectiveExercise, getDisplayName } from '../core/helpers.js';
 import { detectPlateaus } from '../core/analytics/plateaus.js';
@@ -42,15 +42,18 @@ export function formatTime(ts) {
 }
 
 export function getTrainingWeekAndSession(appState) {
-  const completedWorkouts = appState?.history
-    ? appState.history.filter(
-        entry => entry && entry.sessionId && entry.timestamp
-      ).length
+  // completedSessionsBase comes from workouts.json metadata (e.g. 24)
+  // history.length is the count of sessions logged inside this app.
+  // Together they form the true running total, avoiding hardcoded offsets.
+  const base = completedSessionsBase ?? 0;
+  const liveCompleted = appState?.history
+    ? appState.history.filter(e => e && e.sessionId && e.timestamp).length
     : 0;
+  const totalCompleted = base + liveCompleted;
 
   const sessionsPerWeek = Math.max(1, appState?.sessionsPerWeek || 3);
-  const week = Math.floor(completedWorkouts / sessionsPerWeek) + 1;
-  const session = (completedWorkouts % sessionsPerWeek) + 1;
+  const week    = Math.floor(totalCompleted / sessionsPerWeek) + 1;
+  const session = (totalCompleted % sessionsPerWeek) + 1;
 
   return { week, session };
 }
@@ -67,8 +70,72 @@ export function render(appState) {
 }
 
 export function buildApp(appState) {
-  return buildTabs(appState) +
+  return buildFatigueBanner(appState) +
+    buildDeloadStrip(appState) +
+    buildTabs(appState) +
     workouts.map(s => buildSession(s, appState)).join('');
+}
+
+/**
+ * Renders the global fatigue warning banner if state.fatigueStatus.level === 'warning'.
+ * Displays a compact, non-intrusive amber toast above the session tabs.
+ * Each indicator bullet is listed inline.
+ *
+ * @param {object} appState
+ * @returns {string} HTML string
+ */
+export function buildFatigueBanner(appState) {
+  const fs = appState?.fatigueStatus;
+  if (!fs || fs.level !== 'warning' || !fs.indicators?.length) return '';
+
+  const bullets = fs.indicators
+    .map(i => `<li class="fatigue-indicator">${i}</li>`)
+    .join('');
+
+  return `
+    <div class="fatigue-banner" role="alert" aria-label="Fatigue warning" id="fatigue-banner">
+      <div class="fatigue-banner-inner">
+        <span class="fatigue-icon" aria-hidden="true">⚠️</span>
+        <div class="fatigue-body">
+          <div class="fatigue-title">Recovery Focus Recommended</div>
+          <ul class="fatigue-indicators">${bullets}</ul>
+        </div>
+        <button class="fatigue-dismiss" id="fatigue-dismiss" aria-label="Dismiss fatigue warning" title="Dismiss">✕</button>
+      </div>
+    </div>`;
+}
+
+/**
+ * Renders a persistent deload mode strip just above the session tabs.
+ * Always visible — shows current state and lets the user toggle deload on/off.
+ *
+ * @param {object} appState
+ * @returns {string} HTML string
+ */
+export function buildDeloadStrip(appState) {
+  const active = appState?.isDeloadActive === true;
+  const cls    = active ? 'deload-strip deload-strip--on' : 'deload-strip';
+  const label  = active ? 'Deload Active' : 'Deload Mode';
+  const desc   = active
+    ? 'Fatigue warnings suppressed · workouts flagged as planned recovery'
+    : 'Toggle to suppress fatigue warnings during a planned deload week';
+
+  return `
+    <div class="${cls}">
+      <div class="deload-strip-left">
+        <span class="deload-strip-icon" aria-hidden="true">${active ? '🔵' : '○'}</span>
+        <div class="deload-strip-text">
+          <span class="deload-strip-label">${label}</span>
+          <span class="deload-strip-desc">${desc}</span>
+        </div>
+      </div>
+      <button
+        id="deload-toggle-btn"
+        class="deload-toggle-btn ${active ? 'on' : ''}"
+        aria-pressed="${active}"
+        aria-label="${active ? 'Deactivate deload mode' : 'Activate deload mode'}"
+      >${active ? 'ON' : 'OFF'}</button>
+    </div>`;
 }
 
 export function getSuggestedSessionId(appState) {

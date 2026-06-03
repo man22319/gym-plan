@@ -39,6 +39,12 @@ export function createDefaultState(workouts) {
     exerciseSubstitutions: {},
     exerciseOverrides: {},
     history: [],
-    sessionStarted: null   // ms timestamp — set when first set is logged
+    sessionStarted: null,     // ms timestamp — set when first set is logged
+    isDeloadActive: false,    // user-toggled: suppresses fatigue warnings & stamps history entries
+    fatigueStatus: {          // populated by analyzeFatigueTrends() after FINISH_WORKOUT
+      level: 'normal',        // 'normal' | 'warning'
+      indicators: [],         // human-readable strings describing active flags
+      timestamp: 0            // ms epoch of last analysis run
+    }
   };
-}
+}

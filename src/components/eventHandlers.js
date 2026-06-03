@@ -180,6 +180,20 @@ export function setupEvents() {
     if (e.target.closest('#export-backup-btn')) { exportBackup(); return; }
     if (e.target.closest('#copy-btn'))   { copyWorkout(e.target.closest('#copy-btn')); return; }
 
+    if (e.target.closest('#deload-toggle-btn')) {
+      dispatch('TOGGLE_DELOAD', {});
+      return;
+    }
+
+    if (e.target.closest('#fatigue-dismiss')) {
+      const banner = document.getElementById('fatigue-banner');
+      if (banner) {
+        banner.style.animation = 'fatigueDismiss 0.25s ease forwards';
+        setTimeout(() => banner?.remove(), 260);
+      }
+      return;
+    }
+
     if (e.target.closest('#reset-btn')) {
       if (confirm('Reset all tracker data? This will permanently clear all history, current session progress, and imported data.')) {
         skipRestTimer();

@@ -10,7 +10,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const res = await fetch('./src/store/workouts.json');
     if (!res.ok) throw new Error(`Failed to load workouts.json: ${res.status}`);
-    initWorkouts(await res.json());
+    const data = await res.json();
+    // Support both legacy flat array and new { completed_sessions, sessions } envelope
+    const sessions = Array.isArray(data) ? data : (data.sessions || []);
+    const completedSessionsBase = Array.isArray(data) ? 0 : (data.completed_sessions ?? 0);
+    initWorkouts(sessions, completedSessionsBase);
   } catch (err) {
     console.error('[boot] Could not load workouts.json:', err);
     return;

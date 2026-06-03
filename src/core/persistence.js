@@ -61,11 +61,14 @@ export function migrate(raw) {
     sessionStarted:  raw.sessionStarted ?? null,
     exerciseSubstitutions: raw.exerciseSubstitutions ?? {},
     exerciseOverrides: raw.exerciseOverrides ?? {},
+    fatigueStatus: raw.fatigueStatus ?? { level: 'normal', indicators: [], timestamp: 0 },
+    isDeloadActive: raw.isDeloadActive ?? false,
     history:         (raw.history || []).map(entry => ({
       entryId:        entry.entryId ?? crypto.randomUUID(), // Guarantee entryId exists in history
       sessionId:      entry.sessionId,
       timestamp:      entry.timestamp,
       startTimestamp: entry.startTimestamp ?? null,  // v6→v7: add startTimestamp
+      isDeload:       entry.isDeload ?? false,
       exercises:      Object.fromEntries(
         Object.entries(entry.exercises || {}).map(([id, sets]) => [
           id,
@@ -107,6 +110,8 @@ export function normalize(appState) {
     exercises,
     exerciseSubstitutions: appState.exerciseSubstitutions ?? {},
     exerciseOverrides: appState.exerciseOverrides ?? {},
+    fatigueStatus: appState.fatigueStatus ?? { level: 'normal', indicators: [], timestamp: 0 },
+    isDeloadActive: appState.isDeloadActive ?? false,
     version: STATE_VERSION
   };
 }

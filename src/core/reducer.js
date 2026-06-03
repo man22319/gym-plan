@@ -4,6 +4,7 @@ import { query } from './queries.js';
 import { resolveWeight, resolveReps } from './helpers.js';
 import { startRestTimer } from './restTimer.js';
 import { persist, normalize } from './persistence.js';
+import { analyzeFatigueTrends } from './analytics/fatigue.js';
 
 export const ALLOWED_ACTIONS = {
   SET_ACTIVE_SESSION:  ['sessionId'],
@@ -17,7 +18,9 @@ export const ALLOWED_ACTIONS = {
   IMPORT_TEMPLATE:     ['sessions', 'sessionsPerWeek'],
   IMPORT_HISTORY:      ['history'],
   FINISH_WORKOUT:      ['sessionId'],
-  UPDATE_TEMPLATE:     ['sessions', 'sessionsPerWeek']
+  UPDATE_TEMPLATE:     ['sessions', 'sessionsPerWeek'],
+  UPDATE_FATIGUE_STATUS: ['fatigueStatus'],
+  TOGGLE_DELOAD:       []
 };
 
 export function validateAction(type, payload) {
@@ -229,7 +232,8 @@ export function reducer(currentState, action) {
           ...history[existingIndex],
           timestamp: now,
           startTimestamp: currentState.sessionStarted ?? history[existingIndex].startTimestamp ?? null,
-          exercises: exerciseSnapshot
+          exercises: exerciseSnapshot,
+          isDeload: currentState.isDeloadActive === true ? true : (history[existingIndex].isDeload ?? false)
         };
       } else {
         const entry = {
@@ -237,7 +241,8 @@ export function reducer(currentState, action) {
           sessionId,
           timestamp: now,
           startTimestamp: currentState.sessionStarted ?? null,
-          exercises: exerciseSnapshot
+          exercises: exerciseSnapshot,
+          isDeload: currentState.isDeloadActive === true
         };
         history.push(entry);
       }
@@ -248,6 +253,20 @@ export function reducer(currentState, action) {
         ...currentState,
         history,
         sessionStarted: null
+      };
+    }
+
+    case 'TOGGLE_DELOAD': {
+      return {
+        ...currentState,
+        isDeloadActive: !currentState.isDeloadActive
+      };
+    }
+
+    case 'UPDATE_FATIGUE_STATUS': {
+      return {
+        ...currentState,
+        fatigueStatus: payload.fatigueStatus
       };
     }
 
@@ -323,14 +342,43 @@ export function dispatch(type, payload = {}) {
       startRestTimer(restDuration);
     }
 
-    const justFinished = (type === 'FINISH_WORKOUT');
-    if (justFinished) {
+    if (type === 'FINISH_WORKOUT') {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       const sessionEntries = query.sessionHistory(nextState, payload.sessionId);
       const completedEntry = sessionEntries[sessionEntries.length - 1];
       if (completedEntry) {
         _sessionCompleteFn?.(completedEntry, nextState);
       }
+    }
+
+    const recomputeFatigue = (
+      type === 'FINISH_WORKOUT' ||
+      type === 'TOGGLE_DELOAD' ||
+      type === 'RESET_SESSION' ||
+      type === 'IMPORT_STATE' ||
+      type === 'IMPORT_HISTORY'
+    );
+
+    if (recomputeFatigue) {
+      // ── Fatigue pipeline ─────────────────────────────────────────────
+      // Run analysis on the updated history and apply the result atomically.
+      let fatigueStatus = analyzeFatigueTrends(nextState.history ?? []);
+      if (nextState.isDeloadActive) {
+        fatigueStatus = {
+          level: 'normal',
+          indicators: [],
+          timestamp: Date.now(),
+          debug: fatigueStatus.debug
+        };
+      }
+      const withFatigue = reducer(nextState, {
+        type: 'UPDATE_FATIGUE_STATUS',
+        payload: { fatigueStatus }
+      });
+      setState(withFatigue);
+      persist();
+      _renderFn?.(state);
+      // ─────────────────────────────────────────────────────────────────
     }
 
   } catch (err) {

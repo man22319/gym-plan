@@ -1,4 +1,6 @@
-[
+{
+  "completed_sessions": 24,
+  "sessions": [
   {
     "id": "session_thu",
     "dayLabel": "THU",
@@ -290,4 +292,5 @@
       }
     ]
   }
-]
+  ]
+}
