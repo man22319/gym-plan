@@ -140,15 +140,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: var(--bg2);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
   transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .deload-strip--on {
   background: rgba(66, 165, 245, 0.04);
-  border-bottom: 1px solid rgba(66, 165, 245, 0.15);
+  border-top: 1px solid rgba(66, 165, 245, 0.15);
 }
 
 .deload-strip-left {
@@ -188,8 +189,8 @@
 }
 
 .deload-strip-desc {
-  font-size: 0.65rem;
-  color: var(--muted);
+  font-size: 0.58rem;
+  color: var(--dim);
   line-height: 1.3;
 }
 
