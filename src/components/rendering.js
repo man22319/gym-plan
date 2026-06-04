@@ -71,9 +71,9 @@ export function render(appState) {
 
 export function buildApp(appState) {
   return buildFatigueBanner(appState) +
-    buildDeloadStrip(appState) +
     buildTabs(appState) +
-    workouts.map(s => buildSession(s, appState)).join('');
+    workouts.map(s => buildSession(s, appState)).join('') +
+    buildDeloadStrip(appState);
 }
 
 /**
