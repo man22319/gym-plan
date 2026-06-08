@@ -16,6 +16,22 @@ export function makeSet(s = '', w = null, r = null, n = '') {
   return { s, w, r, n };
 }
 
+/**
+ * Returns a blank cardio object with all required fields.
+ * Stored transiently in state.cardio during a session; committed into
+ * history[].cardio on FINISH_WORKOUT then cleared.
+ *
+ * perceivedExertion: 1–10 integer, null if not set.
+ */
+export function makeCardio() {
+  return {
+    type: '',
+    durationMinutes: null,
+    distanceMiles: null,
+    perceivedExertion: null
+  };
+}
+
 // Receives the workouts array as a parameter to avoid circular imports.
 export function makeDefaultExercises(workouts) {
   const result = {};
@@ -45,6 +61,10 @@ export function createDefaultState(workouts) {
       level: 'normal',        // 'normal' | 'warning'
       indicators: [],         // human-readable strings describing active flags
       timestamp: 0            // ms epoch of last analysis run
+    },
+    cardio: null,             // transient: pending cardio entry for current session; committed to history on FINISH_WORKOUT
+    analytics: {
+      weeklyVolume: null      // populated by calculateWeeklyVolume() after FINISH_WORKOUT; null until first workout
     }
   };
-}
+}

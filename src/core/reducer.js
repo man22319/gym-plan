@@ -5,22 +5,27 @@ import { resolveWeight, resolveReps } from './helpers.js';
 import { startRestTimer } from './restTimer.js';
 import { persist, normalize } from './persistence.js';
 import { analyzeFatigueTrends } from './analytics/fatigue.js';
+import { calculateWeeklyVolume } from './analytics/volumeTracker.js';
 
 export const ALLOWED_ACTIONS = {
-  SET_ACTIVE_SESSION:  ['sessionId'],
-  TOGGLE_SET:          ['exId', 'idx'],
-  LOG_AND_MARK_DONE:   ['exId', 'idx', 'weight', 'reps', 'note'],
-  RESET_SESSION:       [],
-  IMPORT_STATE:        ['data'],
-  START_SESSION:       [],
-  SUBSTITUTE_EXERCISE: ['exId', 'substitution'],
+  SET_ACTIVE_SESSION:       ['sessionId'],
+  TOGGLE_SET:               ['exId', 'idx'],
+  LOG_AND_MARK_DONE:        ['exId', 'idx', 'weight', 'reps', 'note'],
+  RESET_SESSION:            [],
+  IMPORT_STATE:             ['data'],
+  START_SESSION:            [],
+  SUBSTITUTE_EXERCISE:      ['exId', 'substitution'],
   UPDATE_EXERCISE_OVERRIDE: ['exId', 'fields'],
-  IMPORT_TEMPLATE:     ['sessions', 'sessionsPerWeek'],
-  IMPORT_HISTORY:      ['history'],
-  FINISH_WORKOUT:      ['sessionId'],
-  UPDATE_TEMPLATE:     ['sessions', 'sessionsPerWeek'],
-  UPDATE_FATIGUE_STATUS: ['fatigueStatus'],
-  TOGGLE_DELOAD:       []
+  IMPORT_TEMPLATE:          ['sessions', 'sessionsPerWeek'],
+  IMPORT_HISTORY:           ['history'],
+  FINISH_WORKOUT:           ['sessionId'],
+  UPDATE_TEMPLATE:          ['sessions', 'sessionsPerWeek'],
+  UPDATE_FATIGUE_STATUS:    ['fatigueStatus'],
+  TOGGLE_DELOAD:            [],
+  // Cardio — writes transient state.cardio; committed into history on FINISH_WORKOUT
+  UPDATE_CARDIO_METRICS:    ['cardio'],
+  // Analytics — stores last computed volume summary from volumeTracker
+  UPDATE_WEEKLY_VOLUME:     ['weeklyVolume']
 };
 
 export function validateAction(type, payload) {
@@ -233,6 +238,8 @@ export function reducer(currentState, action) {
           timestamp: now,
           startTimestamp: currentState.sessionStarted ?? history[existingIndex].startTimestamp ?? null,
           exercises: exerciseSnapshot,
+          // Cardio: commit from transient state.cardio; preserve existing if none pending
+          cardio: currentState.cardio ?? history[existingIndex].cardio ?? null,
           isDeload: currentState.isDeloadActive === true ? true : (history[existingIndex].isDeload ?? false)
         };
       } else {
@@ -242,6 +249,8 @@ export function reducer(currentState, action) {
           timestamp: now,
           startTimestamp: currentState.sessionStarted ?? null,
           exercises: exerciseSnapshot,
+          // Cardio: commit from transient state.cardio; null if no cardio was entered
+          cardio: currentState.cardio ?? null,
           isDeload: currentState.isDeloadActive === true
         };
         history.push(entry);
@@ -252,6 +261,7 @@ export function reducer(currentState, action) {
       return {
         ...currentState,
         history,
+        cardio: null,           // clear transient cardio — it has been committed into the history entry above
         sessionStarted: null
       };
     }
@@ -267,6 +277,26 @@ export function reducer(currentState, action) {
       return {
         ...currentState,
         fatigueStatus: payload.fatigueStatus
+      };
+    }
+
+    case 'UPDATE_CARDIO_METRICS': {
+      // Immutable update: writes only to state.cardio (transient UI context).
+      // This value is committed into history[].cardio when FINISH_WORKOUT fires.
+      // Rule: cardio is an execution artifact — it lives in history, not sessions.
+      return {
+        ...currentState,
+        cardio: { ...payload.cardio }
+      };
+    }
+
+    case 'UPDATE_WEEKLY_VOLUME': {
+      return {
+        ...currentState,
+        analytics: {
+          ...(currentState.analytics || {}),
+          weeklyVolume: payload.weeklyVolume
+        }
       };
     }
 
@@ -380,6 +410,21 @@ export function dispatch(type, payload = {}) {
       _renderFn?.(state);
       // ─────────────────────────────────────────────────────────────────
     }
+
+    // ── Volume pipeline ──────────────────────────────────────────────────
+    // Recompute weekly effective muscle volume after FINISH_WORKOUT.
+    // Purely deterministic from history — no inference, no defaults.
+    if (type === 'FINISH_WORKOUT') {
+      const weeklyVolume = calculateWeeklyVolume(state.history ?? [], Date.now());
+      const withVolume = reducer(state, {
+        type: 'UPDATE_WEEKLY_VOLUME',
+        payload: { weeklyVolume }
+      });
+      setState(withVolume);
+      persist();
+      _renderFn?.(state);
+    }
+    // ────────────────────────────────────────────────────────────────────
 
   } catch (err) {
     console.error(`[dispatch] ${type} rejected:`, err);

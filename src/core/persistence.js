@@ -63,12 +63,18 @@ export function migrate(raw) {
     exerciseOverrides: raw.exerciseOverrides ?? {},
     fatigueStatus: raw.fatigueStatus ?? { level: 'normal', indicators: [], timestamp: 0 },
     isDeloadActive: raw.isDeloadActive ?? false,
+    // cardio: transient staging field — never persisted between sessions; cleared on load
+    cardio: null,
+    // analytics: derived from history; recomputed after FINISH_WORKOUT
+    analytics: raw.analytics ?? { weeklyVolume: null },
     history:         (raw.history || []).map(entry => ({
       entryId:        entry.entryId ?? crypto.randomUUID(), // Guarantee entryId exists in history
       sessionId:      entry.sessionId,
       timestamp:      entry.timestamp,
       startTimestamp: entry.startTimestamp ?? null,  // v6→v7: add startTimestamp
       isDeload:       entry.isDeload ?? false,
+      // cardio: null for legacy entries; preserved if already present (schema v1.0)
+      cardio:         entry.cardio ?? null,
       exercises:      Object.fromEntries(
         Object.entries(entry.exercises || {}).map(([id, sets]) => [
           id,
@@ -112,6 +118,8 @@ export function normalize(appState) {
     exerciseOverrides: appState.exerciseOverrides ?? {},
     fatigueStatus: appState.fatigueStatus ?? { level: 'normal', indicators: [], timestamp: 0 },
     isDeloadActive: appState.isDeloadActive ?? false,
+    cardio: null,                                           // always clear transient cardio on normalize
+    analytics: appState.analytics ?? { weeklyVolume: null },
     version: STATE_VERSION
   };
 }

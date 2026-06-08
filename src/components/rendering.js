@@ -213,11 +213,92 @@ export function buildSession(session, appState) {
       <div class="finisher-label">Finisher</div>
       <div class="finisher-text">${session.finisher}</div>
     </div>
+    ${buildCardioSection(appState)}
     <div class="complete-banner ${complete ? 'visible' : ''}">
       SESSION COMPLETE<small>Rest up. You earned it.</small>
       <button class="finish-workout-btn" data-session-id="${session.id}">Finish Workout</button>
     </div>
   </div>`;
+}
+
+/**
+ * Renders the cardio input form for the current session.
+ *
+ * Design contract (per TODO §3 + user architecture):
+ * - Cardio is an execution artifact: inputs stage into state.cardio (transient)
+ * - On FINISH_WORKOUT the reducer commits state.cardio → history[].cardio, then clears it
+ * - This form NEVER writes to sessions[] or any permanent structure
+ *
+ * Pre-fills from appState.cardio if already entered in this session.
+ *
+ * @param {object} appState
+ * @returns {string} HTML string
+ */
+export function buildCardioSection(appState) {
+  const c = appState?.cardio || {};
+  const typeVal    = c.type             ?? '';
+  const durVal     = c.durationMinutes  !== null ? c.durationMinutes  : '';
+  const distVal    = c.distanceMiles    !== null ? c.distanceMiles    : '';
+  const rpeVal     = c.perceivedExertion !== null ? c.perceivedExertion : '';
+
+  return `
+    <div class="cardio-section" id="cardio-section">
+      <div class="cardio-section-header">CARDIO <span class="cardio-section-sub">(optional · logged on finish)</span></div>
+      <div class="cardio-fields">
+        <div class="cardio-field">
+          <label for="cardio-type">Type</label>
+          <input
+            type="text"
+            id="cardio-type"
+            class="cardio-input"
+            placeholder="e.g. Treadmill"
+            value="${typeVal}"
+            data-cardio-field="type"
+            autocomplete="off"
+          />
+        </div>
+        <div class="cardio-field">
+          <label for="cardio-duration">Duration (min)</label>
+          <input
+            type="number"
+            id="cardio-duration"
+            class="cardio-input"
+            placeholder="30"
+            value="${durVal}"
+            min="0"
+            step="1"
+            data-cardio-field="durationMinutes"
+          />
+        </div>
+        <div class="cardio-field">
+          <label for="cardio-distance">Distance (mi)</label>
+          <input
+            type="number"
+            id="cardio-distance"
+            class="cardio-input"
+            placeholder="2.5"
+            value="${distVal}"
+            min="0"
+            step="0.1"
+            data-cardio-field="distanceMiles"
+          />
+        </div>
+        <div class="cardio-field">
+          <label for="cardio-rpe">Effort (1–10)</label>
+          <input
+            type="number"
+            id="cardio-rpe"
+            class="cardio-input"
+            placeholder="7"
+            value="${rpeVal}"
+            min="1"
+            max="10"
+            step="1"
+            data-cardio-field="perceivedExertion"
+          />
+        </div>
+      </div>
+    </div>`;
 }
 
 export function buildBlock(block, appState) {
@@ -351,8 +432,23 @@ export function buildNotesRow(ex, appState) {
   const sub = appState?.exerciseSubstitutions?.[ex.id];
 
   const hasNotes = effEx?.notes && effEx.notes.trim();
-  
-  let alts = ex.alternatives || [];
+
+  // Alternatives schema (§9): { same_pattern: [], regression: [], variation: [] }
+  // Flatten all three tiers into a single display list; same_pattern first.
+  // Falls back to legacy flat array if the object form isn't present.
+  const rawAlts = ex.alternatives;
+  let flatAlts = [];
+  if (rawAlts && typeof rawAlts === 'object' && !Array.isArray(rawAlts)) {
+    flatAlts = [
+      ...(rawAlts.same_pattern || []),
+      ...(rawAlts.regression   || []),
+      ...(rawAlts.variation    || [])
+    ];
+  } else if (Array.isArray(rawAlts)) {
+    flatAlts = rawAlts; // legacy flat array fallback
+  }
+
+  let alts = flatAlts;
   if (sub) {
     alts = [ex.name, ...alts].filter(a => a !== sub.name);
   }

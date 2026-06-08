@@ -1,0 +1,86 @@
+/* ══════════════════════════════════════════
+   CARDIO — Input form styles
+   Rendered inside the active session view.
+   Cardio is an execution artifact logged
+   at FINISH_WORKOUT time into history[].
+══════════════════════════════════════════ */
+
+.cardio-section {
+  margin: 12px 0 8px;
+  padding: 14px 16px 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.cardio-section-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.cardio-section-sub {
+  font-weight: 400;
+  font-size: 0.65rem;
+  letter-spacing: 0;
+  color: var(--dim);
+  text-transform: none;
+}
+
+.cardio-fields {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .cardio-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.cardio-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cardio-field label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.cardio-input {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--white);
+  font-size: 0.9rem;
+  padding: 6px 9px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.cardio-input:focus {
+  border-color: var(--border-hi);
+}
+
+.cardio-input::placeholder {
+  color: var(--dim);
+}
+
+/* Remove number input spinners (cleaner look on mobile) */
+.cardio-input[type="number"]::-webkit-inner-spin-button,
+.cardio-input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+.cardio-input[type="number"] {
+  -moz-appearance: textfield;
+}

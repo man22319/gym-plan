@@ -213,6 +213,38 @@ export function setupEvents() {
       }
     }
   });
+
+  // ── Cardio inputs ────────────────────────────────────────────────────────
+  // Fires on `change` (field blur / commit) rather than `input` to avoid
+  // dispatching on every keystroke.  Reads all four cardio fields each time
+  // so the payload is always a complete, consistent cardio object.
+  //
+  // Architecture note: this writes to state.cardio (transient UI context).
+  // The reducer commits it into history[].cardio on FINISH_WORKOUT.
+  document.addEventListener('change', e => {
+    const cardioInput = e.target.closest('[data-cardio-field]');
+    if (!cardioInput) return;
+
+    const typeEl = document.getElementById('cardio-type');
+    const durEl  = document.getElementById('cardio-duration');
+    const distEl = document.getElementById('cardio-distance');
+    const rpeEl  = document.getElementById('cardio-rpe');
+
+    const typeVal = typeEl?.value.trim() ?? '';
+    const durRaw  = durEl?.value.trim()  ?? '';
+    const distRaw = distEl?.value.trim() ?? '';
+    const rpeRaw  = rpeEl?.value.trim()  ?? '';
+
+    const cardio = {
+      type:              typeVal !== '' ? typeVal : '',
+      durationMinutes:   durRaw  !== '' ? parseFloat(durRaw)  : null,
+      distanceMiles:     distRaw !== '' ? parseFloat(distRaw) : null,
+      perceivedExertion: rpeRaw  !== '' ? parseInt(rpeRaw, 10) : null
+    };
+
+    dispatch('UPDATE_CARDIO_METRICS', { cardio });
+  });
+  // ────────────────────────────────────────────────────────────────────────
 }
 
 function pressKey(exId, idx) { return `${exId}:${idx}`; }

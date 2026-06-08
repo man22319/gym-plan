@@ -1,296 +1,1046 @@
 {
-  "completed_sessions": 23,
+  "completed_sessions": 0,
+  "exercise_library": {
+    "thu_row": {
+      "id": "thu_row",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Seated Row Machine",
+      "sets": 4,
+      "reps": {
+        "type": "range",
+        "value": 6,
+        "range": {
+          "min": 6,
+          "max": 8
+        }
+      },
+      "load": {
+        "type": "fixed",
+        "value": 60,
+        "range": {
+          "min": 60,
+          "max": 60
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 120,
+      "rest_between_exercises": 60,
+      "notes": "Drive elbows back, pause 1s at peak contraction. Keep chest tall.",
+      "alternatives": {
+        "same_pattern": [
+          "Cable Row",
+          "Resistance Band Row"
+        ],
+        "regression": [],
+        "variation": [
+          "Dumbbell Bent-Over Row"
+        ]
+      },
+      "muscleStimulus": {
+        "BACK": 1,
+        "BICEPS": 0.3
+      }
+    },
+    "thu_bench": {
+      "id": "thu_bench",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Dumbbell Bench Press",
+      "sets": 4,
+      "reps": {
+        "type": "fixed",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 8
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 22.5,
+        "range": {
+          "min": 22.5,
+          "max": 25
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 120,
+      "rest_between_exercises": 60,
+      "notes": "Lower slowly to chest, full extension at top. Feet flat on floor.",
+      "alternatives": {
+        "same_pattern": [
+          "Barbell Bench Press",
+          "Smith Machine Press"
+        ],
+        "regression": [],
+        "variation": [
+          "Cable Chest Fly"
+        ]
+      },
+      "muscleStimulus": {
+        "CHEST": 0.85,
+        "TRICEPS": 0.25,
+        "SHOULDERS": 0.15
+      }
+    },
+    "thu_leg_curl": {
+      "id": "thu_leg_curl",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Seated Leg Curl",
+      "sets": 4,
+      "reps": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 15
+        }
+      },
+      "load": {
+        "type": "fixed",
+        "value": 60,
+        "range": {
+          "min": 60,
+          "max": 60
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
+      "alternatives": {
+        "same_pattern": [
+          "Lying Leg Curl",
+          "Nordic Curl"
+        ],
+        "regression": [],
+        "variation": [
+          "Resistance Band Curl"
+        ]
+      },
+      "muscleStimulus": {
+        "HAMSTRINGS": 1
+      }
+    },
+    "thu_back_ext": {
+      "id": "thu_back_ext",
+      "version": "1.0.0",
+      "name": "Back Extension Machine",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 15
+        }
+      },
+      "load": {
+        "type": "machine",
+        "value": 0,
+        "range": {
+          "min": 0,
+          "max": 0
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Controlled hip extension. Squeeze glutes at top. No hyperextending lower back.",
+      "alternatives": {
+        "same_pattern": [
+          "Roman Chair Back Extension",
+          "45° Back Extension"
+        ],
+        "regression": [],
+        "variation": [
+          "Weighted Back Extension"
+        ]
+      },
+      "muscleStimulus": {
+        "BACK": 0.4,
+        "GLUTES": 0.6
+      }
+    },
+    "thu_glute_kickback": {
+      "id": "thu_glute_kickback",
+      "version": "1.0.0",
+      "name": "Glute Kickback Machine",
+      "sets": 4,
+      "reps": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 15
+        }
+      },
+      "load": {
+        "type": "machine",
+        "value": 0,
+        "range": {
+          "min": 0,
+          "max": 0
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Drive through heel. Pause at peak squeeze. Keep hips square.",
+      "alternatives": {
+        "same_pattern": [
+          "Cable Kickback",
+          "Hip Thrust"
+        ],
+        "regression": [],
+        "variation": [
+          "Smith Machine Hip Thrust"
+        ]
+      },
+      "muscleStimulus": {
+        "GLUTES": 1,
+        "HAMSTRINGS": 0.2
+      }
+    },
+    "thu_lat_pull": {
+      "id": "thu_lat_pull",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Lat Pulldown",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 10
+        }
+      },
+      "load": {
+        "type": "fixed",
+        "value": 70,
+        "range": {
+          "min": 70,
+          "max": 70
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Pull to upper chest, not behind neck. Slight lean back, chest up.",
+      "alternatives": {
+        "same_pattern": [
+          "Assisted Pull-Up",
+          "Cable Straight-Arm Pulldown"
+        ],
+        "regression": [],
+        "variation": [
+          "Band Pulldown"
+        ]
+      },
+      "muscleStimulus": {
+        "BACK": 1,
+        "BICEPS": 0.3
+      }
+    },
+    "thu_lat_raise": {
+      "id": "thu_lat_raise",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Lateral Raise",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 12,
+        "range": {
+          "min": 12,
+          "max": 15
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 15
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
+      "alternatives": {
+        "same_pattern": [
+          "Cable Lateral Raise",
+          "Resistance Band Lateral Raise"
+        ],
+        "regression": [],
+        "variation": [
+          "Machine Lateral Raise"
+        ]
+      },
+      "muscleStimulus": {
+        "SHOULDERS": 1
+      }
+    },
+    "thu_tri_press": {
+      "id": "thu_tri_press",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Triceps Press Machine",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 10
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 70,
+        "range": {
+          "min": 70,
+          "max": 80
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Lock elbows in at sides. Full extension, controlled return.",
+      "alternatives": {
+        "same_pattern": [
+          "Cable Pushdown",
+          "Dip Machine"
+        ],
+        "regression": [],
+        "variation": [
+          "Overhead Tricep Extension"
+        ]
+      },
+      "muscleStimulus": {
+        "TRICEPS": 1
+      }
+    },
+    "sat_row": {
+      "id": "sat_row",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Supported Single-Arm Row",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 10
+        }
+      },
+      "load": {
+        "type": "fixed",
+        "value": 30,
+        "range": {
+          "min": 30,
+          "max": 30
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 120,
+      "rest_between_exercises": 60,
+      "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder.",
+      "alternatives": {
+        "same_pattern": [
+          "Seated Cable Row",
+          "Machine Row"
+        ],
+        "regression": [],
+        "variation": [
+          "TRX Row"
+        ]
+      },
+      "muscleStimulus": {
+        "BACK": 1,
+        "BICEPS": 0.3
+      }
+    },
+    "sat_arnold_press": {
+      "id": "sat_arnold_press",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Arnold Press",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 10
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 25,
+        "range": {
+          "min": 25,
+          "max": 30
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 120,
+      "rest_between_exercises": 60,
+      "notes": "Rotate palms outward as you press. Controlled rotation both ways.",
+      "alternatives": {
+        "same_pattern": [
+          "Dumbbell Shoulder Press",
+          "Machine Shoulder Press"
+        ],
+        "regression": [],
+        "variation": [
+          "Landmine Press"
+        ]
+      },
+      "muscleStimulus": {
+        "SHOULDERS": 0.85,
+        "TRICEPS": 0.3
+      }
+    },
+    "sat_leg_press": {
+      "id": "sat_leg_press",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Leg Press",
+      "sets": 4,
+      "reps": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 12
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 140,
+        "range": {
+          "min": 140,
+          "max": 160
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 120,
+      "rest_between_exercises": 60,
+      "notes": "Standard foot placement. Knees track over toes, lower to 90°.",
+      "alternatives": {
+        "same_pattern": [
+          "Hack Squat",
+          "Goblet Squat"
+        ],
+        "regression": [],
+        "variation": [
+          "Smith Machine Squat"
+        ]
+      },
+      "muscleStimulus": {
+        "QUADRICEPS": 0.7,
+        "GLUTES": 0.5,
+        "HAMSTRINGS": 0.2
+      }
+    },
+    "sat_leg_curl": {
+      "id": "sat_leg_curl",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Seated Leg Curl",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 12
+        }
+      },
+      "load": {
+        "type": "fixed",
+        "value": 60,
+        "range": {
+          "min": 60,
+          "max": 60
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
+      "alternatives": {
+        "same_pattern": [
+          "Lying Leg Curl",
+          "Nordic Curl"
+        ],
+        "regression": [],
+        "variation": [
+          "Resistance Band Curl"
+        ]
+      },
+      "muscleStimulus": {
+        "HAMSTRINGS": 1
+      }
+    },
+    "sat_lat_raise": {
+      "id": "sat_lat_raise",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Lateral Raise",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 12,
+        "range": {
+          "min": 12,
+          "max": 15
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 15
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
+      "alternatives": {
+        "same_pattern": [
+          "Cable Lateral Raise",
+          "Resistance Band Lateral Raise"
+        ],
+        "regression": [],
+        "variation": [
+          "Machine Lateral Raise"
+        ]
+      },
+      "muscleStimulus": {
+        "SHOULDERS": 1
+      }
+    },
+    "sat_tri_press": {
+      "id": "sat_tri_press",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Triceps Press Machine",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 10
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 70,
+        "range": {
+          "min": 70,
+          "max": 80
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Lock elbows in at sides. Full extension, controlled return.",
+      "alternatives": {
+        "same_pattern": [
+          "Cable Pushdown",
+          "Dip Machine"
+        ],
+        "regression": [],
+        "variation": [
+          "Overhead Tricep Extension"
+        ]
+      },
+      "muscleStimulus": {
+        "TRICEPS": 1
+      }
+    },
+    "sat_hammer": {
+      "id": "sat_hammer",
+      "version": "1.0.0",
+      "letter": "C",
+      "name": "Hammer Curl",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 12
+        }
+      },
+      "load": {
+        "type": "fixed",
+        "value": 15,
+        "range": {
+          "min": 15,
+          "max": 15
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Neutral grip throughout. Curl to shoulder, lower with control. No swinging.",
+      "alternatives": {
+        "same_pattern": [
+          "Cable Hammer Curl",
+          "Rope Curl"
+        ],
+        "regression": [],
+        "variation": [
+          "Cross-Body Hammer Curl"
+        ]
+      },
+      "muscleStimulus": {
+        "BICEPS": 1
+      }
+    },
+    "mon_row": {
+      "id": "mon_row",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Supported Single-Arm Row",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 10
+        }
+      },
+      "load": {
+        "type": "fixed",
+        "value": 30,
+        "range": {
+          "min": 30,
+          "max": 30
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 120,
+      "rest_between_exercises": 60,
+      "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder.",
+      "alternatives": {
+        "same_pattern": [
+          "Seated Cable Row",
+          "Machine Row"
+        ],
+        "regression": [],
+        "variation": [
+          "TRX Row"
+        ]
+      },
+      "muscleStimulus": {
+        "BACK": 1,
+        "BICEPS": 0.3
+      }
+    },
+    "mon_idbp": {
+      "id": "mon_idbp",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Incline Dumbbell Bench Press",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 12
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 22.5,
+        "range": {
+          "min": 22.5,
+          "max": 25
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 120,
+      "rest_between_exercises": 60,
+      "notes": "30–45° incline. Lower to upper chest. Full press, slight arch.",
+      "alternatives": {
+        "same_pattern": [
+          "Incline Barbell Press",
+          "Incline Cable Fly"
+        ],
+        "regression": [],
+        "variation": [
+          "Smith Machine Incline"
+        ]
+      },
+      "muscleStimulus": {
+        "CHEST": 0.8,
+        "SHOULDERS": 0.25,
+        "TRICEPS": 0.2
+      }
+    },
+    "mon_leg_press": {
+      "id": "mon_leg_press",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Leg Press",
+      "sets": 4,
+      "reps": {
+        "type": "range",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 12
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 140,
+        "range": {
+          "min": 140,
+          "max": 160
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 120,
+      "rest_between_exercises": 60,
+      "notes": "Standard foot placement. Knees track over toes, lower to 90°.",
+      "alternatives": {
+        "same_pattern": [
+          "Hack Squat",
+          "Goblet Squat"
+        ],
+        "regression": [],
+        "variation": [
+          "Smith Machine Squat"
+        ]
+      },
+      "muscleStimulus": {
+        "QUADRICEPS": 0.7,
+        "GLUTES": 0.5,
+        "HAMSTRINGS": 0.2
+      }
+    },
+    "mon_leg_curl": {
+      "id": "mon_leg_curl",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Seated Leg Curl",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 12
+        }
+      },
+      "load": {
+        "type": "fixed",
+        "value": 60,
+        "range": {
+          "min": 60,
+          "max": 60
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
+      "alternatives": {
+        "same_pattern": [
+          "Lying Leg Curl",
+          "Nordic Curl"
+        ],
+        "regression": [],
+        "variation": [
+          "Resistance Band Curl"
+        ]
+      },
+      "muscleStimulus": {
+        "HAMSTRINGS": 1
+      }
+    },
+    "mon_skull": {
+      "id": "mon_skull",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Skull Crushers",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 12
+        }
+      },
+      "load": {
+        "type": "fixed",
+        "value": 15,
+        "range": {
+          "min": 15,
+          "max": 15
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 75,
+      "rest_between_exercises": 45,
+      "notes": "Keep upper arms vertical. Lower to forehead/crown, full extension up.",
+      "alternatives": {
+        "same_pattern": [
+          "Cable Overhead Extension",
+          "Dumbbell Overhead Extension"
+        ],
+        "regression": [],
+        "variation": [
+          "Tricep Kickback"
+        ]
+      },
+      "muscleStimulus": {
+        "TRICEPS": 1
+      }
+    },
+    "mon_curl": {
+      "id": "mon_curl",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Barbell Curl",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 8,
+        "range": {
+          "min": 8,
+          "max": 12
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 40,
+        "range": {
+          "min": 40,
+          "max": 50
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 75,
+      "rest_between_exercises": 45,
+      "notes": "Elbows pinned at sides. Supinate at top, full hang at bottom.",
+      "alternatives": {
+        "same_pattern": [
+          "EZ-Bar Curl",
+          "Dumbbell Curl"
+        ],
+        "regression": [],
+        "variation": [
+          "Cable Curl"
+        ]
+      },
+      "muscleStimulus": {
+        "BICEPS": 1
+      }
+    },
+    "mon_ohp": {
+      "id": "mon_ohp",
+      "version": "1.0.0",
+      "letter": "A",
+      "name": "Overhead Press",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 6,
+        "range": {
+          "min": 6,
+          "max": 8
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 20,
+        "range": {
+          "min": 20,
+          "max": 25
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 120,
+      "rest_between_exercises": 60,
+      "notes": "Press directly overhead — slight forward lean is fine. Lock out at top.",
+      "alternatives": {
+        "same_pattern": [
+          "Seated Dumbbell Press",
+          "Machine Shoulder Press"
+        ],
+        "regression": [],
+        "variation": [
+          "Landmine Press"
+        ]
+      },
+      "muscleStimulus": {
+        "SHOULDERS": 0.9,
+        "TRICEPS": 0.25
+      }
+    },
+    "mon_lat_raise": {
+      "id": "mon_lat_raise",
+      "version": "1.0.0",
+      "letter": "B",
+      "name": "Lateral Raise",
+      "sets": 3,
+      "reps": {
+        "type": "range",
+        "value": 12,
+        "range": {
+          "min": 12,
+          "max": 15
+        }
+      },
+      "load": {
+        "type": "range",
+        "value": 10,
+        "range": {
+          "min": 10,
+          "max": 15
+        },
+        "unit": "lbs"
+      },
+      "rest_between_sets": 90,
+      "rest_between_exercises": 45,
+      "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
+      "alternatives": {
+        "same_pattern": [
+          "Cable Lateral Raise",
+          "Resistance Band Lateral Raise"
+        ],
+        "regression": [],
+        "variation": [
+          "Machine Lateral Raise"
+        ]
+      },
+      "muscleStimulus": {
+        "SHOULDERS": 1
+      }
+    }
+  },
   "sessions": [
-  {
-    "id": "session_thu",
-    "dayLabel": "THU",
-    "sessionLabel": "Session 1",
-    "warmup": "Incline treadmill · 8 min · 3.0 mph · 2% incline",
-    "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5% incline",
-    "blocks": [
-      {
-        "label": "Superset 1 — Pull / Push",
-        "exercises": [
-          {
-            "id": "thu_row", "letter": "A", "name": "Seated Row Machine",
-            "sets": 4,
-            "reps": { "min": 6, "max": 8 },
-            "weight": { "value": 60, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "Drive elbows back, pause 1s at peak contraction. Keep chest tall.",
-            "alternatives": ["Cable Row", "Resistance Band Row", "Dumbbell Bent-Over Row"]
-          },
-          {
-            "id": "thu_bench", "letter": "B", "name": "Dumbbell Bench Press",
-            "sets": 4,
-            "reps": { "fixed": 8 },
-            "weight": { "min": 22.5, "max": 25, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "Lower slowly to chest, full extension at top. Feet flat on floor.",
-            "alternatives": ["Barbell Bench Press", "Smith Machine Press", "Cable Chest Fly"]
-          }
-        ]
-      },
-      {
-        "label": "Superset 2 — Legs",
-        "exercises": [
-          {
-            "id": "thu_leg_curl", "letter": "A", "name": "Seated Leg Curl",
-            "sets": 4,
-            "reps": { "min": 10, "max": 15 },
-            "weight": { "value": 60, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
-            "alternatives": ["Lying Leg Curl", "Nordic Curl", "Resistance Band Curl"]
-          },
-          {
-            "id": "thu_leg_ext", "letter": "B", "name": "Seated Leg Extension",
-            "sets": 4,
-            "reps": { "min": 10, "max": 15 },
-            "weight": { "min": 60, "max": 70, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Pause 1s at full extension. Avoid locking out aggressively.",
-            "alternatives": ["Bodyweight Sissy Squat", "Wall Sit", "Terminal Knee Extension"]
-          }
-        ]
-      },
-      {
-        "label": "Superset 3 — Your Moves",
-        "exercises": [
-          {
-            "id": "thu_leg_press", "letter": "A", "name": "Modified Leg Press (Glute Biased)",
-            "sets": 4,
-            "reps": { "min": 10, "max": 12 },
-            "weight": { "min": 140, "max": 160, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "Feet high and wide on platform. Deep range, drive through heels.",
-            "alternatives": ["Sumo Squat", "Bulgarian Split Squat", "Hip Thrust"]
-          },
-          {
-            "id": "thu_lat_pull", "letter": "B", "name": "Lat Pulldown",
-            "sets": 3,
-            "reps": { "min": 8, "max": 10 },
-            "weight": { "value": 70, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Pull to upper chest, not behind neck. Slight lean back, chest up.",
-            "alternatives": ["Assisted Pull-Up", "Cable Straight-Arm Pulldown", "Band Pulldown"]
-          }
-        ]
-      },
-      {
-        "label": "Superset 4 — Shoulders / Arms",
-        "exercises": [
-          {
-            "id": "thu_lat_raise", "letter": "A", "name": "Lateral Raise",
-            "sets": 3,
-            "reps": { "min": 12, "max": 15 },
-            "weight": { "min": 10, "max": 15, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
-            "alternatives": ["Cable Lateral Raise", "Resistance Band Lateral Raise", "Machine Lateral Raise"]
-          },
-          {
-            "id": "thu_tri_press", "letter": "B", "name": "Triceps Press Machine",
-            "sets": 3,
-            "reps": { "min": 8, "max": 10 },
-            "weight": { "min": 70, "max": 80, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Lock elbows in at sides. Full extension, controlled return.",
-            "alternatives": ["Cable Pushdown", "Dip Machine", "Overhead Tricep Extension"]
-          }
-        ]
-      }
-    ]
-  },
-
-  {
-    "id": "session_sat",
-    "dayLabel": "SAT",
-    "sessionLabel": "Session 2",
-    "warmup": "Incline treadmill · 8 min · 3.0 mph · 2% incline",
-    "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5% incline",
-    "blocks": [
-      {
-        "label": "Superset 1 — Pull / Shoulders",
-        "exercises": [
-          {
-            "id": "sat_row", "letter": "A", "name": "Supported Single-Arm Row",
-            "sets": 3,
-            "reps": { "min": 8, "max": 10 },
-            "weight": { "value": 30, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder.",
-            "alternatives": ["Seated Cable Row", "Machine Row", "TRX Row"]
-          },
-          {
-            "id": "sat_arnold_press", "letter": "B", "name": "Arnold Press",
-            "sets": 3,
-            "reps": { "min": 8, "max": 10 },
-            "weight": { "min": 25, "max": 30, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "Rotate palms outward as you press. Controlled rotation both ways.",
-            "alternatives": ["Dumbbell Shoulder Press", "Machine Shoulder Press", "Landmine Press"]
-          }
-        ]
-      },
-      {
-        "label": "Superset 2 — Legs",
-        "exercises": [
-          {
-            "id": "sat_leg_press", "letter": "A", "name": "Leg Press",
-            "sets": 4,
-            "reps": { "min": 10, "max": 12 },
-            "weight": { "min": 140, "max": 160, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "Standard foot placement. Knees track over toes, lower to 90°.",
-            "alternatives": ["Hack Squat", "Goblet Squat", "Smith Machine Squat"]
-          },
-          {
-            "id": "sat_leg_curl", "letter": "B", "name": "Seated Leg Curl",
-            "sets": 3,
-            "reps": { "min": 10, "max": 12 },
-            "weight": { "value": 60, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
-            "alternatives": ["Lying Leg Curl", "Nordic Curl", "Resistance Band Curl"]
-          }
-        ]
-      },
-      {
-        "label": "Superset 3 — Arms / Shoulders",
-        "exercises": [
-          {
-            "id": "sat_lat_raise", "letter": "A", "name": "Lateral Raise",
-            "sets": 3,
-            "reps": { "min": 12, "max": 15 },
-            "weight": { "min": 10, "max": 15, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
-            "alternatives": ["Cable Lateral Raise", "Resistance Band Lateral Raise", "Machine Lateral Raise"]
-          },
-          {
-            "id": "sat_tri_press", "letter": "B", "name": "Triceps Press Machine",
-            "sets": 3,
-            "reps": { "min": 8, "max": 10 },
-            "weight": { "min": 70, "max": 80, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Lock elbows in at sides. Full extension, controlled return.",
-            "alternatives": ["Cable Pushdown", "Dip Machine", "Overhead Tricep Extension"]
-          },
-          {
-            "id": "sat_hammer", "letter": "C", "name": "Hammer Curl",
-            "sets": 3,
-            "reps": { "min": 10, "max": 12 },
-            "weight": { "value": 15, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Neutral grip throughout. Curl to shoulder, lower with control. No swinging.",
-            "alternatives": ["Cable Hammer Curl", "Rope Curl", "Cross-Body Hammer Curl"]
-          }
-        ]
-      }
-    ]
-  },
-
-  {
-    "id": "session_mon",
-    "dayLabel": "MON",
-    "sessionLabel": "Session 3",
-    "warmup": "Incline treadmill · 8 min · 3.0 mph · 2% incline",
-    "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5% incline",
-    "blocks": [
-      {
-        "label": "Superset 1 — Pull / Push",
-        "exercises": [
-          {
-            "id": "mon_row", "letter": "A", "name": "Supported Single-Arm Row",
-            "sets": 3,
-            "reps": { "min": 8, "max": 10 },
-            "weight": { "value": 30, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder.",
-            "alternatives": ["Seated Cable Row", "Machine Row", "TRX Row"]
-          },
-          {
-            "id": "mon_idbp", "letter": "B", "name": "Incline Dumbbell Bench Press",
-            "sets": 3,
-            "reps": { "min": 8, "max": 12 },
-            "weight": { "min": 22.5, "max": 25, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "30–45° incline. Lower to upper chest. Full press, slight arch.",
-            "alternatives": ["Incline Barbell Press", "Incline Cable Fly", "Smith Machine Incline"]
-          }
-        ]
-      },
-      {
-        "label": "Superset 2 — Legs",
-        "exercises": [
-          {
-            "id": "mon_leg_press", "letter": "A", "name": "Leg Press",
-            "sets": 4,
-            "reps": { "min": 8, "max": 12 },
-            "weight": { "min": 140, "max": 160, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "Standard foot placement. Knees track over toes, lower to 90°.",
-            "alternatives": ["Hack Squat", "Goblet Squat", "Smith Machine Squat"]
-          },
-          {
-            "id": "mon_leg_curl", "letter": "B", "name": "Seated Leg Curl",
-            "sets": 3,
-            "reps": { "min": 10, "max": 12 },
-            "weight": { "value": 60, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
-            "alternatives": ["Lying Leg Curl", "Nordic Curl", "Resistance Band Curl"]
-          }
-        ]
-      },
-      {
-        "label": "Superset 3 — Arms",
-        "exercises": [
-          {
-            "id": "mon_skull", "letter": "A", "name": "Skull Crushers",
-            "sets": 3,
-            "reps": { "min": 10, "max": 12 },
-            "weight": { "value": 15, "unit": "lbs" },
-            "rest_between_sets": 75, "rest_between_exercises": 45,
-            "notes": "Keep upper arms vertical. Lower to forehead/crown, full extension up.",
-            "alternatives": ["Cable Overhead Extension", "Dumbbell Overhead Extension", "Tricep Kickback"]
-          },
-          {
-            "id": "mon_curl", "letter": "B", "name": "Barbell Curl",
-            "sets": 3,
-            "reps": { "min": 8, "max": 12 },
-            "weight": { "min": 40, "max": 50, "unit": "lbs" },
-            "rest_between_sets": 75, "rest_between_exercises": 45,
-            "notes": "Elbows pinned at sides. Supinate at top, full hang at bottom.",
-            "alternatives": ["EZ-Bar Curl", "Dumbbell Curl", "Cable Curl"]
-          }
-        ]
-      },
-      {
-        "label": "Superset 4 — Shoulders",
-        "exercises": [
-          {
-            "id": "mon_ohp", "letter": "A", "name": "Overhead Press",
-            "sets": 3,
-            "reps": { "min": 6, "max": 8 },
-            "weight": { "min": 20, "max": 25, "unit": "lbs" },
-            "rest_between_sets": 120, "rest_between_exercises": 60,
-            "notes": "Press directly overhead — slight forward lean is fine. Lock out at top.",
-            "alternatives": ["Seated Dumbbell Press", "Machine Shoulder Press", "Landmine Press"]
-          },
-          {
-            "id": "mon_lat_raise", "letter": "B", "name": "Lateral Raise",
-            "sets": 3,
-            "reps": { "min": 12, "max": 15 },
-            "weight": { "min": 10, "max": 15, "unit": "lbs" },
-            "rest_between_sets": 90, "rest_between_exercises": 45,
-            "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
-            "alternatives": ["Cable Lateral Raise", "Resistance Band Lateral Raise", "Machine Lateral Raise"]
-          }
-        ]
-      }
-    ]
-  }
+    {
+      "id": "session_thu",
+      "dayLabel": "THU",
+      "sessionLabel": "Session 1",
+      "warmup": "Incline treadmill · 8 min · 3.0 mph · 2% incline",
+      "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5% incline",
+      "blocks": [
+        {
+          "label": "Superset 1 — Pull / Push",
+          "exercises": [
+            "thu_row",
+            "thu_bench"
+          ]
+        },
+        {
+          "label": "Superset 2 — Legs",
+          "exercises": [
+            "thu_leg_curl",
+            "thu_back_ext"
+          ]
+        },
+        {
+          "label": "Superset 3 — Your Moves",
+          "exercises": [
+            "thu_glute_kickback",
+            "thu_lat_pull"
+          ]
+        },
+        {
+          "label": "Superset 4 — Shoulders / Arms",
+          "exercises": [
+            "thu_lat_raise",
+            "thu_tri_press"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "session_sat",
+      "dayLabel": "SAT",
+      "sessionLabel": "Session 2",
+      "warmup": "Incline treadmill · 8 min · 3.0 mph · 2% incline",
+      "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5% incline",
+      "blocks": [
+        {
+          "label": "Superset 1 — Pull / Shoulders",
+          "exercises": [
+            "sat_row",
+            "sat_arnold_press"
+          ]
+        },
+        {
+          "label": "Superset 2 — Legs",
+          "exercises": [
+            "sat_leg_press",
+            "sat_leg_curl"
+          ]
+        },
+        {
+          "label": "Superset 3 — Arms / Shoulders",
+          "exercises": [
+            "sat_lat_raise",
+            "sat_tri_press",
+            "sat_hammer"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "session_mon",
+      "dayLabel": "MON",
+      "sessionLabel": "Session 3",
+      "warmup": "Incline treadmill · 8 min · 3.0 mph · 2% incline",
+      "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5% incline",
+      "blocks": [
+        {
+          "label": "Superset 1 — Pull / Push",
+          "exercises": [
+            "mon_row",
+            "mon_idbp"
+          ]
+        },
+        {
+          "label": "Superset 2 — Legs",
+          "exercises": [
+            "mon_leg_press",
+            "mon_leg_curl"
+          ]
+        },
+        {
+          "label": "Superset 3 — Arms",
+          "exercises": [
+            "mon_skull",
+            "mon_curl"
+          ]
+        },
+        {
+          "label": "Superset 4 — Shoulders",
+          "exercises": [
+            "mon_ohp",
+            "mon_lat_raise"
+          ]
+        }
+      ]
+    }
   ]
 }
