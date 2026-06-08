@@ -82,5 +82,7 @@
   -webkit-appearance: none;
 }
 .cardio-input[type="number"] {
+  appearance: textfield;
   -moz-appearance: textfield;
+  -webkit-appearance: none;
 }
