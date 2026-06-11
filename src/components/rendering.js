@@ -168,7 +168,7 @@ export function buildDeloadStrip(appState) {
   return `
     <div class="${cls}">
       <div class="deload-strip-left">
-        <span class="deload-strip-icon" aria-hidden="true">${active ? '✔' : '—'}</span>
+        <span class="deload-strip-icon" aria-hidden="true">${active ? '⬤' : '◯'}</span>
         <div class="deload-strip-text">
           <span class="deload-strip-label">${label}</span>
           <span class="deload-strip-desc">${desc}</span>
