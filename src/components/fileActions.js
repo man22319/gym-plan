@@ -141,10 +141,21 @@ export function copyWorkout(btn) {
     session.blocks.forEach(block => {
       lines.push(block.label);
       block.exercises.forEach(ex => {
-        lines.push(`  ${ex.letter}  ${ex.name}`);
-        lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${formatWeight(ex.weight)}`);
+        lines.push(`  ${ex.letter ?? ''}  ${ex.name}`);
+        lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${formatWeight(ex.load ?? ex.weight)}`);
         if (ex.notes) lines.push(`     Note: ${ex.notes}`);
-        if (ex.alternatives?.length) lines.push(`     Alt: ${ex.alternatives.join(', ')}`);
+        const rawAlts = ex.alternatives;
+        let flatAlts = [];
+        if (rawAlts && typeof rawAlts === 'object' && !Array.isArray(rawAlts)) {
+          flatAlts = [
+            ...(rawAlts.same_pattern || []),
+            ...(rawAlts.regression   || []),
+            ...(rawAlts.variation    || [])
+          ];
+        } else if (Array.isArray(rawAlts)) {
+          flatAlts = rawAlts;
+        }
+        if (flatAlts.length) lines.push(`     Alt: ${flatAlts.join(', ')}`);
       });
       lines.push('');
     });

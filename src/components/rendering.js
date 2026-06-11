@@ -243,65 +243,50 @@ export function buildSession(session, appState) {
  */
 export function buildCardioSection(appState) {
   const c = appState?.cardio || {};
-  const typeVal    = c.type             ?? '';
-  const durVal     = c.durationMinutes  !== null ? c.durationMinutes  : '';
-  const distVal    = c.distanceMiles    !== null ? c.distanceMiles    : '';
-  const rpeVal     = c.perceivedExertion !== null ? c.perceivedExertion : '';
+  const warmupDone   = c.warmupDone   === true;
+  const finisherDone = c.finisherDone === true;
+  const notesVal     = c.notes ?? '';
 
   return `
     <div class="cardio-section" id="cardio-section">
       <div class="cardio-section-header">CARDIO <span class="cardio-section-sub">(optional · logged on finish)</span></div>
       <div class="cardio-fields">
-        <div class="cardio-field">
-          <label for="cardio-type">Type</label>
+        <div class="cardio-field cardio-field--check">
+          <label class="cardio-check-label" for="cardio-warmup">
+            <input
+              type="checkbox"
+              id="cardio-warmup"
+              class="cardio-checkbox"
+              data-cardio-field="warmupDone"
+              ${warmupDone ? 'checked' : ''}
+            />
+            <span>Warmup done</span>
+            <span class="cardio-check-sub">Incline treadmill · 8 min</span>
+          </label>
+        </div>
+        <div class="cardio-field cardio-field--check">
+          <label class="cardio-check-label" for="cardio-finisher">
+            <input
+              type="checkbox"
+              id="cardio-finisher"
+              class="cardio-checkbox"
+              data-cardio-field="finisherDone"
+              ${finisherDone ? 'checked' : ''}
+            />
+            <span>Finisher done</span>
+            <span class="cardio-check-sub">Incline treadmill · 8 min</span>
+          </label>
+        </div>
+        <div class="cardio-field cardio-field--notes" style="grid-column: span 2;">
+          <label for="cardio-notes">Notes</label>
           <input
             type="text"
-            id="cardio-type"
+            id="cardio-notes"
             class="cardio-input"
-            placeholder="e.g. Treadmill"
-            value="${typeVal}"
-            data-cardio-field="type"
+            placeholder="e.g. felt strong, 3.5 mph"
+            value="${notesVal.replace(/"/g, '&quot;')}"
+            data-cardio-field="notes"
             autocomplete="off"
-          />
-        </div>
-        <div class="cardio-field">
-          <label for="cardio-duration">Duration (min)</label>
-          <input
-            type="number"
-            id="cardio-duration"
-            class="cardio-input"
-            placeholder="30"
-            value="${durVal}"
-            min="0"
-            step="1"
-            data-cardio-field="durationMinutes"
-          />
-        </div>
-        <div class="cardio-field">
-          <label for="cardio-distance">Distance (mi)</label>
-          <input
-            type="number"
-            id="cardio-distance"
-            class="cardio-input"
-            placeholder="2.5"
-            value="${distVal}"
-            min="0"
-            step="0.1"
-            data-cardio-field="distanceMiles"
-          />
-        </div>
-        <div class="cardio-field">
-          <label for="cardio-rpe">Effort (1–10)</label>
-          <input
-            type="number"
-            id="cardio-rpe"
-            class="cardio-input"
-            placeholder="7"
-            value="${rpeVal}"
-            min="1"
-            max="10"
-            step="1"
-            data-cardio-field="perceivedExertion"
           />
         </div>
       </div>
@@ -323,7 +308,7 @@ export function buildCard(ex, appState) {
   const isSubstituted = !!appState?.exerciseSubstitutions?.[ex.id];
   const isOverridden = !!appState?.exerciseOverrides?.[ex.id];
   
-  const wStr      = formatWeight(effEx.weight);
+  const wStr      = formatWeight(effEx.load ?? effEx.weight);
   const detail    = `${effEx.sets} × ${formatReps(effEx.reps)}${wStr ? `<br>${wStr}` : ''}`;
   const prs       = query.currentSetPRs(appState, ex.id);
   const hasPR     = prs.length > 0;

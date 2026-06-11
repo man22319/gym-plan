@@ -244,6 +244,58 @@ export const query = {
     };
   },
 
+  /**
+   * Returns a human-readable progression recommendation for display on an exercise card.
+   * Derives action label from progressionState T/F/lastSuggested vs current working weight.
+   *
+   * Returns null if no progression data exists yet (first session).
+   *
+   * @param {object} appState
+   * @param {string} exId
+   * @returns {{ action: 'increase'|'reduce'|'maintain'|'watch', label: string } | null}
+   */
+  progressionRecommendation(appState, exId) {
+    const ps = appState?.progressionState?.[exId];
+    if (!ps || ps.T === null || ps.lastSuggested === null || ps.lastSuggested === undefined) return null;
+
+    // Derive the current working weight from the exercise index or overrides
+    const EXERCISE_INDEX_local = appState?.sessions
+      ? Object.fromEntries(
+          (appState.sessions || []).flatMap(s =>
+            (s.blocks || []).flatMap(b => (b.exercises || []).map(ex => [ex.id, ex]))
+          )
+        )
+      : {};
+    const overrides = appState?.exerciseOverrides?.[exId];
+    const base = EXERCISE_INDEX_local[exId];
+    const loadObj = overrides?.weight ?? base?.load;
+    const currentW = loadObj
+      ? (loadObj.value ?? loadObj.min ?? null)
+      : null;
+
+    const suggested = ps.lastSuggested;
+    const suppressed = ps.lastSuppressed ?? false;
+    const riskScore  = ps.lastRisk ?? 0;
+
+    if (suppressed || riskScore > 0.65) {
+      return { action: 'watch', label: `Hold at ${suggested} lbs · high risk` };
+    }
+
+    if (currentW === null) {
+      // No current weight to compare — just show suggestion
+      return { action: 'maintain', label: `Target ${suggested} lbs` };
+    }
+
+    const delta = suggested - currentW;
+    if (delta > 0) {
+      return { action: 'increase', label: `↑ ${suggested} lbs (+${delta.toFixed(1)})` };
+    } else if (delta < 0) {
+      return { action: 'reduce', label: `↓ ${suggested} lbs (${delta.toFixed(1)})` };
+    } else {
+      return { action: 'maintain', label: `Maintain ${suggested} lbs` };
+    }
+  },
+
   // ── Personal Records ──────────────────────────────────────────────────────
 
   personalRecords(appState, exId) {

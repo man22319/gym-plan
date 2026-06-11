@@ -225,24 +225,17 @@ export function setupEvents() {
     const cardioInput = e.target.closest('[data-cardio-field]');
     if (!cardioInput) return;
 
-    const typeEl = document.getElementById('cardio-type');
-    const durEl  = document.getElementById('cardio-duration');
-    const distEl = document.getElementById('cardio-distance');
-    const rpeEl  = document.getElementById('cardio-rpe');
-
-    const typeVal = typeEl?.value.trim() ?? '';
-    const durRaw  = durEl?.value.trim()  ?? '';
-    const distRaw = distEl?.value.trim() ?? '';
-    const rpeRaw  = rpeEl?.value.trim()  ?? '';
+    const warmupEl   = document.getElementById('cardio-warmup');
+    const finisherEl = document.getElementById('cardio-finisher');
+    const notesEl    = document.getElementById('cardio-notes');
 
     const cardio = {
-      type:              typeVal !== '' ? typeVal : '',
-      durationMinutes:   durRaw  !== '' ? parseFloat(durRaw)  : null,
-      distanceMiles:     distRaw !== '' ? parseFloat(distRaw) : null,
-      perceivedExertion: rpeRaw  !== '' ? parseInt(rpeRaw, 10) : null
+      warmupDone:   warmupEl?.checked   ?? false,
+      finisherDone: finisherEl?.checked ?? false,
+      notes:        notesEl?.value.trim() ?? ''
     };
 
-    dispatch('UPDATE_CARDIO_METRICS', { cardio });
+    dispatch('UPDATE_CARDIO', { cardio });
   });
   // ────────────────────────────────────────────────────────────────────────
 }

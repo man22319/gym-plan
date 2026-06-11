@@ -21,16 +21,21 @@ export function getEffectiveExercise(appState, exId) {
   if (!overrides) return base;
 
   const result = { ...base };
-  if (overrides.weight) result.weight = overrides.weight;
-  if (overrides.reps) result.reps = overrides.reps;
-  if (overrides.notes) result.notes = overrides.notes;
+  // Overrides store weight prescription as 'weight'; exercise schema uses 'load'.
+  // Apply to load so the rest of the render path sees it correctly.
+  if (overrides.weight) result.load = overrides.weight;
+  if (overrides.reps)   result.reps = overrides.reps;
+  if (overrides.notes)  result.notes = overrides.notes;
+  // Expose weight alias for any code that still reads effEx.weight
+  result.weight = result.load;
   return result;
 }
 
 export function resolveWeight(userValue, exId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
   const overrides = state?.exerciseOverrides?.[exId];
-  const weightObj = overrides?.weight ?? EXERCISE_INDEX[exId]?.weight;
+  // overrides.weight is the user-set weight object; exercise schema stores it as 'load'
+  const weightObj = overrides?.weight ?? EXERCISE_INDEX[exId]?.load ?? EXERCISE_INDEX[exId]?.weight;
   return weightObj ? lowerBound(weightObj) : null;
 }
 
