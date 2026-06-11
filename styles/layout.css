@@ -120,6 +120,7 @@ header {
 .dropdown {
   position: relative;
   display: inline-block;
+  z-index: 115;
 }
 .dropdown-trigger {
   white-space: nowrap;
@@ -133,7 +134,7 @@ header {
   box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
   border: 1px solid var(--border-hi);
   border-radius: 6px;
-  z-index: 9999;
+  z-index: 115;
   margin-top: 4px;
 }
 .dropdown:hover .dropdown-content {
