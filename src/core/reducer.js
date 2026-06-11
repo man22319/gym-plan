@@ -1,31 +1,33 @@
-import { DEV_MODE, REST_DURATION, makeSet, createDefaultState } from '../store/state.js';
+import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState } from '../store/state.js';
 import { workouts, EXERCISE_INDEX, state, setState } from './workouts.js';
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from './helpers.js';
 import { startRestTimer } from './restTimer.js';
 import { persist, normalize } from './persistence.js';
 import { analyzeFatigueTrends } from './analytics/fatigue.js';
-import { calculateWeeklyVolume } from './analytics/volumeTracker.js';
+import { updateProgressionState } from './progression.js';
 
 export const ALLOWED_ACTIONS = {
-  SET_ACTIVE_SESSION:       ['sessionId'],
-  TOGGLE_SET:               ['exId', 'idx'],
-  LOG_AND_MARK_DONE:        ['exId', 'idx', 'weight', 'reps', 'note'],
-  RESET_SESSION:            [],
-  IMPORT_STATE:             ['data'],
-  START_SESSION:            [],
-  SUBSTITUTE_EXERCISE:      ['exId', 'substitution'],
-  UPDATE_EXERCISE_OVERRIDE: ['exId', 'fields'],
-  IMPORT_TEMPLATE:          ['sessions', 'sessionsPerWeek'],
-  IMPORT_HISTORY:           ['history'],
-  FINISH_WORKOUT:           ['sessionId'],
-  UPDATE_TEMPLATE:          ['sessions', 'sessionsPerWeek'],
-  UPDATE_FATIGUE_STATUS:    ['fatigueStatus'],
-  TOGGLE_DELOAD:            [],
-  // Cardio — writes transient state.cardio; committed into history on FINISH_WORKOUT
-  UPDATE_CARDIO_METRICS:    ['cardio'],
-  // Analytics — stores last computed volume summary from volumeTracker
-  UPDATE_WEEKLY_VOLUME:     ['weeklyVolume']
+  SET_ACTIVE_SESSION:        ['sessionId'],
+  TOGGLE_SET:                ['exId', 'idx'],
+  LOG_AND_MARK_DONE:         ['exId', 'idx', 'weight', 'reps', 'note'],
+  RESET_SESSION:             [],
+  IMPORT_STATE:              ['data'],
+  START_SESSION:             [],
+  SUBSTITUTE_EXERCISE:       ['exId', 'substitution'],
+  UPDATE_EXERCISE_OVERRIDE:  ['exId', 'fields'],
+  IMPORT_TEMPLATE:           ['sessions', 'sessionsPerWeek'],
+  IMPORT_HISTORY:            ['history'],
+  FINISH_WORKOUT:            ['sessionId'],
+  UPDATE_TEMPLATE:           ['sessions', 'sessionsPerWeek'],
+  UPDATE_FATIGUE_STATUS:     ['fatigueStatus'],
+  TOGGLE_DELOAD:             [],
+  // Cardio — writes transient state.cardio (binary per §8); committed into history on FINISH_WORKOUT
+  UPDATE_CARDIO:             ['cardio'],
+  // Progression state — written after FINISH_WORKOUT pipeline
+  UPDATE_PROGRESSION_STATE:  ['progressionState'],
+  // UI offset — display-only shift (§19)
+  SET_UI_OFFSET:             ['uiOffset'],
 };
 
 export function validateAction(type, payload) {
@@ -56,7 +58,7 @@ export function reducer(currentState, action) {
 
     case 'TOGGLE_SET': {
       const { exId, idx } = payload;
-      const sets = [...(currentState.exercises[exId] || [])];
+      const sets    = [...(currentState.exercises[exId] || [])];
       const existing = sets[idx] || makeSet();
       const nextStatus = cycleStatus(existing.s);
 
@@ -84,11 +86,22 @@ export function reducer(currentState, action) {
 
       const resolvedWeight = resolveWeight(payload.weight, exId);
       const resolvedReps   = resolveReps(payload.reps, exId);
-      const resolvedNote   = payload.note ?? '';
+      const resolvedNote   = payload.note  ?? '';
+      const resolvedRIR    = (payload.rir !== undefined && payload.rir !== null && payload.rir >= 0)
+                               ? payload.rir : null;
+      const resolvedROM    = payload.rom !== undefined ? payload.rom : true;
 
-      const sets = [...(currentState.exercises[exId] || [])];
+      const sets    = [...(currentState.exercises[exId] || [])];
       const existing = sets[idx] || makeSet();
-      sets[idx] = { ...existing, s: 'done', w: resolvedWeight, r: resolvedReps, n: resolvedNote };
+      sets[idx] = {
+        ...existing,
+        s:   'done',
+        w:   resolvedWeight,
+        r:   resolvedReps,
+        n:   resolvedNote,
+        rir: resolvedRIR,
+        rom: resolvedROM
+      };
       return {
         ...currentState,
         exercises: { ...currentState.exercises, [exId]: sets }
@@ -103,10 +116,7 @@ export function reducer(currentState, action) {
       } else {
         exerciseSubstitutions[exId] = substitution;
       }
-      return {
-        ...currentState,
-        exerciseSubstitutions
-      };
+      return { ...currentState, exerciseSubstitutions };
     }
 
     case 'UPDATE_EXERCISE_OVERRIDE': {
@@ -116,13 +126,13 @@ export function reducer(currentState, action) {
         delete exerciseOverrides[exId];
       } else {
         const current = exerciseOverrides[exId] || {};
-        const merged = { ...current };
+        const merged  = { ...current };
         if (fields.weight === null) delete merged.weight;
         else if (fields.weight !== undefined) merged.weight = fields.weight;
-        if (fields.reps === null) delete merged.reps;
-        else if (fields.reps !== undefined) merged.reps = fields.reps;
-        if (fields.notes === null) delete merged.notes;
-        else if (fields.notes !== undefined) merged.notes = fields.notes;
+        if (fields.reps   === null) delete merged.reps;
+        else if (fields.reps   !== undefined) merged.reps   = fields.reps;
+        if (fields.notes  === null) delete merged.notes;
+        else if (fields.notes  !== undefined) merged.notes  = fields.notes;
 
         if (Object.keys(merged).length === 0) {
           delete exerciseOverrides[exId];
@@ -130,17 +140,19 @@ export function reducer(currentState, action) {
           exerciseOverrides[exId] = merged;
         }
       }
-      return {
-        ...currentState,
-        exerciseOverrides
-      };
+      return { ...currentState, exerciseOverrides };
     }
 
     case 'RESET_SESSION': {
       const defaultState = createDefaultState(currentState.sessions || workouts);
       return {
         ...defaultState,
-        sessionsPerWeek: currentState.sessionsPerWeek ?? 3
+        sessionsPerWeek:  currentState.sessionsPerWeek  ?? 3,
+        // Preserve canonical counters + history on reset (§4)
+        history:          currentState.history          ?? [],
+        completedWorkouts: currentState.completedWorkouts ?? 0,
+        uiOffset:         currentState.uiOffset         ?? 0,
+        progressionState: currentState.progressionState ?? {}
       };
     }
 
@@ -152,7 +164,7 @@ export function reducer(currentState, action) {
       const { sessions, sessionsPerWeek } = payload;
       return normalize({
         ...currentState,
-        sessions: JSON.parse(JSON.stringify(sessions)),
+        sessions:        JSON.parse(JSON.stringify(sessions)),
         sessionsPerWeek: sessionsPerWeek ?? 3,
         activeSessionId: sessions[0]?.id || null
       });
@@ -162,7 +174,7 @@ export function reducer(currentState, action) {
       const { sessions, sessionsPerWeek } = payload;
       return normalize({
         ...currentState,
-        sessions: JSON.parse(JSON.stringify(sessions)),
+        sessions:        JSON.parse(JSON.stringify(sessions)),
         sessionsPerWeek,
         activeSessionId: sessions.some(s => s.id === currentState.activeSessionId)
           ? currentState.activeSessionId
@@ -174,28 +186,29 @@ export function reducer(currentState, action) {
       const importedHistory = payload.history || [];
       const existingHistory = currentState.history || [];
       const merged = [...existingHistory];
-      
+
       importedHistory.forEach(importedEntry => {
         const exists = merged.some(e => {
-          if (importedEntry.entryId && e.entryId) {
-            return e.entryId === importedEntry.entryId;
-          }
+          if (importedEntry.entryId && e.entryId) return e.entryId === importedEntry.entryId;
           return e.timestamp === importedEntry.timestamp;
         });
         if (!exists) {
-          const entryWithId = {
+          merged.push({
             ...importedEntry,
             entryId: importedEntry.entryId || crypto.randomUUID()
-          };
-          merged.push(entryWithId);
+          });
         }
       });
-      
+
       merged.sort((a, b) => a.timestamp - b.timestamp);
-      
+
+      // Update completedWorkouts to match new history length if import grew it
+      const newCompleted = Math.max(currentState.completedWorkouts ?? 0, merged.length);
+
       return {
         ...currentState,
-        history: merged
+        history: merged,
+        completedWorkouts: newCompleted
       };
     }
 
@@ -214,13 +227,15 @@ export function reducer(currentState, action) {
         const sets = currentState.exercises[ex.id] || [];
         exerciseSnapshot[ex.id] = sets.map(s => ({
           ...s,
-          w: s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, ex.id) : s.w,
-          r: s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, ex.id)   : s.r,
-          n: s.n ?? ''
+          w:   s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, ex.id) : s.w,
+          r:   s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, ex.id)   : s.r,
+          n:   s.n ?? '',
+          rir: s.rir ?? null,
+          rom: s.rom !== undefined ? s.rom : true
         }));
       });
 
-      const now = Date.now();
+      const now   = Date.now();
       const today = new Date(now);
 
       const history = [...(currentState.history || [])];
@@ -228,76 +243,75 @@ export function reducer(currentState, action) {
         if (e.sessionId !== sessionId) return false;
         const entryDate = new Date(e.timestamp);
         return entryDate.getFullYear() === today.getFullYear() &&
-               entryDate.getMonth() === today.getMonth() &&
-               entryDate.getDate() === today.getDate();
+               entryDate.getMonth()    === today.getMonth()    &&
+               entryDate.getDate()     === today.getDate();
       });
 
       if (existingIndex !== -1) {
         history[existingIndex] = {
           ...history[existingIndex],
-          timestamp: now,
+          timestamp:      now,
           startTimestamp: currentState.sessionStarted ?? history[existingIndex].startTimestamp ?? null,
-          exercises: exerciseSnapshot,
-          // Cardio: commit from transient state.cardio; preserve existing if none pending
-          cardio: currentState.cardio ?? history[existingIndex].cardio ?? null,
-          isDeload: currentState.isDeloadActive === true ? true : (history[existingIndex].isDeload ?? false)
+          exercises:      exerciseSnapshot,
+          cardio:         currentState.cardio ?? history[existingIndex].cardio ?? null,
+          isDeload:       currentState.isDeloadActive === true ? true : (history[existingIndex].isDeload ?? false)
         };
       } else {
-        const entry = {
-          entryId: crypto.randomUUID(),
+        history.push({
+          entryId:        crypto.randomUUID(),
           sessionId,
-          timestamp: now,
+          timestamp:      now,
           startTimestamp: currentState.sessionStarted ?? null,
-          exercises: exerciseSnapshot,
-          // Cardio: commit from transient state.cardio; null if no cardio was entered
-          cardio: currentState.cardio ?? null,
-          isDeload: currentState.isDeloadActive === true
-        };
-        history.push(entry);
+          exercises:      exerciseSnapshot,
+          cardio:         currentState.cardio ?? null,
+          isDeload:       currentState.isDeloadActive === true
+        });
       }
 
       history.sort((a, b) => a.timestamp - b.timestamp);
 
-      return {
+      const nextCompleted = (currentState.completedWorkouts ?? 0) + 1;
+
+      let nextState = {
         ...currentState,
         history,
-        cardio: null,           // clear transient cardio — it has been committed into the history entry above
-        sessionStarted: null
+        cardio:           null,   // clear transient cardio — committed above
+        sessionStarted:   null,
+        // §2/§3: increment completedWorkouts by +1 on each FINISH_WORKOUT
+        completedWorkouts: nextCompleted
       };
+
+      const spw = currentState.sessionsPerWeek ?? 3;
+      if (nextCompleted > 0 && nextCompleted % spw === 0) {
+        // §4: Week Completion & UI Reset
+        // Trigger implicit RESET_SESSION which clears inputs but preserves canonical state
+        nextState = reducer(nextState, { type: 'RESET_SESSION', payload: {} });
+      }
+
+      return nextState;
     }
 
     case 'TOGGLE_DELOAD': {
-      return {
-        ...currentState,
-        isDeloadActive: !currentState.isDeloadActive
-      };
+      return { ...currentState, isDeloadActive: !currentState.isDeloadActive };
     }
 
     case 'UPDATE_FATIGUE_STATUS': {
-      return {
-        ...currentState,
-        fatigueStatus: payload.fatigueStatus
-      };
+      return { ...currentState, fatigueStatus: payload.fatigueStatus };
     }
 
-    case 'UPDATE_CARDIO_METRICS': {
-      // Immutable update: writes only to state.cardio (transient UI context).
-      // This value is committed into history[].cardio when FINISH_WORKOUT fires.
-      // Rule: cardio is an execution artifact — it lives in history, not sessions.
-      return {
-        ...currentState,
-        cardio: { ...payload.cardio }
-      };
+    case 'UPDATE_CARDIO': {
+      // Binary schema per §8: { warmupDone, finisherDone, notes }
+      // Writes to transient state.cardio; committed into history on FINISH_WORKOUT.
+      return { ...currentState, cardio: { ...makeCardio(), ...payload.cardio } };
     }
 
-    case 'UPDATE_WEEKLY_VOLUME': {
-      return {
-        ...currentState,
-        analytics: {
-          ...(currentState.analytics || {}),
-          weeklyVolume: payload.weeklyVolume
-        }
-      };
+    case 'UPDATE_PROGRESSION_STATE': {
+      return { ...currentState, progressionState: payload.progressionState };
+    }
+
+    case 'SET_UI_OFFSET': {
+      const clamped = Math.max(-100, Math.min(100, Math.round(payload.uiOffset)));
+      return { ...currentState, uiOffset: clamped };
     }
 
     default:
@@ -331,8 +345,7 @@ export function dispatch(type, payload = {}) {
       }
     }
 
-    const prevState = state;
-    let nextState = reducer(state, { type, payload });
+    const nextState = reducer(state, { type, payload });
 
     if (DEV_MODE) {
       console.log(`▶ ${type}`, payload);
@@ -346,28 +359,21 @@ export function dispatch(type, payload = {}) {
     const isDoneTransition = (() => {
       if (type === 'LOG_AND_MARK_DONE') return true;
       if (type === 'TOGGLE_SET') {
-        const { exId, idx } = payload;
-        const prev = (prevState.exercises[exId] || [])[idx]?.s ?? '';
-        const next = (nextState.exercises[exId] || [])[idx]?.s ?? '';
-        return next === 'done' && prev !== 'done';
+        const prev = (state.exercises[payload.exId] || [])[payload.idx]?.s ?? '';
+        return prev !== 'done' && (nextState.exercises[payload.exId] || [])[payload.idx]?.s === 'done';
       }
       return false;
     })();
 
     if (isDoneTransition) {
       let restDuration = REST_DURATION;
-      if (type === 'LOG_AND_MARK_DONE' || type === 'TOGGLE_SET') {
-        const { exId, idx } = payload;
-        const ex = EXERCISE_INDEX[exId];
-        if (ex) {
-          const completedSets = (nextState.exercises[exId] || []);
-          const isLastSet = idx >= ex.sets - 1;
-          if (isLastSet) {
-            restDuration = ex.rest_between_exercises ?? REST_DURATION;
-          } else {
-            restDuration = ex.rest_between_sets ?? REST_DURATION;
-          }
-        }
+      const { exId, idx } = payload;
+      const ex = EXERCISE_INDEX[exId];
+      if (ex) {
+        const isLastSet = idx >= ex.sets - 1;
+        restDuration = isLastSet
+          ? (ex.rest_between_exercises ?? REST_DURATION)
+          : (ex.rest_between_sets      ?? REST_DURATION);
       }
       startRestTimer(restDuration);
     }
@@ -376,55 +382,80 @@ export function dispatch(type, payload = {}) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       const sessionEntries = query.sessionHistory(nextState, payload.sessionId);
       const completedEntry = sessionEntries[sessionEntries.length - 1];
-      if (completedEntry) {
-        _sessionCompleteFn?.(completedEntry, nextState);
-      }
+      if (completedEntry) _sessionCompleteFn?.(completedEntry, nextState);
     }
 
+    // ── Fatigue pipeline ─────────────────────────────────────────────────────
     const recomputeFatigue = (
       type === 'FINISH_WORKOUT' ||
-      type === 'TOGGLE_DELOAD' ||
-      type === 'RESET_SESSION' ||
-      type === 'IMPORT_STATE' ||
+      type === 'TOGGLE_DELOAD'  ||
+      type === 'RESET_SESSION'  ||
+      type === 'IMPORT_STATE'   ||
       type === 'IMPORT_HISTORY'
     );
 
     if (recomputeFatigue) {
-      // ── Fatigue pipeline ─────────────────────────────────────────────
-      // Run analysis on the updated history and apply the result atomically.
-      let fatigueStatus = analyzeFatigueTrends(nextState.history ?? []);
-      if (nextState.isDeloadActive) {
-        fatigueStatus = {
-          level: 'normal',
-          indicators: [],
-          timestamp: Date.now(),
-          debug: fatigueStatus.debug
-        };
+      let fatigueStatus = analyzeFatigueTrends(state.history ?? []);
+      if (state.isDeloadActive) {
+        fatigueStatus = { level: 'normal', indicators: [], timestamp: Date.now(), debug: fatigueStatus.debug };
       }
-      const withFatigue = reducer(nextState, {
-        type: 'UPDATE_FATIGUE_STATUS',
-        payload: { fatigueStatus }
-      });
+      const withFatigue = reducer(state, { type: 'UPDATE_FATIGUE_STATUS', payload: { fatigueStatus } });
       setState(withFatigue);
       persist();
       _renderFn?.(state);
-      // ─────────────────────────────────────────────────────────────────
     }
+    // ─────────────────────────────────────────────────────────────────────────
 
-    // ── Volume pipeline ──────────────────────────────────────────────────
-    // Recompute weekly effective muscle volume after FINISH_WORKOUT.
-    // Purely deterministic from history — no inference, no defaults.
+    // ── Progression pipeline (§21) ───────────────────────────────────────────
+    // Run after FINISH_WORKOUT: update T/F/Δw for each exercise in the session.
     if (type === 'FINISH_WORKOUT') {
-      const weeklyVolume = calculateWeeklyVolume(state.history ?? [], Date.now());
-      const withVolume = reducer(state, {
-        type: 'UPDATE_WEEKLY_VOLUME',
-        payload: { weeklyVolume }
-      });
-      setState(withVolume);
-      persist();
-      _renderFn?.(state);
+      const session = workouts.find(s => s.id === payload.sessionId);
+      if (session) {
+        const allExercises = session.blocks.flatMap(b => b.exercises);
+        const newProgState = { ...(state.progressionState || {}) };
+        const lastEntry = query.sessionHistory(state, payload.sessionId).slice(-1)[0];
+
+        const durationMs = (lastEntry && lastEntry.startTimestamp) ? lastEntry.timestamp - lastEntry.startTimestamp : 0;
+        const durationMin = durationMs > 0 ? durationMs / 60000 : null;
+        
+        let sessionVolume = 0;
+        if (lastEntry && lastEntry.exercises) {
+          Object.values(lastEntry.exercises).forEach(sets => {
+            sets.forEach(s => {
+              if (s.s === 'done' && s.w !== null && s.r !== null) sessionVolume += s.w * s.r;
+            });
+          });
+        }
+        const density = durationMin ? sessionVolume / durationMin : null;
+
+        for (const ex of allExercises) {
+          const sets    = lastEntry?.exercises[ex.id] || [];
+          const prev    = newProgState[ex.id] || {};
+          const updated = updateProgressionState(prev, sets, {
+            density,
+            riskMultiplier: ex.riskMultiplier ?? 1.0
+          });
+          newProgState[ex.id] = {
+            T:   updated.T,
+            F:   updated.F,
+            dw:  updated.dw,
+            // Store last suggestion for display — not authoritative
+            lastSuggested: updated.suggestedWeight,
+            lastRisk:      updated.riskScore,
+            lastSuppressed: updated.suppressed
+          };
+        }
+
+        const withProg = reducer(state, {
+          type:    'UPDATE_PROGRESSION_STATE',
+          payload: { progressionState: newProgState }
+        });
+        setState(withProg);
+        persist();
+        _renderFn?.(state);
+      }
     }
-    // ────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
   } catch (err) {
     console.error(`[dispatch] ${type} rejected:`, err);

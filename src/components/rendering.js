@@ -67,6 +67,18 @@ export function render(appState) {
   if (weekSessionEl) {
     weekSessionEl.textContent = `Week ${week} · Session ${session}`;
   }
+
+  const progContainer = document.getElementById('global-progress-bar-container');
+  if (progContainer) {
+    const activeSessionId = appState.activeSessionId;
+    const pct = activeSessionId ? query.sessionProgress(appState, activeSessionId) : 0;
+    progContainer.innerHTML = `
+      <div class="progress-wrap">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+        <div class="progress-pct ${pct === 100 ? 'lit' : ''}">${pct}%</div>
+      </div>
+    `;
+  }
 }
 
 export function buildApp(appState) {
@@ -95,7 +107,7 @@ export function buildFatigueBanner(appState) {
   return `
     <div class="fatigue-banner" role="alert" aria-label="Fatigue warning" id="fatigue-banner">
       <div class="fatigue-banner-inner">
-        <span class="fatigue-icon" aria-hidden="true">⚠️</span>
+        <span class="fatigue-icon" aria-hidden="true">!</span>
         <div class="fatigue-body">
           <div class="fatigue-title">Recovery Focus Recommended</div>
           <ul class="fatigue-indicators">${bullets}</ul>
@@ -123,7 +135,7 @@ export function buildDeloadStrip(appState) {
   return `
     <div class="${cls}">
       <div class="deload-strip-left">
-        <span class="deload-strip-icon" aria-hidden="true">${active ? '🔵' : '○'}</span>
+        <span class="deload-strip-icon" aria-hidden="true">${active ? '✔' : '—'}</span>
         <div class="deload-strip-text">
           <span class="deload-strip-label">${label}</span>
           <span class="deload-strip-desc">${desc}</span>
@@ -199,14 +211,9 @@ export function buildTabs(appState) {
 
 export function buildSession(session, appState) {
   const active    = session.id === appState.activeSessionId ? 'active' : '';
-  const pct       = query.sessionProgress(appState, session.id);
   const complete  = query.isSessionComplete(appState, session.id);
 
   return `<div class="session ${active}" id="${session.id}">
-    <div class="progress-wrap">
-      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
-      <div class="progress-pct ${pct === 100 ? 'lit' : ''}">${pct}%</div>
-    </div>
     <div class="warmup-bar"><strong>WARM-UP</strong> <span>&middot; ${session.warmup}</span></div>
     ${session.blocks.map(b => buildBlock(b, appState)).join('')}
     <div class="finisher-card">
@@ -509,7 +516,7 @@ export function buildPlateauBanner(appState, exId) {
   const info     = plateaus.find(p => p.exerciseId === exId);
   if (!info) return '';
 
-  const icon        = info.currentTrend === 'down' ? '📉' : '➡️';
+  const icon        = info.currentTrend === 'down' ? '↓' : '→';
   const trendLabel  = info.currentTrend === 'down' ? 'Declining' : 'Flat';
   const trendCls    = info.currentTrend === 'down' ? 'plateau-down' : 'plateau-flat';
 

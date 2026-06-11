@@ -1,5 +1,5 @@
-import { STORAGE_KEY, STATE_VERSION, makeSet, createDefaultState } from '../store/state.js';
-import { defaultWorkouts, workouts, state, setState } from './workouts.js';
+import { STORAGE_KEY, STATE_VERSION, makeSet, makeCardio, createDefaultState } from '../store/state.js';
+import { defaultWorkouts, workouts, state, setState, completedSessionsBase as _base } from './workouts.js';
 
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
 
@@ -45,54 +45,96 @@ export function migrate(raw) {
     if (!Array.isArray(arr)) continue;
     exercises[id] = arr.map(item => {
       if (typeof item === 'string') return makeSet(item);
-      const _s = item.s ?? '';
-      const _w = (item.w === 0 && _s === '') ? null : (item.w ?? null);
-      const _r = (item.r === 0 && _s === '') ? null : (item.r ?? null);
-      const _n = item.n ?? '';
-      return { s: _s, w: _w, r: _r, n: _n };
+      const _s   = item.s ?? '';
+      const _w   = (item.w === 0 && _s === '') ? null : (item.w ?? null);
+      const _r   = (item.r === 0 && _s === '') ? null : (item.r ?? null);
+      const _n   = item.n ?? '';
+      const _rir = (item.rir !== undefined && item.rir !== null && item.rir >= 0) ? item.rir : null;
+      const _rom = item.rom !== undefined ? item.rom : true;  // default full ROM
+      return { s: _s, w: _w, r: _r, n: _n, rir: _rir, rom: _rom };
     });
   }
 
+  // ── Migrate history entries ────────────────────────────────────────────────
+  const history = (raw.history || []).map(entry => ({
+    entryId:        entry.entryId ?? crypto.randomUUID(),
+    sessionId:      entry.sessionId,
+    timestamp:      entry.timestamp,
+    startTimestamp: entry.startTimestamp ?? null,
+    isDeload:       entry.isDeload ?? false,
+    // Migrate old cardio schema { type, durationMinutes, distanceMiles, perceivedExertion }
+    // to new binary schema { warmupDone, finisherDone, notes } per §8
+    cardio: migrateCardio(entry.cardio),
+    exercises: Object.fromEntries(
+      Object.entries(entry.exercises || {}).map(([id, sets]) => [
+        id,
+        (Array.isArray(sets) ? sets : []).map(s =>
+          typeof s === 'string' ? makeSet(s) : (() => {
+            const _s   = s.s ?? '';
+            const _w   = (s.w === 0 && _s === '') ? null : (s.w ?? null);
+            const _r   = (s.r === 0 && _s === '') ? null : (s.r ?? null);
+            const _n   = s.n ?? '';
+            const _rir = (s.rir !== undefined && s.rir !== null && s.rir >= 0) ? s.rir : null;
+            const _rom = s.rom !== undefined ? s.rom : true;
+            return { s: _s, w: _w, r: _r, n: _n, rir: _rir, rom: _rom };
+          })()
+        )
+      ])
+    )
+  }));
+
+  // ── Derive completedWorkouts ───────────────────────────────────────────────
+  // If present in raw (v9+), use it directly.
+  // Otherwise derive from history.length + completedSessionsBase (backwards compat with v8).
+  const completedWorkouts = typeof raw.completedWorkouts === 'number'
+    ? raw.completedWorkouts
+    : (history.length + (_base ?? 0));
+
   return {
-    version:         STATE_VERSION,
+    version:          STATE_VERSION,
     sessions,
     sessionsPerWeek,
-    activeSessionId: raw.activeSessionId ?? sessions[0]?.id ?? null,
-    sessionStarted:  raw.sessionStarted ?? null,
+    activeSessionId:  raw.activeSessionId ?? sessions[0]?.id ?? null,
+    sessionStarted:   raw.sessionStarted ?? null,
     exerciseSubstitutions: raw.exerciseSubstitutions ?? {},
     exerciseOverrides: raw.exerciseOverrides ?? {},
-    fatigueStatus: raw.fatigueStatus ?? { level: 'normal', indicators: [], timestamp: 0 },
-    isDeloadActive: raw.isDeloadActive ?? false,
+    fatigueStatus:    raw.fatigueStatus ?? { level: 'normal', indicators: [], timestamp: 0 },
+    isDeloadActive:   raw.isDeloadActive ?? false,
     // cardio: transient staging field — never persisted between sessions; cleared on load
-    cardio: null,
-    // analytics: derived from history; recomputed after FINISH_WORKOUT
-    analytics: raw.analytics ?? { weeklyVolume: null },
-    history:         (raw.history || []).map(entry => ({
-      entryId:        entry.entryId ?? crypto.randomUUID(), // Guarantee entryId exists in history
-      sessionId:      entry.sessionId,
-      timestamp:      entry.timestamp,
-      startTimestamp: entry.startTimestamp ?? null,  // v6→v7: add startTimestamp
-      isDeload:       entry.isDeload ?? false,
-      // cardio: null for legacy entries; preserved if already present (schema v1.0)
-      cardio:         entry.cardio ?? null,
-      exercises:      Object.fromEntries(
-        Object.entries(entry.exercises || {}).map(([id, sets]) => [
-          id,
-          (Array.isArray(sets) ? sets : []).map(s =>
-            typeof s === 'string' ? makeSet(s) : (() => {
-              const _s = s.s ?? '';
-              const _w = (s.w === 0 && _s === '') ? null : (s.w ?? null);
-              const _r = (s.r === 0 && _s === '') ? null : (s.r ?? null);
-              const _n = s.n ?? '';
-              return { s: _s, w: _w, r: _r, n: _n };
-            })()
-          )
-        ])
-      )
-    })),
+    cardio:           null,
+    // Canonical progression counters (§1/§3)
+    completedWorkouts,
+    uiOffset:         typeof raw.uiOffset === 'number'
+                        ? Math.max(-100, Math.min(100, raw.uiOffset))
+                        : 0,
+    // Latent progression state (§21)
+    progressionState: raw.progressionState ?? {},
+    history,
     exercises
   };
 }
+
+/**
+ * Migrate an old or null cardio object to the new binary schema (§8).
+ * Old schema: { type, durationMinutes, distanceMiles, perceivedExertion }
+ * New schema: { warmupDone, finisherDone, notes }
+ */
+function migrateCardio(cardio) {
+  if (!cardio) return null;
+  // Already new schema
+  if ('warmupDone' in cardio || 'finisherDone' in cardio) {
+    return {
+      warmupDone:   cardio.warmupDone   ?? false,
+      finisherDone: cardio.finisherDone ?? false,
+      notes:        cardio.notes        ?? ''
+    };
+  }
+  // Old schema — convert. We can't know if warmup was done from old data,
+  // so default both to false and move any type string to notes.
+  const oldNotes = cardio.type ? `Legacy: ${cardio.type}` : '';
+  return { warmupDone: false, finisherDone: false, notes: oldNotes };
+}
+
 
 export function normalize(appState) {
   const exercises = { ...appState.exercises };
@@ -105,7 +147,14 @@ export function normalize(appState) {
           exercises[ex.id] = Array.from({ length: ex.sets }, () => makeSet());
           return;
         }
-        const copy = arr.slice(0, ex.sets).map(s => ({ s: s.s ?? '', w: s.w ?? null, r: s.r ?? null, n: s.n ?? '' }));
+        const copy = arr.slice(0, ex.sets).map(s => ({
+          s:   s.s   ?? '',
+          w:   s.w   ?? null,
+          r:   s.r   ?? null,
+          n:   s.n   ?? '',
+          rir: (s.rir !== undefined && s.rir !== null && s.rir >= 0) ? s.rir : null,
+          rom: s.rom !== undefined ? s.rom : true
+        }));
         while (copy.length < ex.sets) copy.push(makeSet());
         exercises[ex.id] = copy;
       })
@@ -115,31 +164,36 @@ export function normalize(appState) {
     ...appState,
     exercises,
     exerciseSubstitutions: appState.exerciseSubstitutions ?? {},
-    exerciseOverrides: appState.exerciseOverrides ?? {},
-    fatigueStatus: appState.fatigueStatus ?? { level: 'normal', indicators: [], timestamp: 0 },
-    isDeloadActive: appState.isDeloadActive ?? false,
-    cardio: null,                                           // always clear transient cardio on normalize
-    analytics: appState.analytics ?? { weeklyVolume: null },
-    version: STATE_VERSION
+    exerciseOverrides:     appState.exerciseOverrides     ?? {},
+    fatigueStatus:         appState.fatigueStatus         ?? { level: 'normal', indicators: [], timestamp: 0 },
+    isDeloadActive:        appState.isDeloadActive        ?? false,
+    cardio:                null,       // always clear transient cardio on normalize
+    completedWorkouts:     appState.completedWorkouts     ?? 0,
+    uiOffset:              typeof appState.uiOffset === 'number'
+                             ? Math.max(-100, Math.min(100, appState.uiOffset))
+                             : 0,
+    progressionState:      appState.progressionState      ?? {},
+    version:               STATE_VERSION
   };
 }
 
 export function validate(appState) {
-  if (!appState || typeof appState !== 'object') return false;
-  if (typeof appState.version !== 'number')       return false;
+  if (!appState || typeof appState !== 'object')              return false;
+  if (typeof appState.version !== 'number')                   return false;
   if (appState.activeSessionId !== null && typeof appState.activeSessionId !== 'string') return false;
-  if (!Array.isArray(appState.history))           return false;
-  if (typeof appState.exercises !== 'object')     return false;
+  if (!Array.isArray(appState.history))                       return false;
+  if (typeof appState.exercises !== 'object')                 return false;
   for (const sets of Object.values(appState.exercises)) {
     if (!Array.isArray(sets)) return false;
     for (const s of sets) {
-      if (!s || typeof s !== 'object') return false;
-      if (!['', 'done', 'failed'].includes(s.s)) return false;
+      if (!s || typeof s !== 'object')                        return false;
+      if (!['', 'done', 'failed'].includes(s.s))             return false;
     }
   }
   if (appState.exerciseSubstitutions && typeof appState.exerciseSubstitutions !== 'object') return false;
-  if (appState.exerciseOverrides && typeof appState.exerciseOverrides !== 'object') return false;
-  if (!Array.isArray(appState.sessions)) return false;
-  if (typeof appState.sessionsPerWeek !== 'number') return false;
+  if (appState.exerciseOverrides     && typeof appState.exerciseOverrides     !== 'object') return false;
+  if (!Array.isArray(appState.sessions))                      return false;
+  if (typeof appState.sessionsPerWeek !== 'number')           return false;
+  if (typeof appState.completedWorkouts !== 'number')         return false;
   return true;
 }

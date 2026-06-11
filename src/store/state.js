@@ -5,30 +5,40 @@
 export const STORAGE_KEY   = 'pf_tracker_v7';
 export const REST_DURATION = 90; // seconds
 export const MAX_REST_DURATION = 300; // 5 minutes — hard cap
-export const STATE_VERSION = 8;
+export const STATE_VERSION = 9;
 export const DEV_MODE      = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
 
 // ==========================================
 // ─── FACTORY ───
 // ==========================================
 
-export function makeSet(s = '', w = null, r = null, n = '') {
-  return { s, w, r, n };
+/**
+ * A single logged set.
+ * s:   status  '' | 'done' | 'failed'
+ * w:   weight  (lbs, number | null)
+ * r:   reps    (number | null)
+ * n:   note    (string)
+ * rir: Reps In Reserve  ∈ {0,1,2,…} | null (optional per §10/§20)
+ * rom: full Range of Motion flag (boolean, default true per §10)
+ */
+export function makeSet(s = '', w = null, r = null, n = '', rir = null, rom = true) {
+  return { s, w, r, n, rir, rom };
 }
 
 /**
- * Returns a blank cardio object with all required fields.
- * Stored transiently in state.cardio during a session; committed into
- * history[].cardio on FINISH_WORKOUT then cleared.
+ * Binary cardio record per §8/§25.
+ * warmupDone   — boolean: was warmup completed this session?
+ * finisherDone — boolean: was finisher completed this session?
+ * notes        — optional free-text, stored in history, excluded from metrics.
  *
- * perceivedExertion: 1–10 integer, null if not set.
+ * Stored transiently in state.cardio during a session;
+ * committed into history[].cardio on FINISH_WORKOUT then cleared.
  */
 export function makeCardio() {
   return {
-    type: '',
-    durationMinutes: null,
-    distanceMiles: null,
-    perceivedExertion: null
+    warmupDone:   false,
+    finisherDone: false,
+    notes:        ''
   };
 }
 
@@ -47,24 +57,40 @@ export function makeDefaultExercises(workouts) {
 
 export function createDefaultState(workouts) {
   return {
-    version: STATE_VERSION,
-    sessions: JSON.parse(JSON.stringify(workouts || [])),
-    sessionsPerWeek: 3,
-    activeSessionId: workouts && workouts[0] ? workouts[0].id : null,
-    exercises: makeDefaultExercises(workouts),
+    version:          STATE_VERSION,
+    sessions:         JSON.parse(JSON.stringify(workouts || [])),
+    sessionsPerWeek:  3,
+    activeSessionId:  workouts && workouts[0] ? workouts[0].id : null,
+    exercises:        makeDefaultExercises(workouts),
     exerciseSubstitutions: {},
     exerciseOverrides: {},
-    history: [],
-    sessionStarted: null,     // ms timestamp — set when first set is logged
-    isDeloadActive: false,    // user-toggled: suppresses fatigue warnings & stamps history entries
-    fatigueStatus: {          // populated by analyzeFatigueTrends() after FINISH_WORKOUT
-      level: 'normal',        // 'normal' | 'warning'
-      indicators: [],         // human-readable strings describing active flags
-      timestamp: 0            // ms epoch of last analysis run
+    history:          [],
+
+    // ── Canonical progression counters (§3/§19) ──────────────────────────────
+    // completedWorkouts: authoritative count of finished sessions (§16).
+    //   Increments by +1 on each FINISH_WORKOUT.
+    //   Never derived from history.length at runtime — it IS the counter.
+    completedWorkouts: 0,
+
+    // uiOffset: display shift (-100 ≤ uiOffset ≤ 100, default 0).
+    //   Affects only displayIndex = completedWorkouts + uiOffset.
+    //   Does NOT affect history, statistics, progression, fatigue, or streaks.
+    uiOffset: 0,
+
+    sessionStarted:   null,     // ms timestamp — set when first set is logged
+
+    isDeloadActive:   false,    // user-toggled: suppresses fatigue warnings
+    fatigueStatus: {            // populated by analyzeFatigueTrends() after FINISH_WORKOUT
+      level:      'normal',     // 'normal' | 'warning'
+      indicators: [],           // human-readable strings
+      timestamp:  0             // ms epoch of last analysis run
     },
-    cardio: null,             // transient: pending cardio entry for current session; committed to history on FINISH_WORKOUT
-    analytics: {
-      weeklyVolume: null      // populated by calculateWeeklyVolume() after FINISH_WORKOUT; null until first workout
-    }
+
+    cardio: null,               // transient: pending cardio for current session; committed to history on FINISH_WORKOUT
+
+    // ── Latent Progression State (§1/§21) ────────────────────────────────────
+    // Per-exercise EMA strength (T), fatigue (F), and progression step (Δw).
+    // Updated after each FINISH_WORKOUT. Never derived — always persisted.
+    progressionState: {}
   };
 }

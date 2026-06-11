@@ -1,6 +1,8 @@
 import { workouts, EXERCISE_INDEX, EX_SESSION_INDEX } from './workouts.js';
 
 export const query = {
+  // ── History Access ─────────────────────────────────────────────────────────
+
   // All history entries, guaranteed chronological (newest last).
   chronological(appState) {
     return [...(appState.history || [])].sort((a, b) => a.timestamp - b.timestamp);
@@ -20,7 +22,6 @@ export const query = {
   },
 
   // Last completed sets for a specific exercise.
-  // Returns Set[] or null.
   lastExerciseSets(appState, exId) {
     const sessionId = EX_SESSION_INDEX[exId];
     if (!sessionId) return null;
@@ -35,15 +36,17 @@ export const query = {
     if (!sessionId) return [];
     return this.sessionHistory(appState, sessionId, n).map(e => ({
       timestamp: e.timestamp,
-      sets: e.exercises[exId] || []
+      sets:      e.exercises[exId] || []
     }));
   },
 
-  // Derived: last completed timestamp for a session (from history, not lastDone).
+  // Derived: last completed timestamp for a session (from history).
   lastDoneTimestamp(appState, sessionId) {
     const entry = this.lastSession(appState, sessionId);
     return entry ? entry.timestamp : null;
   },
+
+  // ── Session Completion ─────────────────────────────────────────────────────
 
   // Derived: is the current working session complete?
   // Depends ONLY on state.exercises — never on history.
@@ -64,12 +67,52 @@ export const query = {
     return sets.length > 0 && sets.every(s => s.s === 'done' || s.s === 'failed');
   },
 
+  // ── Completion Validation (§15) ────────────────────────────────────────────
+
+  /**
+   * Validate whether the session can be finished per §15 rules.
+   * Returns { valid: bool, reason: string|null }.
+   *
+   * Required:
+   *   - all exercises visited (at least one set changed from blank)
+   *   - all sets contain weight AND reps
+   * Optional:
+   *   - RIR, cardio, notes
+   */
+  validateFinish(appState, sessionId) {
+    const session = workouts.find(s => s.id === sessionId)
+      ?? (appState.sessions || []).find(s => s.id === sessionId);
+    if (!session) return { valid: false, reason: 'Session not found.' };
+
+    const allEx = session.blocks.flatMap(b => b.exercises);
+    if (!allEx.length) return { valid: true, reason: null };
+
+    for (const ex of allEx) {
+      const sets = appState.exercises[ex.id] || [];
+
+      // All sets must have been interacted with (not blank)
+      const allVisited = sets.every(s => s.s === 'done' || s.s === 'failed');
+      if (!allVisited) {
+        return { valid: false, reason: `Complete all sets for "${ex.name}" before finishing.` };
+      }
+
+      // All done sets must have weight AND reps
+      for (const s of sets) {
+        if (s.s === 'done' && (s.w === null || s.r === null)) {
+          return { valid: false, reason: `Set missing weight or reps in "${ex.name}".` };
+        }
+      }
+    }
+
+    return { valid: true, reason: null };
+  },
+
   sessionProgress(appState, sessionId) {
     const session = workouts.find(s => s.id === sessionId)
       ?? (appState.sessions || []).find(s => s.id === sessionId);
     if (!session) return 0;
-    const allEx = session.blocks.flatMap(b => b.exercises);
-    const total = allEx.reduce((n, ex) => n + ex.sets, 0);
+    const allEx  = session.blocks.flatMap(b => b.exercises);
+    const total  = allEx.reduce((n, ex) => n + ex.sets, 0);
     if (!total) return 0;
     const resolved = allEx.reduce((n, ex) => {
       const sets = appState.exercises[ex.id] || [];
@@ -78,14 +121,33 @@ export const query = {
     return Math.round((resolved / total) * 100);
   },
 
-  // ── Derived metrics (NEVER persisted) ──
+  // ── Week / Session Display (§3) ────────────────────────────────────────────
+
+  /**
+   * Derive current week and session from completedWorkouts + uiOffset (§3).
+   *
+   * displayIndex = completedWorkouts + uiOffset
+   * week         = floor(displayIndex / sessionsPerWeek) + 1
+   * session      = (displayIndex % sessionsPerWeek) + 1
+   *
+   * No calendar dependency. Missed sessions do not shift indexing.
+   */
+  weekAndSession(appState) {
+    const n    = appState?.completedWorkouts ?? 0;
+    const b    = appState?.uiOffset          ?? 0;
+    const spw  = Math.max(1, appState?.sessionsPerWeek ?? 3);
+    const idx  = n + b;
+    const week    = Math.floor(idx / spw) + 1;
+    const session = (((idx % spw) + spw) % spw) + 1; // handles negative offset safely
+    return { week, session };
+  },
+
+  // ── Derived Metrics ────────────────────────────────────────────────────────
 
   // Volume for a set array: Σ(w × r) — skips null/failed
   setVolume(sets) {
     return sets.reduce((sum, s) => {
-      if (s.w !== null && s.r !== null && s.s !== 'failed') {
-        return sum + s.w * s.r;
-      }
+      if (s.w !== null && s.r !== null && s.s !== 'failed') return sum + s.w * s.r;
       return sum;
     }, 0);
   },
@@ -108,114 +170,110 @@ export const query = {
     };
   },
 
-  // ── A: Progression recommendation ──
-  // Examines the last 1–2 logged sessions for exId.
-  // Returns { action: 'increase'|'maintain'|'reduce'|'watch', suggestedWeight, label } or null.
-  progressionRecommendation(appState, exId) {
-    const history = this.exerciseHistory(appState, exId, 2);
-    if (!history.length) return null;
+  // ── Cardio Streak System (§9/§26) ─────────────────────────────────────────
 
-    const lastEntry = history[history.length - 1];
-    const prevEntry = history.length >= 2 ? history[history.length - 2] : null;
-    const sets = lastEntry.sets;
-    if (!sets || !sets.length) return null;
-
-    const ex = EXERCISE_INDEX[exId];
-    if (!ex) return null;
-    const doneSets = sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
-    if (!doneSets.length) return null;
-
-    const failedSets = sets.filter(s => s.s === 'failed');
-    const totalSets = sets.length;
-    const repMax = ex?.reps ? (('max' in ex.reps) ? ex.reps.max : (ex.reps.fixed ?? ex.reps.value ?? null)) : null;
-    const repMin = ex?.reps ? (('min' in ex.reps) ? ex.reps.min : (ex.reps.fixed ?? ex.reps.value ?? null)) : null;
-    const avgW = doneSets.reduce((n, s) => n + s.w, 0) / doneSets.length;
-    const reduction = avgW >= 50 ? 5 : 2.5;
-    const increment = avgW >= 50 ? 5 : 2.5;
-
-    // ≥25% failed sets → reduce
-    if (failedSets.length > 0 && (failedSets.length / totalSets) >= 0.25) {
-      const suggestedWeight = Math.max(0, +(avgW - reduction).toFixed(1));
-      return { action: 'reduce', suggestedWeight, label: `↓ Reduce to ${suggestedWeight} lbs` };
-    }
-
-    // All done sets hit repMax → increase
-    const allAtTop = repMax !== null && doneSets.every(s => s.r >= repMax);
-    if (allAtTop) {
-      const suggestedWeight = +(avgW + increment).toFixed(1);
-      return { action: 'increase', suggestedWeight, label: `✓ Increase to ${suggestedWeight} lbs` };
-    }
-
-    // Below rep min: check consecutive sessions
-    const anyBelowMin = repMin !== null && doneSets.some(s => s.r < repMin);
-    if (anyBelowMin) {
-      // Check if previous session was also below min
-      let prevAlsoBelowMin = false;
-      if (prevEntry && prevEntry.sets) {
-        const prevDone = prevEntry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
-        prevAlsoBelowMin = repMin !== null && prevDone.length > 0 && prevDone.some(s => s.r < repMin);
-      }
-
-      if (prevAlsoBelowMin) {
-        // 2 consecutive sessions below min → reduce
-        const suggestedWeight = Math.max(0, +(avgW - reduction).toFixed(1));
-        return { action: 'reduce', suggestedWeight, label: `↓ Reduce to ${suggestedWeight} lbs` };
+  /**
+   * Count consecutive completed sessions (from newest backwards) where
+   * cardio[field] === true. Breaks on the first miss.
+   *
+   * @param {object}  appState
+   * @param {'warmupDone'|'finisherDone'} field
+   * @returns {number}
+   */
+  cardioStreak(appState, field) {
+    const sorted = this.chronological(appState);
+    let streak = 0;
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const cardio = sorted[i].cardio;
+      if (cardio && cardio[field] === true) {
+        streak++;
       } else {
-        // Single session below min → watch
-        return { action: 'watch', suggestedWeight: avgW, label: `⚠ Watch — below range` };
+        break;  // one miss breaks the streak
       }
     }
-
-    // Within range → maintain
-    return { action: 'maintain', suggestedWeight: avgW, label: `→ Maintain ${avgW} lbs` };
+    return streak;
   },
 
-  // ── D: Personal Records ──
-  // Returns { heaviestSet, highestVolume, mostReps } for an exercise across all history.
-  // Each record: { w, r, date (timestamp), volume }
+  /** Consecutive sessions with warmupDone = true */
+  warmupStreak(appState)   { return this.cardioStreak(appState, 'warmupDone');   },
+
+  /** Consecutive sessions with finisherDone = true */
+  finisherStreak(appState) { return this.cardioStreak(appState, 'finisherDone'); },
+
+  // ── Fatigue Index (§11) ───────────────────────────────────────────────────
+
+  /**
+   * Per-exercise fatigue index from the LIVE set array:
+   *   FatigueIndex = 1 − (lastSet.w×r / firstSet.w×r)
+   *
+   * Based on entry order; ignores failed sets.
+   * Returns null if fewer than 2 completed sets with data.
+   *
+   * @param {object} appState
+   * @param {string} exId
+   * @returns {number|null}
+   */
+  fatigueIndex(appState, exId) {
+    const sets = (appState.exercises[exId] || [])
+      .filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+    if (sets.length < 2) return null;
+    const first = sets[0].w * sets[0].r;
+    const last  = sets[sets.length - 1].w * sets[sets.length - 1].r;
+    if (first === 0) return null;
+    return +(1 - last / first).toFixed(3);
+  },
+
+  // ── Progression Recommendation (§21) ─────────────────────────────────────
+
+  /**
+   * Returns the progression engine's suggestion for an exercise.
+   * Reads from state.progressionState (updated after FINISH_WORKOUT).
+   * Returns null if no data yet.
+   *
+   * @param {object} appState
+   * @param {string} exId
+   * @returns {{ suggestedWeight: number, suppressed: boolean, riskScore: number } | null}
+   */
+  progressionSuggestion(appState, exId) {
+    const ps = appState?.progressionState?.[exId];
+    if (!ps || ps.T === null) return null;
+    return {
+      suggestedWeight: ps.lastSuggested ?? null,
+      suppressed:      ps.lastSuppressed ?? false,
+      riskScore:       ps.lastRisk       ?? 0
+    };
+  },
+
+  // ── Personal Records ──────────────────────────────────────────────────────
+
   personalRecords(appState, exId) {
     const history = this.exerciseHistory(appState, exId);
-    let heaviestSet = null;
-    let highestVolume = null;
-    let mostReps = null;
+    let heaviestSet = null, highestVolume = null, mostReps = null;
 
     for (const entry of history) {
       const doneSets = entry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
-      const volume = doneSets.reduce((n, s) => n + s.w * s.r, 0);
+      const volume   = doneSets.reduce((n, s) => n + s.w * s.r, 0);
 
       for (const s of doneSets) {
-        // Heaviest weight
-        if (!heaviestSet || s.w > heaviestSet.w || (s.w === heaviestSet.w && s.r > heaviestSet.r)) {
+        if (!heaviestSet || s.w > heaviestSet.w || (s.w === heaviestSet.w && s.r > heaviestSet.r))
           heaviestSet = { w: s.w, r: s.r, date: entry.timestamp };
-        }
-        // Most reps at any weight
-        if (!mostReps || s.r > mostReps.r || (s.r === mostReps.r && s.w > mostReps.w)) {
+        if (!mostReps || s.r > mostReps.r || (s.r === mostReps.r && s.w > mostReps.w))
           mostReps = { w: s.w, r: s.r, date: entry.timestamp };
-        }
       }
-      // Highest session volume
-      if (volume > 0 && (!highestVolume || volume > highestVolume.volume)) {
+      if (volume > 0 && (!highestVolume || volume > highestVolume.volume))
         highestVolume = { volume, date: entry.timestamp };
-      }
     }
     return { heaviestSet, highestVolume, mostReps };
   },
 
-  // Check whether the current live sets for exId set any PRs vs historical records.
-  // Returns array of PR type strings: 'weight', 'reps', 'volume'
   currentSetPRs(appState, exId) {
     const currentSets = appState.exercises[exId] || [];
-    const doneSets = currentSets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+    const doneSets    = currentSets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
     if (!doneSets.length) return [];
 
-    // Get records WITHOUT the current (in-progress) session — compare against history only
     const sessionId = EX_SESSION_INDEX[exId];
     if (!sessionId) return [];
-    const histEntries = this.sessionHistory(appState, sessionId).filter(e => {
-      // Exclude the most recent entry if it matches the live exercise state
-      // (it might be a just-completed session that was auto-added)
-      return true;
-    });
+    const histEntries = this.sessionHistory(appState, sessionId);
 
     let prWeight = null, prReps = null, prVolume = null;
     for (const entry of histEntries) {
@@ -228,9 +286,9 @@ export const query = {
       if (vol > 0 && (prVolume === null || vol > prVolume)) prVolume = vol;
     }
 
-    if (prWeight === null && prReps === null) return []; // no history to compare against
+    if (prWeight === null && prReps === null) return [];
 
-    const prs = [];
+    const prs      = [];
     const currMaxW = Math.max(...doneSets.map(s => s.w));
     const currMaxR = Math.max(...doneSets.map(s => s.r));
     const currVol  = doneSets.reduce((n, s) => n + s.w * s.r, 0);
@@ -241,21 +299,18 @@ export const query = {
     return prs;
   },
 
-  // ── C: Session PRs from a completed history entry ──
-  // Returns map of exId → array of PR types ('weight', 'reps', 'volume')
   sessionPRsFromEntry(appState, entry) {
     const result = {};
     const session = workouts.find(s => s.id === entry.sessionId)
       ?? (appState.sessions || []).find(s => s.id === entry.sessionId);
     if (!session) return result;
 
-    // History excluding this entry
-    const priorHistory = (appState.history || []).filter(e => e.timestamp < entry.timestamp);
-    const priorState = { ...appState, history: priorHistory };
+    const priorHistory  = (appState.history || []).filter(e => e.timestamp < entry.timestamp);
+    const priorState    = { ...appState, history: priorHistory };
 
     for (const block of session.blocks) {
       for (const ex of block.exercises) {
-        const exId = ex.id;
+        const exId      = ex.id;
         const entrySets = (entry.exercises[exId] || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
         if (!entrySets.length) continue;
 
@@ -272,7 +327,7 @@ export const query = {
         }
 
         const prs = [];
-        if (prWeight === null && prReps === null) continue; // no prior history
+        if (prWeight === null && prReps === null) continue;
         const currMaxW = Math.max(...entrySets.map(s => s.w));
         const currMaxR = Math.max(...entrySets.map(s => s.r));
         const currVol  = entrySets.reduce((n, s) => n + s.w * s.r, 0);
@@ -292,108 +347,93 @@ export const query = {
     const lastEntry = history[history.length - 1];
     const prevEntry = history.length >= 2 ? history[history.length - 2] : null;
 
-    let volume = 0;
-    let totalSets = 0;
-    let completedSets = 0;
+    let volume = 0, totalSets = 0, completedSets = 0;
     Object.values(lastEntry.exercises).forEach(sets => {
       totalSets += sets.length;
       sets.forEach(s => {
         if (s.s === 'done' || s.s === 'failed') completedSets++;
-        if (s.s === 'done' && s.w !== null && s.r !== null) {
-          volume += s.w * s.r;
-        }
+        if (s.s === 'done' && s.w !== null && s.r !== null) volume += s.w * s.r;
       });
     });
 
-    let prevVolume = 0;
-    let prevTotalSets = 0;
-    let prevCompletedSets = 0;
+    let prevVolume = 0, prevTotalSets = 0, prevCompletedSets = 0;
     if (prevEntry) {
       Object.values(prevEntry.exercises).forEach(sets => {
         prevTotalSets += sets.length;
         sets.forEach(s => {
           if (s.s === 'done' || s.s === 'failed') prevCompletedSets++;
-          if (s.s === 'done' && s.w !== null && s.r !== null) {
-            prevVolume += s.w * s.r;
-          }
+          if (s.s === 'done' && s.w !== null && s.r !== null) prevVolume += s.w * s.r;
         });
       });
     }
 
     const durationMs = lastEntry.startTimestamp ? lastEntry.timestamp - lastEntry.startTimestamp : null;
-    const prs = this.sessionPRsFromEntry(appState, lastEntry);
+    const prs        = this.sessionPRsFromEntry(appState, lastEntry);
 
     return {
       timestamp: lastEntry.timestamp,
-      volume,
-      prevVolume,
-      totalSets,
-      completedSets,
-      prevTotalSets,
-      prevCompletedSets,
-      durationMs,
-      prs
+      volume, prevVolume,
+      totalSets, completedSets,
+      prevTotalSets, prevCompletedSets,
+      durationMs, prs
     };
   },
 
+  // ── Recovery Dashboard ────────────────────────────────────────────────────
+
   recoveryDashboard(appState) {
-    const now = Date.now();
-    const oneDay = 24 * 60 * 60 * 1000;
-    const sevenDaysAgo = now - 7 * oneDay;
+    const now             = Date.now();
+    const oneDay          = 24 * 60 * 60 * 1000;
+    const sevenDaysAgo    = now - 7 * oneDay;
     const fourteenDaysAgo = now - 14 * oneDay;
-    const thirtyDaysAgo = now - 30 * oneDay;
+    const thirtyDaysAgo   = now - 30 * oneDay;
 
     const entryVolume = entry => {
       let vol = 0;
-      Object.values(entry.exercises || {}).forEach(sets => {
-        sets.forEach(s => {
-          if (s.s === 'done' && s.w !== null && s.r !== null) {
-            vol += s.w * s.r;
-          }
-        });
-      });
+      Object.values(entry.exercises || {}).forEach(sets =>
+        sets.forEach(s => { if (s.s === 'done' && s.w !== null && s.r !== null) vol += s.w * s.r; })
+      );
       return vol;
     };
 
     const entryDuration = entry => {
-      if (entry.startTimestamp && entry.timestamp > entry.startTimestamp) {
+      if (entry.startTimestamp && entry.timestamp > entry.startTimestamp)
         return entry.timestamp - entry.startTimestamp;
-      }
       return null;
     };
 
-    const history = appState.history || [];
-
-    const last7DaysEntries = history.filter(e => e.timestamp >= sevenDaysAgo);
-    const workoutsLast7Days = last7DaysEntries.length;
-
-    const vol7 = last7DaysEntries.reduce((sum, e) => sum + entryVolume(e), 0);
-    const prev7DaysEntries = history.filter(e => e.timestamp >= fourteenDaysAgo && e.timestamp < sevenDaysAgo);
-    const volPrev7 = prev7DaysEntries.reduce((sum, e) => sum + entryVolume(e), 0);
+    const history            = appState.history || [];
+    const last7DaysEntries   = history.filter(e => e.timestamp >= sevenDaysAgo);
+    const workoutsLast7Days  = last7DaysEntries.length;
+    const vol7               = last7DaysEntries.reduce((sum, e) => sum + entryVolume(e), 0);
+    const prev7DaysEntries   = history.filter(e => e.timestamp >= fourteenDaysAgo && e.timestamp < sevenDaysAgo);
+    const volPrev7           = prev7DaysEntries.reduce((sum, e) => sum + entryVolume(e), 0);
 
     let volumeTrend = null;
-    if (volPrev7 > 0) {
-      volumeTrend = +(((vol7 - volPrev7) / volPrev7) * 100).toFixed(1);
-    }
+    if (volPrev7 > 0) volumeTrend = +(((vol7 - volPrev7) / volPrev7) * 100).toFixed(1);
 
     const last30DaysEntries = history.filter(e => e.timestamp >= thirtyDaysAgo);
-    const durations = last30DaysEntries.map(entryDuration).filter(d => d !== null);
-    const avgDurationMs = durations.length ? (durations.reduce((sum, d) => sum + d, 0) / durations.length) : null;
+    const durations         = last30DaysEntries.map(entryDuration).filter(d => d !== null);
+    const avgDurationMs     = durations.length
+      ? (durations.reduce((sum, d) => sum + d, 0) / durations.length)
+      : null;
 
     let daysSinceLastWorkout = null;
     if (history.length > 0) {
-      const lastWorkoutTs = Math.max(...history.map(e => e.timestamp));
-      daysSinceLastWorkout = +((now - lastWorkoutTs) / oneDay).toFixed(1);
+      const lastTs          = Math.max(...history.map(e => e.timestamp));
+      daysSinceLastWorkout  = +((now - lastTs) / oneDay).toFixed(1);
     }
 
     return {
       workoutsLast7Days,
-      volumeLast7Days: vol7,
-      volumePrev7Days: volPrev7,
+      volumeLast7Days:     vol7,
+      volumePrev7Days:     volPrev7,
       volumeTrend,
       avgDurationMs,
       daysSinceLastWorkout,
-      sessionsPerWeek: appState?.sessionsPerWeek ?? 3
+      sessionsPerWeek:     appState?.sessionsPerWeek ?? 3,
+      warmupStreak:        this.warmupStreak(appState),
+      finisherStreak:      this.finisherStreak(appState)
     };
   }
 };

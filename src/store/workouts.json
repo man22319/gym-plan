@@ -36,10 +36,6 @@
         "variation": [
           "Dumbbell Bent-Over Row"
         ]
-      },
-      "muscleStimulus": {
-        "BACK": 1,
-        "BICEPS": 0.3
       }
     },
     "thu_bench": {
@@ -77,11 +73,6 @@
         "variation": [
           "Cable Chest Fly"
         ]
-      },
-      "muscleStimulus": {
-        "CHEST": 0.85,
-        "TRICEPS": 0.25,
-        "SHOULDERS": 0.15
       }
     },
     "thu_leg_curl": {
@@ -119,9 +110,6 @@
         "variation": [
           "Resistance Band Curl"
         ]
-      },
-      "muscleStimulus": {
-        "HAMSTRINGS": 1
       }
     },
     "thu_back_ext": {
@@ -158,10 +146,6 @@
         "variation": [
           "Weighted Back Extension"
         ]
-      },
-      "muscleStimulus": {
-        "BACK": 0.4,
-        "GLUTES": 0.6
       }
     },
     "thu_glute_kickback": {
@@ -198,10 +182,6 @@
         "variation": [
           "Smith Machine Hip Thrust"
         ]
-      },
-      "muscleStimulus": {
-        "GLUTES": 1,
-        "HAMSTRINGS": 0.2
       }
     },
     "thu_lat_pull": {
@@ -239,10 +219,6 @@
         "variation": [
           "Band Pulldown"
         ]
-      },
-      "muscleStimulus": {
-        "BACK": 1,
-        "BICEPS": 0.3
       }
     },
     "thu_lat_raise": {
@@ -280,9 +256,6 @@
         "variation": [
           "Machine Lateral Raise"
         ]
-      },
-      "muscleStimulus": {
-        "SHOULDERS": 1
       }
     },
     "thu_tri_press": {
@@ -320,9 +293,6 @@
         "variation": [
           "Overhead Tricep Extension"
         ]
-      },
-      "muscleStimulus": {
-        "TRICEPS": 1
       }
     },
     "sat_row": {
@@ -360,10 +330,6 @@
         "variation": [
           "TRX Row"
         ]
-      },
-      "muscleStimulus": {
-        "BACK": 1,
-        "BICEPS": 0.3
       }
     },
     "sat_arnold_press": {
@@ -401,10 +367,6 @@
         "variation": [
           "Landmine Press"
         ]
-      },
-      "muscleStimulus": {
-        "SHOULDERS": 0.85,
-        "TRICEPS": 0.3
       }
     },
     "sat_leg_press": {
@@ -442,11 +404,6 @@
         "variation": [
           "Smith Machine Squat"
         ]
-      },
-      "muscleStimulus": {
-        "QUADRICEPS": 0.7,
-        "GLUTES": 0.5,
-        "HAMSTRINGS": 0.2
       }
     },
     "sat_leg_curl": {
@@ -484,9 +441,6 @@
         "variation": [
           "Resistance Band Curl"
         ]
-      },
-      "muscleStimulus": {
-        "HAMSTRINGS": 1
       }
     },
     "sat_lat_raise": {
@@ -524,9 +478,6 @@
         "variation": [
           "Machine Lateral Raise"
         ]
-      },
-      "muscleStimulus": {
-        "SHOULDERS": 1
       }
     },
     "sat_tri_press": {
@@ -564,9 +515,6 @@
         "variation": [
           "Overhead Tricep Extension"
         ]
-      },
-      "muscleStimulus": {
-        "TRICEPS": 1
       }
     },
     "sat_hammer": {
@@ -604,9 +552,6 @@
         "variation": [
           "Cross-Body Hammer Curl"
         ]
-      },
-      "muscleStimulus": {
-        "BICEPS": 1
       }
     },
     "mon_row": {
@@ -644,10 +589,6 @@
         "variation": [
           "TRX Row"
         ]
-      },
-      "muscleStimulus": {
-        "BACK": 1,
-        "BICEPS": 0.3
       }
     },
     "mon_idbp": {
@@ -685,11 +626,6 @@
         "variation": [
           "Smith Machine Incline"
         ]
-      },
-      "muscleStimulus": {
-        "CHEST": 0.8,
-        "SHOULDERS": 0.25,
-        "TRICEPS": 0.2
       }
     },
     "mon_leg_press": {
@@ -727,11 +663,6 @@
         "variation": [
           "Smith Machine Squat"
         ]
-      },
-      "muscleStimulus": {
-        "QUADRICEPS": 0.7,
-        "GLUTES": 0.5,
-        "HAMSTRINGS": 0.2
       }
     },
     "mon_leg_curl": {
@@ -769,9 +700,6 @@
         "variation": [
           "Resistance Band Curl"
         ]
-      },
-      "muscleStimulus": {
-        "HAMSTRINGS": 1
       }
     },
     "mon_skull": {
@@ -809,9 +737,6 @@
         "variation": [
           "Tricep Kickback"
         ]
-      },
-      "muscleStimulus": {
-        "TRICEPS": 1
       }
     },
     "mon_curl": {
@@ -849,9 +774,6 @@
         "variation": [
           "Cable Curl"
         ]
-      },
-      "muscleStimulus": {
-        "BICEPS": 1
       }
     },
     "mon_ohp": {
@@ -889,10 +811,6 @@
         "variation": [
           "Landmine Press"
         ]
-      },
-      "muscleStimulus": {
-        "SHOULDERS": 0.9,
-        "TRICEPS": 0.25
       }
     },
     "mon_lat_raise": {
@@ -930,9 +848,6 @@
         "variation": [
           "Machine Lateral Raise"
         ]
-      },
-      "muscleStimulus": {
-        "SHOULDERS": 1
       }
     }
   },
