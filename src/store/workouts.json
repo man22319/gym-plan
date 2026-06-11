@@ -25,7 +25,7 @@
         "unit": "lbs"
       },
       "equipmentType": "machine",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
@@ -105,7 +105,7 @@
         "unit": "lbs"
       },
       "equipmentType": "machine",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
@@ -144,7 +144,7 @@
         "unit": "lbs"
       },
       "equipmentType": "machine",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
@@ -183,7 +183,7 @@
         "unit": "lbs"
       },
       "equipmentType": "machine",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
@@ -223,7 +223,7 @@
         "unit": "lbs"
       },
       "equipmentType": "cable",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
@@ -303,7 +303,7 @@
         "unit": "lbs"
       },
       "equipmentType": "machine",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
@@ -463,7 +463,7 @@
         "unit": "lbs"
       },
       "equipmentType": "machine",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
@@ -543,7 +543,7 @@
         "unit": "lbs"
       },
       "equipmentType": "machine",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
@@ -743,7 +743,7 @@
         "unit": "lbs"
       },
       "equipmentType": "machine",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
@@ -783,7 +783,7 @@
         "unit": "lbs"
       },
       "equipmentType": "barbell",
-      "deltaW": 2.5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 75,
       "rest_between_exercises": 45,
@@ -823,7 +823,7 @@
         "unit": "lbs"
       },
       "equipmentType": "barbell",
-      "deltaW": 5,
+      "deltaW": 10,
       "manualDeltaWOverride": false,
       "rest_between_sets": 75,
       "rest_between_exercises": 45,
