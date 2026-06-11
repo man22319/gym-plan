@@ -8,6 +8,8 @@ html, body {
   color: var(--white);
   font-family: 'Barlow', sans-serif;
   min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 /* ── Header ── */
@@ -22,6 +24,7 @@ header {
   top: 0;
   z-index: 20;
   gap: 10px;
+  overflow: hidden;
 }
 .wordmark { line-height: 1; flex-shrink: 0; }
 .brand-wrap {
@@ -328,53 +331,112 @@ header {
 .session { display: none; padding: 0 12px; }
 .session.active { display: block; }
 
-/* ── Progress ── */
+/* ── Progress — full-width strip beneath Week/Session header text ── */
+#global-progress-bar-container {
+  width: 100%;
+  margin-top: 5px;
+}
 .progress-wrap {
-  padding: 16px 2px 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 .progress-bar-bg {
   flex: 1;
-  height: 1px;
+  height: 2px;
   background: var(--border);
-  border-radius: 1px;
+  border-radius: 2px;
   overflow: hidden;
 }
 .progress-bar-fill {
   height: 100%;
-  background: var(--white);
-  border-radius: 1px;
-  transition: width 0.3s ease;
+  background: var(--accent, #e53935);
+  border-radius: 2px;
+  transition: width 0.4s ease;
   width: 0%;
 }
 .progress-pct {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.6rem;
+  font-size: 0.52rem;
   color: var(--dim);
-  width: 36px;
-  text-align: right;
+  flex-shrink: 0;
   transition: color 0.3s;
+  min-width: 28px;
+  text-align: right;
 }
 .progress-pct.lit { color: var(--white); }
 
 /* ── Warm-up ── */
 .warmup-bar {
-  margin: 16px 0 6px;
+  margin: 20px 0 18px;
   background: var(--bg3);
   border: 1px solid var(--border);
   border-left: 2px solid var(--white);
-  padding: 11px 14px;
-  border-radius: 6px;
+  padding: 14px 16px;
+  border-radius: 8px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.68rem;
   color: var(--muted);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  overflow: visible;
 }
+.warmup-bar:hover { background: rgba(255,255,255,0.02); }
+.warmup-bar:active { background: rgba(255,255,255,0.04); }
 .warmup-bar strong { color: var(--white); }
+.warmup-bar.warmup-done {
+  border-left-color: var(--green, #5cff8a);
+  background: rgba(92, 255, 138, 0.04);
+}
+.warmup-checkbox {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-hi, #444);
+  border-radius: 4px;
+  background-color: var(--bg2);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: background-color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  margin: 0;
+  outline: none;
+  margin-left: auto;
+}
+.warmup-checkbox:checked {
+  background-color: var(--green, #5cff8a);
+  border-color: var(--green, #5cff8a);
+}
+.warmup-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--bg, #0a0a0a);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.warmup-note-hint {
+  font-size: 0.48rem;
+  letter-spacing: 1px;
+  color: var(--dim);
+  text-transform: uppercase;
+  opacity: 0.6;
+  margin-left: 4px;
+}
 
 /* ── Superset Label ── */
 .superset-label {

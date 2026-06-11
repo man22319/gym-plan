@@ -8,7 +8,8 @@ import {
   openHistoryModal,
   openRecoveryDashboard,
   openLogModal,
-  openSessionAnalytics
+  openSessionAnalytics,
+  openCardioNoteModal
 } from './modals.js';
 import {
   importTemplate,
@@ -170,6 +171,19 @@ export function setupEvents() {
       return;
     }
 
+    // ── Finisher / Warmup card body tap → open note modal ──────────────────
+    const cardioCard = e.target.closest('[data-cardio-type]');
+    if (cardioCard) {
+      const type = cardioCard.dataset.cardioType;
+      // If the click was directly on the checkbox, handle toggle only (let change event do it)
+      const isCheckbox = e.target.closest('.finisher-checkbox, .warmup-checkbox');
+      if (!isCheckbox) {
+        // Tap on card body → open note/history modal
+        openCardioNoteModal(type, state);
+      }
+      return;
+    }
+
     if (e.target.closest('#recovery-btn')) { openRecoveryDashboard(); return; }
     if (e.target.closest('#template-editor-btn')) { openTemplateEditor(); return; }
     if (e.target.closest('#import-template-btn')) { importTemplate(); return; }
@@ -214,19 +228,18 @@ export function setupEvents() {
     }
   });
 
-  // ── Cardio inputs ────────────────────────────────────────────────────────
-  // Fires on `change` (field blur / commit) rather than `input` to avoid
-  // dispatching on every keystroke.  Reads all four cardio fields each time
-  // so the payload is always a complete, consistent cardio object.
-  //
-  // Architecture note: this writes to state.cardio (transient UI context).
-  // The reducer commits it into history[].cardio on FINISH_WORKOUT.
+  // ── Cardio inputs ──────────────────────────────────────────────────────────
+  // Listens on both the old standalone checkboxes (legacy) and new embedded
+  // warmup-checkbox / finisher-checkbox elements inside the session cards.
+  // Always reads the currently checked state of all cardio fields.
   document.addEventListener('change', e => {
-    const cardioInput = e.target.closest('[data-cardio-field]');
-    if (!cardioInput) return;
+    // Check if this is a cardio-related checkbox or input
+    const isCardioField = e.target.closest('[data-cardio-field]');
+    if (!isCardioField) return;
 
-    const warmupEl   = document.getElementById('cardio-warmup');
-    const finisherEl = document.getElementById('cardio-finisher');
+    // Collect current state of all cardio checkboxes on the page
+    const warmupEl   = document.querySelector('[data-cardio-field="warmupDone"]');
+    const finisherEl = document.querySelector('[data-cardio-field="finisherDone"]');
     const notesEl    = document.getElementById('cardio-notes');
 
     const cardio = {
@@ -237,7 +250,7 @@ export function setupEvents() {
 
     dispatch('UPDATE_CARDIO', { cardio });
   });
-  // ────────────────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
 }
 
 function pressKey(exId, idx) { return `${exId}:${idx}`; }

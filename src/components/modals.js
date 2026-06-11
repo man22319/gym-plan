@@ -113,10 +113,57 @@ export function openHistoryModal(exId) {
     prHtml = `<div class="hist-pr-section"><div class="hist-section-label">PERSONAL RECORDS</div><div class="hist-pr-list">${prItems.join('')}</div></div>`;
   }
 
-  const volumes = history.map(entry => {
+  // ── Variant-aware volume computation ───────────────────────────────────
+  // If this exercise has a variantGroup, aggregate volume across all sibling
+  // exercises in the same group so the sparkline reflects true progression
+  // even when the user switched between machine and dumbbell variants.
+  let variantNote = '';
+  let volumes = history.map(entry => {
     const doneSets = entry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
     return doneSets.reduce((sum, s) => sum + s.w * s.r, 0);
   });
+
+  if (ex.variantGroup) {
+    // Find all exercises in the same variant group
+    const allSessions = state.sessions || workouts;
+    const siblingIds = allSessions
+      .flatMap(s => s.blocks.flatMap(b => b.exercises))
+      .filter(e => e.variantGroup === ex.variantGroup && e.id !== exId)
+      .map(e => e.id);
+
+    if (siblingIds.length > 0) {
+      // Build a combined per-session-entry volume map keyed by timestamp
+      // Use the base exercise history as the timeline anchor
+      const siblingHistories = siblingIds.map(sid => query.exerciseHistory(state, sid));
+
+      // Merge: for each base history entry, check if any sibling had data on the same day
+      volumes = history.map((entry, i) => {
+        let vol = volumes[i]; // base exercise volume
+        // If base has no volume, check siblings for that date
+        if (vol === 0) {
+          const entryDate = new Date(entry.timestamp).toDateString();
+          for (const sibHist of siblingHistories) {
+            for (const sibEntry of sibHist) {
+              if (new Date(sibEntry.timestamp).toDateString() === entryDate) {
+                const sibDone = sibEntry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+                vol += sibDone.reduce((sum, s) => sum + s.w * s.r, 0);
+              }
+            }
+          }
+        }
+        return vol;
+      });
+
+      const siblingNames = siblingIds
+        .map(sid => allSessions.flatMap(s => s.blocks.flatMap(b => b.exercises)).find(e => e.id === sid)?.name)
+        .filter(Boolean)
+        .join(', ');
+      variantNote = `<div style="padding: 0 20px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 0.48rem; color: var(--dim); letter-spacing: 0.5px;">
+        Volume includes equivalent variants: ${siblingNames}
+      </div>`;
+    }
+  }
+  // ───────────────────────────────────────────────────────────────────
   const sparklineHtml = buildSparkline(volumes);
 
   let volumeTrendHtml = '';
@@ -163,6 +210,7 @@ export function openHistoryModal(exId) {
       </div>
       ${prHtml}
       ${sparklineHtml}
+      ${variantNote}
       ${volumeTrendHtml}
       ${hasHistory ? `<div class="hist-section-label" style="padding: 0 20px 8px;">SESSION LOG</div>` : ''}
       ${tableHtml}
@@ -596,4 +644,100 @@ export function openLogModal(exId, setIdx) {
 
 export function closeLogModal() {
   if (activeModal) { activeModal.el.remove(); activeModal = null; }
+}
+
+// ── Cardio Note Modal (warmup / finisher) ─────────────────────────────────
+// Opens a focused bottom sheet for adding/viewing notes on the warmup bar or
+// finisher card. Notes are stored in state.cardio.warmupNote / .finisherNote
+// (transient) and committed into history[].cardio on FINISH_WORKOUT.
+
+export let activeCardioNoteModal = null;
+
+export function openCardioNoteModal(type, appState) {
+  closeCardioNoteModal();
+
+  const label     = type === 'warmup' ? 'WARM-UP NOTE' : 'FINISHER NOTE';
+  const noteField = type === 'warmup' ? 'warmupNote' : 'finisherNote';
+  const currentNote = appState?.cardio?.[noteField] ?? '';
+
+  // Build note history from past sessions (all sessions, chronologically reversed)
+  const pastNotes = [...(appState.history || [])]
+    .reverse()
+    .filter(e => e.cardio?.[noteField] && e.cardio[noteField].trim())
+    .slice(0, 8)
+    .map(e => ({
+      date: formatDate(e.timestamp),
+      note: e.cardio[noteField].trim()
+    }));
+
+  const historyHtml = pastNotes.length > 0
+    ? `<div class="cardio-note-hist-section">
+        <div class="cardio-note-hist-label">NOTE HISTORY</div>
+        ${pastNotes.map(n => `
+          <div class="cardio-note-hist-item">
+            <span class="cardio-note-hist-date">${n.date}</span>
+            <span class="cardio-note-hist-text">${n.note}</span>
+          </div>`).join('')}
+      </div>`
+    : `<div class="cardio-note-hist-empty">No past notes yet.</div>`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'log-modal-overlay cardio-note-overlay';
+  overlay.innerHTML = `
+    <div class="log-modal cardio-note-modal" role="dialog" aria-modal="true" aria-label="${label}">
+      <div class="log-modal-title" style="font-size: 0.75rem; letter-spacing: 3px;">${label}</div>
+      <div class="log-fields">
+        <div class="log-field" style="grid-column: span 2;">
+          <label class="log-label" for="cardio-note-input">NOTE</label>
+          <div class="log-input-wrap">
+            <input class="log-input" id="cardio-note-input" type="text"
+              placeholder="e.g. 3.5 mph, felt strong, knee ok"
+              value="${currentNote.replace(/"/g, '&quot;')}"
+              style="font-size: 0.95rem; padding: 12px; font-family: inherit;"
+              autocomplete="off"
+            />
+          </div>
+        </div>
+      </div>
+      ${historyHtml}
+      <div class="log-modal-actions">
+        <button class="log-btn log-btn-cancel" id="cardio-note-cancel">Cancel</button>
+        <button class="log-btn log-btn-save" id="cardio-note-save">Save Note</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  activeCardioNoteModal = overlay;
+
+  const noteInput = overlay.querySelector('#cardio-note-input');
+  setTimeout(() => noteInput?.focus(), 60);
+
+  const doClose = () => closeCardioNoteModal();
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) doClose(); });
+  overlay.querySelector('#cardio-note-cancel').addEventListener('click', doClose);
+
+  overlay.querySelector('#cardio-note-save').addEventListener('click', () => {
+    const note = noteInput.value.trim();
+    const existing = appState?.cardio || {};
+    const cardio = {
+      warmupDone:   existing.warmupDone   ?? false,
+      finisherDone: existing.finisherDone ?? false,
+      notes:        existing.notes        ?? '',
+      warmupNote:   existing.warmupNote   ?? '',
+      finisherNote: existing.finisherNote ?? '',
+      [noteField]: note
+    };
+    dispatch('UPDATE_CARDIO', { cardio });
+    doClose();
+  });
+
+  overlay.addEventListener('keydown', e => {
+    if (e.key === 'Enter') overlay.querySelector('#cardio-note-save').click();
+    if (e.key === 'Escape') doClose();
+  });
+}
+
+export function closeCardioNoteModal() {
+  if (activeCardioNoteModal) { activeCardioNoteModal.remove(); activeCardioNoteModal = null; }
 }

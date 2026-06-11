@@ -94,6 +94,8 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
+  overflow: hidden;
+  max-width: 100%;
 }
 .ex-alts-label {
   font-family: 'IBM Plex Mono', monospace;
@@ -319,6 +321,7 @@
   gap: 8px;
   padding: 0 16px 10px;
   flex-wrap: wrap;
+  overflow: hidden;
 }
 .prev-label {
   font-family: 'IBM Plex Mono', monospace;
@@ -413,6 +416,23 @@
   border-left: 2px solid var(--white);
   border-radius: 8px;
   padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.finisher-card:hover { background: rgba(255,255,255,0.02); }
+.finisher-card:active { background: rgba(255,255,255,0.04); }
+.finisher-card.finisher-done {
+  border-left-color: var(--green, #5cff8a);
+  background: rgba(92, 255, 138, 0.04);
+}
+.finisher-card-body {
+  flex: 1;
+  min-width: 0;
 }
 .finisher-label {
   font-family: 'IBM Plex Mono', monospace;
@@ -425,6 +445,52 @@
   font-size: 0.82rem;
   margin-top: 4px;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.finisher-note-hint {
+  font-size: 0.45rem;
+  letter-spacing: 1px;
+  color: var(--dim);
+  text-transform: uppercase;
+  opacity: 0.5;
+  margin-top: 2px;
+  display: block;
+}
+.finisher-checkbox {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-hi, #444);
+  border-radius: 4px;
+  background-color: var(--bg2);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: background-color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  margin: 0;
+  outline: none;
+}
+.finisher-checkbox:checked {
+  background-color: var(--green, #5cff8a);
+  border-color: var(--green, #5cff8a);
+}
+.finisher-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--bg, #0a0a0a);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 /* ── Journal Notes ── */

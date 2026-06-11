@@ -10,14 +10,47 @@ export function setEditingExId(val) { editingExId = val; }
 
 export function formatReps(reps) {
   if (!reps || typeof reps !== 'object') return '—';
+  
+  // Format B (user overrides): { fixed: X } or { min: X, max: Y }
   if ('fixed' in reps) return String(reps.fixed);
-  return `${reps.min}–${reps.max}`;
+  if ('min' in reps && 'max' in reps) {
+    if (reps.min === reps.max) return String(reps.min);
+    return `${reps.min}–${reps.max}`;
+  }
+  
+  // Format A (workouts.json library format: has a nested .range object)
+  if (reps.range && typeof reps.range === 'object') {
+    const min = reps.range.min;
+    const max = reps.range.max;
+    if (min === max) return String(min);
+    return `${min}–${max}`;
+  }
+  
+  if ('value' in reps) return String(reps.value);
+  return '—';
 }
 
 export function formatWeight(weight) {
   if (!weight || typeof weight !== 'object') return '';
-  if ('value' in weight) return `${weight.value} ${weight.unit}`;
-  return `${weight.min}–${weight.max} ${weight.unit}`;
+  
+  // Format B (user overrides) or legacy simple format: { value, unit } or { min, max, unit }
+  if ('min' in weight && 'max' in weight) {
+    const unit = weight.unit || '';
+    if (weight.min === weight.max) return `${weight.min} ${unit}`.trim();
+    return `${weight.min}–${weight.max} ${unit}`.trim();
+  }
+  
+  // Format A (workouts.json library format: has a nested .range object)
+  if (weight.range && typeof weight.range === 'object') {
+    const min = weight.range.min;
+    const max = weight.range.max;
+    const unit = weight.unit || 'lbs';
+    if (min === max) return `${min} ${unit}`;
+    return `${min}–${max} ${unit}`;
+  }
+  
+  if ('value' in weight) return `${weight.value} ${weight.unit || ''}`.trim();
+  return '';
 }
 
 export function formatDuration(ms) {
@@ -212,15 +245,55 @@ export function buildTabs(appState) {
 export function buildSession(session, appState) {
   const active    = session.id === appState.activeSessionId ? 'active' : '';
   const complete  = query.isSessionComplete(appState, session.id);
+  const c = appState?.cardio || {};
+  const warmupDone   = c.warmupDone   === true;
+  const finisherDone = c.finisherDone === true;
+
+  // Cardio notes for warmup and finisher from history (most recent entry for this session)
+  const lastEntry = query.lastSession(appState, session.id);
+  const lastCardio = lastEntry?.cardio || {};
+  const lastWarmupNote   = lastCardio.warmupNote   || '';
+  const lastFinisherNote = lastCardio.finisherNote || '';
+
+  const warmupNoteHint = lastWarmupNote
+    ? `<span class="warmup-note-hint">📝 ${lastWarmupNote.slice(0, 40)}${lastWarmupNote.length > 40 ? '…' : ''}</span>`
+    : `<span class="warmup-note-hint">TAP TO ADD NOTE</span>`;
+
+  const finisherNoteHint = lastFinisherNote
+    ? `<span class="finisher-note-hint">📝 ${lastFinisherNote.slice(0, 40)}${lastFinisherNote.length > 40 ? '…' : ''}</span>`
+    : `<span class="finisher-note-hint">TAP TO ADD NOTE</span>`;
 
   return `<div class="session ${active}" id="${session.id}">
-    <div class="warmup-bar"><strong>WARM-UP</strong> <span>&middot; ${session.warmup}</span></div>
-    ${session.blocks.map(b => buildBlock(b, appState)).join('')}
-    <div class="finisher-card">
-      <div class="finisher-label">Finisher</div>
-      <div class="finisher-text">${session.finisher}</div>
+    <div class="warmup-bar ${warmupDone ? 'warmup-done' : ''}" data-cardio-type="warmup" role="button" aria-label="Warm-up: tap to add note" tabindex="0">
+      <div style="flex:1; min-width:0;">
+        <span><strong>WARM-UP</strong> <span>· ${session.warmup}</span></span>
+        ${warmupNoteHint}
+      </div>
+      <input
+        type="checkbox"
+        class="warmup-checkbox"
+        data-cardio-field="warmupDone"
+        id="cardio-warmup-${session.id}"
+        ${warmupDone ? 'checked' : ''}
+        aria-label="Warmup done"
+      />
     </div>
-    ${buildCardioSection(appState)}
+    ${session.blocks.map(b => buildBlock(b, appState)).join('')}
+    <div class="finisher-card ${finisherDone ? 'finisher-done' : ''}" data-cardio-type="finisher" role="button" aria-label="Finisher: tap to add note" tabindex="0">
+      <div class="finisher-card-body">
+        <div class="finisher-label">Finisher</div>
+        <div class="finisher-text">${session.finisher}</div>
+        ${finisherNoteHint}
+      </div>
+      <input
+        type="checkbox"
+        class="finisher-checkbox"
+        data-cardio-field="finisherDone"
+        id="cardio-finisher-${session.id}"
+        ${finisherDone ? 'checked' : ''}
+        aria-label="Finisher done"
+      />
+    </div>
     <div class="complete-banner ${complete ? 'visible' : ''}">
       SESSION COMPLETE<small>Rest up. You earned it.</small>
       <button class="finish-workout-btn" data-session-id="${session.id}">Finish Workout</button>
@@ -336,7 +409,7 @@ export function buildCard(ex, appState) {
 
   return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${ex.id}">
     <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${displayName}" tabindex="0">
-      <div class="ex-letter">${ex.letter}</div>
+      <div class="ex-letter">${ex.letter || ''}</div>
       <div class="ex-name">
         <span class="ex-name-text">${displayName}</span>
         ${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}
@@ -367,8 +440,10 @@ export function buildEditPanel(ex, appState) {
   if (effEx.weight) {
     if ('value' in effEx.weight) {
       weightVal = effEx.weight.value;
-    } else {
+    } else if ('min' in effEx.weight) {
       weightVal = effEx.weight.min;
+    } else if (effEx.weight.range && typeof effEx.weight.range === 'object') {
+      weightVal = effEx.weight.range.min;
     }
   }
 
@@ -378,9 +453,15 @@ export function buildEditPanel(ex, appState) {
     if ('fixed' in effEx.reps) {
       repMin = effEx.reps.fixed;
       repMax = effEx.reps.fixed;
-    } else {
-      repMin = effEx.reps.min ?? '';
-      repMax = effEx.reps.max ?? '';
+    } else if ('min' in effEx.reps && 'max' in effEx.reps) {
+      repMin = effEx.reps.min;
+      repMax = effEx.reps.max;
+    } else if (effEx.reps.range && typeof effEx.reps.range === 'object') {
+      repMin = effEx.reps.range.min ?? '';
+      repMax = effEx.reps.range.max ?? '';
+    } else if ('value' in effEx.reps) {
+      repMin = effEx.reps.value;
+      repMax = effEx.reps.value;
     }
   }
 

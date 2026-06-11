@@ -1,134 +1,103 @@
 /* ══════════════════════════════════════════
-   CARDIO — Input form styles
-   Rendered inside the active session view.
-   Cardio is an execution artifact logged
-   at FINISH_WORKOUT time into history[].
-   Schema: warmupDone | finisherDone | notes
+   CARDIO — Inline checkbox styles (used in
+   warmup-bar and finisher-card) and the
+   cardio note modal history section.
+   The old standalone cardio section layout
+   was replaced by embedded card controls.
 ══════════════════════════════════════════ */
 
-.cardio-section {
-  margin: 12px 0 8px;
-  padding: 14px 16px 16px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+/* ── Cardio Note Modal History ── */
+.cardio-note-overlay .log-modal {
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.cardio-section-header {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-bottom: 12px;
+.cardio-note-hist-section {
+  margin: 0 0 12px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border);
 }
 
-.cardio-section-sub {
-  font-weight: 400;
-  font-size: 0.65rem;
-  letter-spacing: 0;
+.cardio-note-hist-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.45rem;
+  letter-spacing: 2px;
   color: var(--dim);
-  text-transform: none;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding: 0 4px;
 }
 
-.cardio-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-@media (max-width: 520px) {
-  .cardio-fields {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-.cardio-field {
+.cardio-note-hist-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 5px;
 }
 
-.cardio-field label {
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--muted);
+.cardio-note-hist-date {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.45rem;
+  letter-spacing: 1px;
+  color: var(--dim);
   text-transform: uppercase;
 }
 
-/* Checkbox toggle style for warmup / finisher */
-.cardio-field--check {
-  display: flex;
-  align-items: center;
+.cardio-note-hist-text {
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.4;
+  font-style: italic;
 }
 
-.cardio-check-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  padding: 8px 12px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  width: 100%;
-  transition: border-color 0.15s, background 0.15s;
-  text-transform: none !important;
-  font-size: 0.85rem !important;
-  letter-spacing: 0 !important;
-  font-weight: 500 !important;
-  color: var(--white) !important;
-}
-
-.cardio-check-label:has(.cardio-checkbox:checked) {
-  border-color: var(--accent, #5cff8a);
-  background: rgba(92, 255, 138, 0.07);
-}
-
-.cardio-checkbox {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent, #5cff8a);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.cardio-check-sub {
-  font-size: 0.65rem;
+.cardio-note-hist-empty {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
   color: var(--dim);
-  display: block;
-  margin-left: auto;
-  white-space: nowrap;
+  text-align: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
 }
 
+/* ── Cardio Checkbox base (shared by warmup + finisher) ── */
+/* Individual checkbox element styles live in layout.css (.warmup-checkbox)
+   and exercises.css (.finisher-checkbox). These are shared iOS Safari fixes. */
+.warmup-checkbox,
+.finisher-checkbox {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+/* Mobile iOS Safari Optimization: Force notes input to 16px to prevent zoom */
 .cardio-input {
+  -webkit-appearance: none;
+  appearance: none;
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--white);
-  font-size: 0.9rem;
-  padding: 6px 9px;
+  font-size: 16px;
+  padding: 8px 10px;
   width: 100%;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: none;
+  box-sizing: border-box;
 }
 
 .cardio-input:focus {
-  border-color: var(--border-hi);
+  border-color: var(--accent, #5cff8a);
+  box-shadow: 0 0 0 2px rgba(92, 255, 138, 0.15);
 }
 
 .cardio-input::placeholder {
   color: var(--dim);
-}
-
-/* Remove number input spinners (cleaner look on mobile) */
-.cardio-input[type="number"]::-webkit-inner-spin-button,
-.cardio-input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-}
-.cardio-input[type="number"] {
-  appearance: textfield;
-  -moz-appearance: textfield;
-  -webkit-appearance: none;
 }

@@ -38,7 +38,9 @@ export function makeCardio() {
   return {
     warmupDone:   false,
     finisherDone: false,
-    notes:        ''
+    notes:        '',
+    warmupNote:   '',
+    finisherNote: ''
   };
 }
 
