@@ -3,6 +3,7 @@
    Rendered inside the active session view.
    Cardio is an execution artifact logged
    at FINISH_WORKOUT time into history[].
+   Schema: warmupDone | finisherDone | notes
 ══════════════════════════════════════════ */
 
 .cardio-section {
@@ -32,7 +33,7 @@
 
 .cardio-fields {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
@@ -54,6 +55,51 @@
   letter-spacing: 0.04em;
   color: var(--muted);
   text-transform: uppercase;
+}
+
+/* Checkbox toggle style for warmup / finisher */
+.cardio-field--check {
+  display: flex;
+  align-items: center;
+}
+
+.cardio-check-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 8px 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 100%;
+  transition: border-color 0.15s, background 0.15s;
+  text-transform: none !important;
+  font-size: 0.85rem !important;
+  letter-spacing: 0 !important;
+  font-weight: 500 !important;
+  color: var(--white) !important;
+}
+
+.cardio-check-label:has(.cardio-checkbox:checked) {
+  border-color: var(--accent, #5cff8a);
+  background: rgba(92, 255, 138, 0.07);
+}
+
+.cardio-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent, #5cff8a);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cardio-check-sub {
+  font-size: 0.65rem;
+  color: var(--dim);
+  display: block;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .cardio-input {
