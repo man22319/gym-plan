@@ -41,11 +41,18 @@ export function exportHistory() {
 
 export function exportBackup() {
   try {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    const dateStr = `${mm}${dd}${yy}`;
+    const filename = `gym-plan-backup_${dateStr}.json`;
+
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = Object.assign(document.createElement('a'), {
       href: url,
-      download: `gym-backup-${new Date().toISOString().slice(0,10)}.json`
+      download: filename
     });
     document.body.appendChild(a);
     a.click();
@@ -166,7 +173,7 @@ export function copyWorkout(btn) {
   const done = () => {
     btn.innerHTML = '&#10003; Copied';
     btn.classList.add('copied');
-    setTimeout(() => { btn.innerHTML = '<span>⎘</span> Copy Workout'; btn.classList.remove('copied'); }, 2500);
+    setTimeout(() => { btn.innerHTML = 'Copy Workout'; btn.classList.remove('copied'); }, 2500);
   };
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).then(done);
