@@ -37,7 +37,6 @@
   letter-spacing: 1px;
 }
 .ex-name {
-  flex: 1;
   font-size: 0.9rem;
   font-weight: 500;
   color: var(--white);
@@ -45,6 +44,20 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.ex-title-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ex-type {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  color: #ff7043;
+  letter-spacing: 0.5px;
+  text-transform: lowercase;
+  margin-top: 2px;
 }
 .pr-badge {
   font-size: 0.75rem;
@@ -62,9 +75,9 @@
 }
 .ex-detail {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.63rem;
+  font-size: 0.85rem;
   color: var(--muted);
-  line-height: 1.7;
+  line-height: 1.3;
 }
 .ex-history-hint {
   font-family: 'IBM Plex Mono', monospace;
@@ -89,15 +102,12 @@
   line-height: 1.5;
   font-style: italic;
 }
-.ex-alts {
+.ex-advice {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  overflow: hidden;
-  max-width: 100%;
+  gap: 6px;
 }
-.ex-alts-label {
+.ex-advice-label {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.45rem;
   letter-spacing: 2px;
@@ -106,26 +116,16 @@
   flex-shrink: 0;
   margin-right: 2px;
 }
-.ex-alt {
+.advice-text {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.55rem;
-  color: var(--dim);
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 6px;
-  white-space: nowrap;
-  cursor: pointer;
-  outline: none;
-  transition: all 0.1s ease;
+  font-size: 0.62rem;
+  letter-spacing: 0.5px;
+  font-weight: 500;
 }
-.ex-alt:hover {
-  border-color: var(--border-hi);
-  color: var(--muted);
-}
-.ex-alt:active {
-  background: rgba(255,255,255,0.03);
-}
+.ex-advice.prog-increase .advice-text { color: #66bb6a; }
+.ex-advice.prog-maintain .advice-text { color: var(--muted); }
+.ex-advice.prog-reduce  .advice-text { color: #ef5350; }
+.ex-advice.prog-watch   .advice-text { color: #fdd835; }
 
 .ex-revert-link {
   font-family: 'IBM Plex Mono', monospace;

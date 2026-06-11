@@ -1,4 +1,4 @@
-import { state } from '../core/workouts.js';
+import { state, EXERCISE_INDEX } from '../core/workouts.js';
 import { dispatch } from '../core/reducer.js';
 import { getDisplayName } from '../core/helpers.js';
 import { skipRestTimer, extendRestTimer } from '../core/restTimer.js';
@@ -23,6 +23,9 @@ import {
 
 const pressTimers = new Map();
 const tabPressTimers = new Map();
+const infoPressTimers = new Map();
+
+let lastPressWasLong = false;
 
 const LONG_PRESS_MS = 480;
 
@@ -30,6 +33,7 @@ export function setupEvents() {
   document.addEventListener('pointerdown', e => {
     const dot = e.target.closest('.set-dot');
     const tab = e.target.closest('.tab');
+    const info = e.target.closest('.ex-info-group');
     if (dot) {
       const exId = dot.dataset.exId;
       const idx  = parseInt(dot.dataset.setIdx, 10);
@@ -37,12 +41,16 @@ export function setupEvents() {
     } else if (tab) {
       const sessionId = tab.dataset.sessionId;
       startTabPress(sessionId);
+    } else if (info) {
+      const exId = info.closest('.exercise-card').dataset.exId;
+      startInfoPress(exId);
     }
   });
 
   document.addEventListener('pointerup', e => {
     const dot = e.target.closest('.set-dot');
     const tab = e.target.closest('.tab');
+    const info = e.target.closest('.ex-info-group');
     if (dot) {
       const exId = dot.dataset.exId;
       const idx  = parseInt(dot.dataset.setIdx, 10);
@@ -50,25 +58,36 @@ export function setupEvents() {
     } else if (tab) {
       const sessionId = tab.dataset.sessionId;
       commitTabPress(sessionId);
+    } else if (info) {
+      const exId = info.closest('.exercise-card').dataset.exId;
+      commitInfoPress(exId);
     } else {
       for (const [key] of pressTimers) cancelPress(key);
       for (const [key] of tabPressTimers) cancelTabPress(key);
+      for (const [key] of infoPressTimers) cancelInfoPress(key);
     }
   });
 
   document.addEventListener('pointercancel', () => {
     for (const [key] of pressTimers) cancelPress(key);
     for (const [key] of tabPressTimers) cancelTabPress(key);
+    for (const [key] of infoPressTimers) cancelInfoPress(key);
   });
 
   document.addEventListener('pointermove', e => {
     if (e.movementX ** 2 + e.movementY ** 2 > 16) {
       for (const [key] of pressTimers) cancelPress(key);
       for (const [key] of tabPressTimers) cancelTabPress(key);
+      for (const [key] of infoPressTimers) cancelInfoPress(key);
     }
   });
 
   document.addEventListener('click', e => {
+    if (lastPressWasLong) {
+      lastPressWasLong = false;
+      return;
+    }
+
     const finishBtn = e.target.closest('.finish-workout-btn');
     if (finishBtn) {
       const sessionId = finishBtn.dataset.sessionId;
@@ -302,5 +321,74 @@ function commitTabPress(sessionId) {
   const wasPending = cancelTabPress(key);
   if (wasPending) {
     dispatch('SET_ACTIVE_SESSION', { sessionId });
+  }
+}
+
+function startInfoPress(exId) {
+  const key = exId;
+  cancelInfoPress(key);
+  infoPressTimers.set(key, setTimeout(() => {
+    infoPressTimers.delete(key);
+    lastPressWasLong = true;
+    alternateExercise(exId);
+  }, LONG_PRESS_MS));
+}
+
+function cancelInfoPress(key) {
+  if (infoPressTimers.has(key)) {
+    clearTimeout(infoPressTimers.get(key));
+    infoPressTimers.delete(key);
+    return true;
+  }
+  return false;
+}
+
+function commitInfoPress(exId) {
+  cancelInfoPress(exId);
+}
+
+function alternateExercise(exId) {
+  const ex = EXERCISE_INDEX[exId];
+  if (!ex) return;
+
+  const rawAlts = ex.alternatives;
+  let flatAlts = [];
+  if (rawAlts && typeof rawAlts === 'object' && !Array.isArray(rawAlts)) {
+    flatAlts = [
+      ...(rawAlts.same_pattern || []),
+      ...(rawAlts.regression   || []),
+      ...(rawAlts.variation    || [])
+    ];
+  } else if (Array.isArray(rawAlts)) {
+    flatAlts = rawAlts;
+  }
+
+  if (flatAlts.length === 0) {
+    alert(`No alternatives configured for "${ex.name}".`);
+    return;
+  }
+
+  const currentDisplayName = getDisplayName(state, exId);
+  const options = [ex.name, ...flatAlts];
+  
+  const curIdx = options.indexOf(currentDisplayName);
+  const nextIdx = (curIdx + 1) % options.length;
+  const nextName = options[nextIdx];
+
+  if (nextName === ex.name) {
+    if (confirm(`Revert "${currentDisplayName}" back to the original exercise "${ex.name}"?`)) {
+      dispatch('SUBSTITUTE_EXERCISE', {
+        exId,
+        substitution: null
+      });
+    }
+  } else {
+    if (confirm(`Replace "${currentDisplayName}" with "${nextName}"?`)) {
+      const subId = 'sub_' + nextName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      dispatch('SUBSTITUTE_EXERCISE', {
+        exId,
+        substitution: { id: subId, name: nextName }
+      });
+    }
   }
 }

@@ -465,8 +465,8 @@ function setupEditorEvents() {
         id: newId,
         dayLabel: 'NEW',
         sessionLabel: `Session ${draftSessions.length + 1}`,
-        warmup: 'Incline treadmill · 8 min · 3.0 mph · 2% incline',
-        finisher: 'Incline treadmill · 8 min · 3.3 mph · 2.5% incline',
+        warmup: 'Incline treadmill · 8 min · 3.0 mph · 2%',
+        finisher: 'Incline treadmill · 8 min · 3.3 mph · 2.5%',
         blocks: []
       });
       selectedSessionId = newId;

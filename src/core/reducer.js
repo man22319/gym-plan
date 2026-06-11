@@ -38,8 +38,6 @@ export const ALLOWED_ACTIONS = {
   // Progression state — written after FINISH_WORKOUT pipeline
   UPDATE_PROGRESSION_STATE:  ['progressionState'],
   DISMISS_FATIGUE_WARNING:   [],
-  // UI offset — display-only shift (§19)
-  SET_UI_OFFSET:             ['uiOffset'],
 };
 
 export function validateAction(type, payload) {
@@ -183,7 +181,6 @@ export function reducer(currentState, action) {
         // Preserve canonical counters + history on reset (§4)
         history:          currentState.history          ?? [],
         completedWorkouts: currentState.completedWorkouts ?? 0,
-        uiOffset:         currentState.uiOffset         ?? 0,
         progressionState: currentState.progressionState ?? {}
       };
     }
@@ -360,11 +357,6 @@ export function reducer(currentState, action) {
 
     case 'UPDATE_PROGRESSION_STATE': {
       return { ...currentState, progressionState: payload.progressionState };
-    }
-
-    case 'SET_UI_OFFSET': {
-      const clamped = Math.max(-100, Math.min(100, Math.round(payload.uiOffset)));
-      return { ...currentState, uiOffset: clamped };
     }
 
     default:

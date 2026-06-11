@@ -125,9 +125,6 @@ export function migrate(raw) {
     cardio:           null,
     // Canonical progression counters (§1/§3)
     completedWorkouts,
-    uiOffset:         typeof raw.uiOffset === 'number'
-                        ? Math.max(-100, Math.min(100, raw.uiOffset))
-                        : 0,
     // Latent progression state (§21)
     progressionState: raw.progressionState ?? {},
     history,
@@ -190,9 +187,6 @@ export function normalize(appState) {
     isDeloadActive:        appState.isDeloadActive        ?? false,
     cardio:                null,       // always clear transient cardio on normalize
     completedWorkouts:     appState.completedWorkouts     ?? 0,
-    uiOffset:              typeof appState.uiOffset === 'number'
-                             ? Math.max(-100, Math.min(100, appState.uiOffset))
-                             : 0,
     progressionState:      appState.progressionState      ?? {},
     version:               STATE_VERSION
   };

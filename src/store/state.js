@@ -74,11 +74,6 @@ export function createDefaultState(workouts) {
     //   Never derived from history.length at runtime — it IS the counter.
     completedWorkouts: 0,
 
-    // uiOffset: display shift (-100 ≤ uiOffset ≤ 100, default 0).
-    //   Affects only displayIndex = completedWorkouts + uiOffset.
-    //   Does NOT affect history, statistics, progression, fatigue, or streaks.
-    uiOffset: 0,
-
     sessionStarted:   null,     // ms timestamp — set when first set is logged
 
     isDeloadActive:   false,    // user-toggled: suppresses fatigue warnings

@@ -925,8 +925,8 @@
       "id": "session_thu",
       "dayLabel": "THU",
       "sessionLabel": "Session 1",
-      "warmup": "Incline treadmill · 8 min · 3.0 mph · 2% incline",
-      "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5% incline",
+      "warmup": "Incline treadmill · 8 min · 3.0 mph · 2%",
+      "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5%",
       "blocks": [
         {
           "label": "Superset 1 — Pull / Push",
@@ -962,8 +962,8 @@
       "id": "session_sat",
       "dayLabel": "SAT",
       "sessionLabel": "Session 2",
-      "warmup": "Incline treadmill · 8 min · 3.0 mph · 2% incline",
-      "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5% incline",
+      "warmup": "Incline treadmill · 8 min · 3.0 mph · 2%",
+      "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5%",
       "blocks": [
         {
           "label": "Superset 1 — Pull / Shoulders",
@@ -993,8 +993,8 @@
       "id": "session_mon",
       "dayLabel": "MON",
       "sessionLabel": "Session 3",
-      "warmup": "Incline treadmill · 8 min · 3.0 mph · 2% incline",
-      "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5% incline",
+      "warmup": "Incline treadmill · 8 min · 3.0 mph · 2%",
+      "finisher": "Incline treadmill · 8 min · 3.3 mph · 2.5%",
       "blocks": [
         {
           "label": "Superset 1 — Pull / Push",

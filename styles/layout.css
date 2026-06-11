@@ -26,7 +26,13 @@ header {
   gap: 10px;
   overflow: visible;
 }
-.wordmark { line-height: 1; flex-shrink: 0; }
+.wordmark {
+  line-height: 1;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 .brand-wrap {
   display: flex;
   align-items: center;
@@ -69,13 +75,13 @@ header {
   font-weight: 500;
 }
 .reset-btn {
-  background: none;
-  border: 1px solid var(--border-hi);
+  background: var(--bg2);
+  border: 1px solid var(--border);
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.52rem;
-  padding: 6px 10px;
-  border-radius: 4px;
+  font-size: 0.65rem;
+  padding: 8px 14px;
+  border-radius: 6px;
   cursor: pointer;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -84,24 +90,24 @@ header {
   user-select: none;
   white-space: nowrap;
 }
-.reset-btn:hover { border-color: var(--white); color: var(--white); }
+.reset-btn:hover { border-color: var(--border-hi); color: var(--white); background: rgba(255,255,255,0.03); }
 
 /* ── Header Buttons ── */
 .header-actions {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 5px;
+  gap: 8px;
   flex-shrink: 0;
 }
 #copy-btn {
-  background: none;
-  border: 1px solid var(--border-hi);
+  background: var(--bg2);
+  border: 1px solid var(--border);
   color: var(--muted);
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.52rem;
-  padding: 6px 10px;
-  border-radius: 4px;
+  font-size: 0.65rem;
+  padding: 8px 14px;
+  border-radius: 6px;
   cursor: pointer;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -113,7 +119,7 @@ header {
   align-items: center;
   gap: 5px;
 }
-#copy-btn:hover { border-color: var(--white); color: var(--white); }
+#copy-btn:hover { border-color: var(--border-hi); color: var(--white); background: rgba(255,255,255,0.03); }
 #copy-btn.copied { color: var(--green); border-color: var(--green); }
 
 /* ── Dropdowns ── */
@@ -310,7 +316,8 @@ header {
 .suggested-badge {
   position: absolute;
   top: 4px;
-  right: 4px;
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--red);
   color: #000;
   font-family: 'IBM Plex Mono', monospace;
@@ -370,7 +377,7 @@ header {
 
 /* ── Warm-up ── */
 .warmup-bar {
-  margin: 20px 0 18px;
+  margin: 10px 0 18px;
   background: var(--bg3);
   border: 1px solid var(--border);
   border-left: 2px solid var(--white);
@@ -446,11 +453,14 @@ header {
   font-size: 0.58rem;
   letter-spacing: 3px;
   color: var(--dim);
-  margin: 24px 0 10px 2px;
+  margin: 14px 0 8px 2px;
   text-transform: uppercase;
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.session > .superset-label:first-of-type {
+  margin-top: 6px;
 }
 .superset-label::after {
   content: '';

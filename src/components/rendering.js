@@ -393,12 +393,15 @@ export function buildCard(ex, appState) {
   return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${ex.id}">
     <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${displayName}" tabindex="0">
       <div class="ex-letter">${ex.letter || ''}</div>
-      <div class="ex-name">
-        <span class="ex-name-text">${displayName}</span>
-        ${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}
-        ${revertHtml}
+      <div class="ex-title-group">
+        <div class="ex-name">
+          <span class="ex-name-text">${displayName}</span>
+          ${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}
+          ${revertHtml}
+        </div>
+        ${effEx.equipmentType ? `<div class="ex-type">type: ${effEx.equipmentType}</div>` : ''}
       </div>
-      <div class="ex-info-group">
+      <div class="ex-info-group" title="Press & hold to cycle alternatives">
         ${detailHtml}
         <div class="ex-history-hint">TAP FOR HISTORY</div>
       </div>
@@ -406,7 +409,6 @@ export function buildCard(ex, appState) {
     </div>
     ${editPanelHtml}
     ${buildNotesRow(ex, appState)}
-    ${buildProgressionChip(appState, ex)}
     ${plateauBannerHtml}
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
@@ -485,46 +487,30 @@ export function buildEditPanel(ex, appState) {
 
 export function buildNotesRow(ex, appState) {
   const effEx = getEffectiveExercise(appState, ex.id);
-  const sub = appState?.exerciseSubstitutions?.[ex.id];
-
   const hasNotes = effEx?.notes && effEx.notes.trim();
-
-  // Alternatives schema (§9): { same_pattern: [], regression: [], variation: [] }
-  // Flatten all three tiers into a single display list; same_pattern first.
-  // Falls back to legacy flat array if the object form isn't present.
-  const rawAlts = ex.alternatives;
-  let flatAlts = [];
-  if (rawAlts && typeof rawAlts === 'object' && !Array.isArray(rawAlts)) {
-    flatAlts = [
-      ...(rawAlts.same_pattern || []),
-      ...(rawAlts.regression   || []),
-      ...(rawAlts.variation    || [])
-    ];
-  } else if (Array.isArray(rawAlts)) {
-    flatAlts = rawAlts; // legacy flat array fallback
-  }
-
-  let alts = flatAlts;
-  if (sub) {
-    alts = [ex.name, ...alts].filter(a => a !== sub.name);
-  }
-  const hasAlts = alts.length > 0;
-
-  if (!hasNotes && !hasAlts) return '';
 
   const notesHtml = hasNotes
     ? `<span class="ex-notes">${effEx.notes}</span>`
     : '';
 
-  const altsHtml = hasAlts
-    ? `<span class="ex-alts-label">ALT:</span> ${alts.map(a =>
-        `<button class="ex-alt" data-ex-id="${ex.id}" data-alt-name="${a.replace(/"/g, '&quot;')}">${a}</button>`
-      ).join('')}`
-    : '';
+  const rec = query.progressionRecommendation(appState, ex.id);
+  let adviceHtml = '';
+  if (rec) {
+    const cls = rec.action === 'increase' ? 'prog-increase'
+              : rec.action === 'reduce'   ? 'prog-reduce'
+              : rec.action === 'watch'    ? 'prog-watch'
+              : 'prog-maintain';
+    adviceHtml = `<div class="ex-advice ${cls}">
+      <span class="ex-advice-label">ADVICE:</span>
+      <span class="advice-text">${rec.label}</span>
+    </div>`;
+  }
+
+  if (!hasNotes && !adviceHtml) return '';
 
   return `<div class="ex-meta-row">
     ${notesHtml}
-    ${hasAlts ? `<div class="ex-alts">${altsHtml}</div>` : ''}
+    ${adviceHtml}
   </div>`;
 }
 

@@ -125,21 +125,18 @@ export const query = {
   // ── Week / Session Display (§3) ────────────────────────────────────────────
 
   /**
-   * Derive current week and session from completedWorkouts + uiOffset (§3).
+   * Derive current week and session from completedWorkouts (§3).
    *
-   * displayIndex = completedWorkouts + uiOffset
-   * week         = floor(displayIndex / sessionsPerWeek) + 1
-   * session      = (displayIndex % sessionsPerWeek) + 1
+   * week         = floor(completedWorkouts / sessionsPerWeek) + 1
+   * session      = (completedWorkouts % sessionsPerWeek) + 1
    *
    * No calendar dependency. Missed sessions do not shift indexing.
    */
   weekAndSession(appState) {
     const n    = appState?.completedWorkouts ?? 0;
-    const b    = appState?.uiOffset          ?? 0;
     const spw  = Math.max(1, appState?.sessionsPerWeek ?? 3);
-    const idx  = n + b;
-    const week    = Math.floor(idx / spw) + 1;
-    const session = (((idx % spw) + spw) % spw) + 1; // handles negative offset safely
+    const week    = Math.floor(n / spw) + 1;
+    const session = (((n % spw) + spw) % spw) + 1; // handles negative offset safely
     return { week, session };
   },
 
