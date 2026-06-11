@@ -7,6 +7,17 @@ import { persist, normalize } from './persistence.js';
 import { analyzeFatigueTrends } from './analytics/fatigue.js';
 import { updateProgressionState } from './progression.js';
 
+// §28.3: Default deltaW per equipmentType (used when manualDeltaWOverride = false).
+// Applied on exercise creation and on equipmentType change (§28.4).
+export const EQUIPMENT_DELTA_W_DEFAULTS = {
+  machine:    5,
+  dumbbell:   5,
+  barbell:    5,
+  cable:      5,
+  bodyweight: 0,
+  other:      2.5,
+};
+
 export const ALLOWED_ACTIONS = {
   SET_ACTIVE_SESSION:        ['sessionId'],
   TOGGLE_SET:                ['exId', 'idx'],
@@ -133,6 +144,26 @@ export function reducer(currentState, action) {
         else if (fields.reps   !== undefined) merged.reps   = fields.reps;
         if (fields.notes  === null) delete merged.notes;
         else if (fields.notes  !== undefined) merged.notes  = fields.notes;
+
+        // §28.2 / §28.4: Handle equipmentType, deltaW, manualDeltaWOverride fields.
+        if (fields.manualDeltaWOverride !== undefined) merged.manualDeltaWOverride = fields.manualDeltaWOverride;
+        if (fields.deltaW !== undefined)               merged.deltaW               = fields.deltaW;
+
+        if (fields.equipmentType !== undefined) {
+          merged.equipmentType = fields.equipmentType;
+          // §28.4: On equipmentType change, re-init deltaW from defaults
+          // ONLY when manualDeltaWOverride is false (or unset).
+          const isManual = merged.manualDeltaWOverride
+            ?? EXERCISE_INDEX[exId]?.manualDeltaWOverride
+            ?? false;
+          if (!isManual) {
+            const typeDw = EQUIPMENT_DELTA_W_DEFAULTS[fields.equipmentType];
+            if (typeDw !== undefined) merged.deltaW = typeDw;
+            // else: unknown type — preserve existing deltaW and log mismatch
+            else console.warn(`[reducer] Unknown equipmentType '${fields.equipmentType}' for ${exId}; deltaW preserved.`);
+          }
+          // If isManual: deltaW preserved exactly (§28.4), mismatch noted above.
+        }
 
         if (Object.keys(merged).length === 0) {
           delete exerciseOverrides[exId];
@@ -433,7 +464,10 @@ export function dispatch(type, payload = {}) {
           const prev    = newProgState[ex.id] || {};
           const updated = updateProgressionState(prev, sets, {
             density,
-            riskMultiplier: ex.riskMultiplier ?? 1.0
+            riskMultiplier: ex.riskMultiplier ?? 1.0,
+            // §28.5 HARD RULE: pass the authoritative stored deltaW from the exercise template.
+            // Resolver priority: session template ex.deltaW → exerciseOverrides[].deltaW → prev.dw
+            deltaW: currentState.exerciseOverrides?.[ex.id]?.deltaW ?? ex.deltaW
           });
           newProgState[ex.id] = {
             T:   updated.T,

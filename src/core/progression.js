@@ -212,7 +212,12 @@ export function computeRisk({ deltaPct = 0, deltaF = 0, avgRIR = null, density =
 export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const T_prev  = prev.T  ?? null;
   const F_prev  = prev.F  ?? 0;
-  const dw      = prev.dw ?? DEFAULTS.defaultDw;
+
+  // §28.5 HARD RULE: deltaW MUST come from the stored JSON exercise field.
+  // opts.deltaW is passed from the EXERCISE_INDEX entry at call-site.
+  // Fall back to prev.dw (previously persisted) if the caller didn't supply one,
+  // and only use DEFAULTS.defaultDw as a last resort on very first boot.
+  const dw = opts.deltaW ?? prev.dw ?? DEFAULTS.defaultDw;
 
   const { E_t, V_t } = computeObservations(sets);
 
@@ -234,7 +239,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const u_t = controlSignal(R_t, w_t);
   const w_next_continuous = w_t + u_t;
 
-  // Risk assessment (§21.1)
+  // Risk assessment (§21.1 + §28.7)
   const deltaPct = w_t > 0 ? (w_next_continuous - w_t) / w_t : 0;
   const deltaF   = F_next - F_prev;
   const avgRIR   = (() => {
@@ -243,12 +248,19 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     return rirSets.reduce((n, s) => n + s.rir, 0) / rirSets.length;
   })();
 
+  // §28.7: Risk scales with relative deltaW (Δ% = deltaW / w_t).
+  // A larger stored step means a bigger absolute jump, which demands more evidence.
+  // We pass deltaW into riskMultiplier as a scaling factor (clamped to reasonable range).
+  const relativeDeltaW  = w_t > 0 ? dw / w_t : 0;
+  const dwRiskScale     = 1.0 + Math.min(relativeDeltaW, 1.0); // [1.0, 2.0]
+  const effectiveRiskMultiplier = (opts.riskMultiplier ?? 1.0) * dwRiskScale;
+
   const riskScore = computeRisk({
     deltaPct,
     deltaF,
     avgRIR,
     density: opts.density ?? null,
-    riskMultiplier: opts.riskMultiplier ?? 1.0
+    riskMultiplier: effectiveRiskMultiplier
   });
 
   const suppressed = deltaPct > 0 && riskScore > DEFAULTS.riskThresh;

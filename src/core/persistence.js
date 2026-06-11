@@ -195,5 +195,28 @@ export function validate(appState) {
   if (!Array.isArray(appState.sessions))                      return false;
   if (typeof appState.sessionsPerWeek !== 'number')           return false;
   if (typeof appState.completedWorkouts !== 'number')         return false;
+
+  // §28.6 Validation Invariant: every exercise in session templates MUST carry
+  // all three §28 fields. Missing any → fail fast (no implicit defaults allowed).
+  for (const session of appState.sessions) {
+    for (const block of (session.blocks || [])) {
+      for (const ex of (block.exercises || [])) {
+        if (ex.equipmentType      === undefined ||
+            ex.deltaW             === undefined ||
+            ex.manualDeltaWOverride === undefined) {
+          console.error(
+            `[validate] §28 schema violation on exercise "${ex.id ?? ex.name}": ` +
+            `missing equipmentType/deltaW/manualDeltaWOverride. Triggering repair migration.`
+          );
+          return false;
+        }
+        if (typeof ex.deltaW !== 'number' || ex.deltaW < 0) {
+          console.error(`[validate] §28 schema violation on exercise "${ex.id}": deltaW must be a non-negative number.`);
+          return false;
+        }
+      }
+    }
+  }
+
   return true;
 }

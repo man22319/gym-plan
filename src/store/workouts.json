@@ -24,6 +24,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
       "notes": "Drive elbows back, pause 1s at peak contraction. Keep chest tall.",
@@ -61,6 +64,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
       "notes": "Lower slowly to chest, full extension at top. Feet flat on floor.",
@@ -98,6 +104,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
@@ -134,6 +143,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Controlled hip extension. Squeeze glutes at top. No hyperextending lower back.",
@@ -170,6 +182,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Drive through heel. Pause at peak squeeze. Keep hips square.",
@@ -207,6 +222,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "cable",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Pull to upper chest, not behind neck. Slight lean back, chest up.",
@@ -244,6 +262,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
@@ -281,6 +302,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Lock elbows in at sides. Full extension, controlled return.",
@@ -318,6 +342,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
       "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder.",
@@ -355,6 +382,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
       "notes": "Rotate palms outward as you press. Controlled rotation both ways.",
@@ -392,6 +422,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 10,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
       "notes": "Standard foot placement. Knees track over toes, lower to 90°.",
@@ -429,6 +462,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
@@ -466,6 +502,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
@@ -503,6 +542,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Lock elbows in at sides. Full extension, controlled return.",
@@ -540,6 +582,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Neutral grip throughout. Curl to shoulder, lower with control. No swinging.",
@@ -577,6 +622,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
       "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder.",
@@ -614,6 +662,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
       "notes": "30–45° incline. Lower to upper chest. Full press, slight arch.",
@@ -651,6 +702,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 10,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
       "notes": "Standard foot placement. Knees track over toes, lower to 90°.",
@@ -688,6 +742,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "machine",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
@@ -725,6 +782,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "barbell",
+      "deltaW": 2.5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 75,
       "rest_between_exercises": 45,
       "notes": "Keep upper arms vertical. Lower to forehead/crown, full extension up.",
@@ -762,6 +822,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "barbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 75,
       "rest_between_exercises": 45,
       "notes": "Elbows pinned at sides. Supinate at top, full hang at bottom.",
@@ -799,6 +862,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 120,
       "rest_between_exercises": 60,
       "notes": "Press directly overhead — slight forward lean is fine. Lock out at top.",
@@ -836,6 +902,9 @@
         },
         "unit": "lbs"
       },
+      "equipmentType": "dumbbell",
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
       "rest_between_sets": 90,
       "rest_between_exercises": 45,
       "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
