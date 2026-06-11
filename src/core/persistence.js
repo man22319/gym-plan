@@ -56,32 +56,44 @@ export function migrate(raw) {
   }
 
   // ── Migrate history entries ────────────────────────────────────────────────
-  const history = (raw.history || []).map(entry => ({
-    entryId:        entry.entryId ?? crypto.randomUUID(),
-    sessionId:      entry.sessionId,
-    timestamp:      entry.timestamp,
-    startTimestamp: entry.startTimestamp ?? null,
-    isDeload:       entry.isDeload ?? false,
-    // Migrate old cardio schema { type, durationMinutes, distanceMiles, perceivedExertion }
-    // to new binary schema { warmupDone, finisherDone, notes } per §8
-    cardio: migrateCardio(entry.cardio),
-    exercises: Object.fromEntries(
-      Object.entries(entry.exercises || {}).map(([id, sets]) => [
-        id,
-        (Array.isArray(sets) ? sets : []).map(s =>
-          typeof s === 'string' ? makeSet(s) : (() => {
-            const _s   = s.s ?? '';
-            const _w   = (s.w === 0 && _s === '') ? null : (s.w ?? null);
-            const _r   = (s.r === 0 && _s === '') ? null : (s.r ?? null);
-            const _n   = s.n ?? '';
-            const _rir = (s.rir !== undefined && s.rir !== null && s.rir >= 0) ? s.rir : null;
-            const _rom = s.rom !== undefined ? s.rom : true;
-            return { s: _s, w: _w, r: _r, n: _n, rir: _rir, rom: _rom };
-          })()
-        )
-      ])
-    )
-  }));
+  const history = (raw.history || []).map(entry => {
+    let ts = entry.timestamp;
+    if (typeof ts === 'string') {
+      ts = Date.parse(ts);
+      if (isNaN(ts)) ts = Date.now();
+    }
+    let startTs = entry.startTimestamp;
+    if (typeof startTs === 'string') {
+      startTs = Date.parse(startTs);
+      if (isNaN(startTs)) startTs = null;
+    }
+    return {
+      entryId:        entry.entryId ?? crypto.randomUUID(),
+      sessionId:      entry.sessionId,
+      timestamp:      ts,
+      startTimestamp: startTs ?? null,
+      isDeload:       entry.isDeload ?? false,
+      // Migrate old cardio schema { type, durationMinutes, distanceMiles, perceivedExertion }
+      // to new binary schema { warmupDone, finisherDone, notes } per §8
+      cardio: migrateCardio(entry.cardio),
+      exercises: Object.fromEntries(
+        Object.entries(entry.exercises || {}).map(([id, sets]) => [
+          id,
+          (Array.isArray(sets) ? sets : []).map(s =>
+            typeof s === 'string' ? makeSet(s) : (() => {
+              const _s   = s.s ?? '';
+              const _w   = (s.w === 0 && _s === '') ? null : (s.w ?? null);
+              const _r   = (s.r === 0 && _s === '') ? null : (s.r ?? null);
+              const _n   = s.n ?? '';
+              const _rir = (s.rir !== undefined && s.rir !== null && s.rir >= 0) ? s.rir : null;
+              const _rom = s.rom !== undefined ? s.rom : true;
+              return { s: _s, w: _w, r: _r, n: _n, rir: _rir, rom: _rom };
+            })()
+          )
+        ])
+      )
+    };
+  });
 
   // ── Derive completedWorkouts ───────────────────────────────────────────────
   // If present in raw (v9+), use it directly.
@@ -89,6 +101,15 @@ export function migrate(raw) {
   const completedWorkouts = typeof raw.completedWorkouts === 'number'
     ? raw.completedWorkouts
     : (history.length + (_base ?? 0));
+
+  const fatigueStatus = raw.fatigueStatus
+    ? {
+        level:      raw.fatigueStatus.level ?? 'normal',
+        indicators: raw.fatigueStatus.indicators ?? [],
+        timestamp:  raw.fatigueStatus.timestamp ?? 0,
+        dismissed:  raw.fatigueStatus.dismissed ?? false
+      }
+    : { level: 'normal', indicators: [], timestamp: 0, dismissed: false };
 
   return {
     version:          STATE_VERSION,
@@ -98,7 +119,7 @@ export function migrate(raw) {
     sessionStarted:   raw.sessionStarted ?? null,
     exerciseSubstitutions: raw.exerciseSubstitutions ?? {},
     exerciseOverrides: raw.exerciseOverrides ?? {},
-    fatigueStatus:    raw.fatigueStatus ?? { level: 'normal', indicators: [], timestamp: 0 },
+    fatigueStatus,
     isDeloadActive:   raw.isDeloadActive ?? false,
     // cardio: transient staging field — never persisted between sessions; cleared on load
     cardio:           null,
@@ -165,7 +186,7 @@ export function normalize(appState) {
     exercises,
     exerciseSubstitutions: appState.exerciseSubstitutions ?? {},
     exerciseOverrides:     appState.exerciseOverrides     ?? {},
-    fatigueStatus:         appState.fatigueStatus         ?? { level: 'normal', indicators: [], timestamp: 0 },
+    fatigueStatus:         appState.fatigueStatus         ?? { level: 'normal', indicators: [], timestamp: 0, dismissed: false },
     isDeloadActive:        appState.isDeloadActive        ?? false,
     cardio:                null,       // always clear transient cardio on normalize
     completedWorkouts:     appState.completedWorkouts     ?? 0,

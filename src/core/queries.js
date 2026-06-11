@@ -32,12 +32,13 @@ export const query = {
 
   // Last N entries for an exercise (for trend analysis).
   exerciseHistory(appState, exId, n = Infinity) {
-    const sessionId = EX_SESSION_INDEX[exId];
-    if (!sessionId) return [];
-    return this.sessionHistory(appState, sessionId, n).map(e => ({
-      timestamp: e.timestamp,
-      sets:      e.exercises[exId] || []
-    }));
+    return this.chronological(appState)
+      .filter(e => e.exercises && e.exercises[exId] && e.exercises[exId].some(s => s.s === 'done' || s.s === 'failed'))
+      .map(e => ({
+        timestamp: e.timestamp,
+        sets:      e.exercises[exId]
+      }))
+      .slice(-n);
   },
 
   // Derived: last completed timestamp for a session (from history).
@@ -235,6 +236,16 @@ export const query = {
    * @returns {{ suggestedWeight: number, suppressed: boolean, riskScore: number } | null}
    */
   progressionSuggestion(appState, exId) {
+    const EXERCISE_INDEX_local = appState?.sessions
+      ? Object.fromEntries(
+          (appState.sessions || []).flatMap(s =>
+            (s.blocks || []).flatMap(b => (b.exercises || []).map(ex => [ex.id, ex]))
+          )
+        )
+      : EXERCISE_INDEX;
+    const ex = EXERCISE_INDEX_local[exId];
+    if (ex?.invariant) return null;
+
     const ps = appState?.progressionState?.[exId];
     if (!ps || ps.T === null) return null;
     return {
@@ -255,17 +266,20 @@ export const query = {
    * @returns {{ action: 'increase'|'reduce'|'maintain'|'watch', label: string } | null}
    */
   progressionRecommendation(appState, exId) {
-    const ps = appState?.progressionState?.[exId];
-    if (!ps || ps.T === null || ps.lastSuggested === null || ps.lastSuggested === undefined) return null;
-
-    // Derive the current working weight from the exercise index or overrides
     const EXERCISE_INDEX_local = appState?.sessions
       ? Object.fromEntries(
           (appState.sessions || []).flatMap(s =>
             (s.blocks || []).flatMap(b => (b.exercises || []).map(ex => [ex.id, ex]))
           )
         )
-      : {};
+      : EXERCISE_INDEX;
+    const ex = EXERCISE_INDEX_local[exId];
+    if (ex?.invariant) return null;
+
+    const ps = appState?.progressionState?.[exId];
+    if (!ps || ps.T === null || ps.lastSuggested === null || ps.lastSuggested === undefined) return null;
+
+    // Derive the current working weight from the exercise index or overrides
     const overrides = appState?.exerciseOverrides?.[exId];
     const base = EXERCISE_INDEX_local[exId];
     const loadObj = overrides?.weight ?? base?.load;

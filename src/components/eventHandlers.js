@@ -203,7 +203,7 @@ export function setupEvents() {
       const banner = document.getElementById('fatigue-banner');
       if (banner) {
         banner.style.animation = 'fatigueDismiss 0.25s ease forwards';
-        setTimeout(() => banner?.remove(), 260);
+        setTimeout(() => dispatch('DISMISS_FATIGUE_WARNING'), 260);
       }
       return;
     }

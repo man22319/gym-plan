@@ -75,20 +75,7 @@ export function formatTime(ts) {
 }
 
 export function getTrainingWeekAndSession(appState) {
-  // completedSessionsBase comes from workouts.json metadata (e.g. 24)
-  // history.length is the count of sessions logged inside this app.
-  // Together they form the true running total, avoiding hardcoded offsets.
-  const base = completedSessionsBase ?? 0;
-  const liveCompleted = appState?.history
-    ? appState.history.filter(e => e && e.sessionId && e.timestamp).length
-    : 0;
-  const totalCompleted = base + liveCompleted;
-
-  const sessionsPerWeek = Math.max(1, appState?.sessionsPerWeek || 3);
-  const week    = Math.floor(totalCompleted / sessionsPerWeek) + 1;
-  const session = (totalCompleted % sessionsPerWeek) + 1;
-
-  return { week, session };
+  return query.weekAndSession(appState);
 }
 
 export function render(appState) {
@@ -131,7 +118,7 @@ export function buildApp(appState) {
  */
 export function buildFatigueBanner(appState) {
   const fs = appState?.fatigueStatus;
-  if (!fs || fs.level !== 'warning' || !fs.indicators?.length) return '';
+  if (!fs || fs.level !== 'warning' || !fs.indicators?.length || fs.dismissed) return '';
 
   const bullets = fs.indicators
     .map(i => `<li class="fatigue-indicator">${i}</li>`)
@@ -184,20 +171,18 @@ export function buildDeloadStrip(appState) {
 }
 
 export function getSuggestedSessionId(appState) {
-  let suggestedId = null;
-  let oldestTs = Infinity;
-
-  for (const session of workouts) {
-    const ts = query.lastDoneTimestamp(appState, session.id);
-    if (ts === null) {
-      return session.id;
-    }
-    if (ts < oldestTs) {
-      oldestTs = ts;
-      suggestedId = session.id;
-    }
+  const history = query.chronological(appState);
+  if (!history.length) {
+    return workouts[0]?.id || null;
   }
-  return suggestedId;
+  const lastEntry = history[history.length - 1];
+  const lastSessionId = lastEntry.sessionId;
+  const lastIndex = workouts.findIndex(s => s.id === lastSessionId);
+  if (lastIndex === -1) {
+    return workouts[0]?.id || null;
+  }
+  const nextIndex = (lastIndex + 1) % workouts.length;
+  return workouts[nextIndex]?.id || null;
 }
 
 export function buildTabs(appState) {
@@ -209,16 +194,14 @@ export function buildTabs(appState) {
 
     let recency = '';
     if (ts) {
-      const diffMs = Date.now() - ts;
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const today = new Date();
+      const doneDate = new Date(ts);
+      const d1 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const d2 = new Date(doneDate.getFullYear(), doneDate.getMonth(), doneDate.getDate());
+      const diffDays = Math.round((d1 - d2) / (1000 * 60 * 60 * 24));
+
       if (diffDays === 0) {
-        const today = new Date();
-        const doneDate = new Date(ts);
-        if (today.toDateString() === doneDate.toDateString()) {
-          recency = 'today';
-        } else {
-          recency = 'yesterday';
-        }
+        recency = 'today';
       } else if (diffDays === 1) {
         recency = 'yesterday';
       } else {

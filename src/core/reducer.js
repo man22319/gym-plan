@@ -37,6 +37,7 @@ export const ALLOWED_ACTIONS = {
   UPDATE_CARDIO:             ['cardio'],
   // Progression state — written after FINISH_WORKOUT pipeline
   UPDATE_PROGRESSION_STATE:  ['progressionState'],
+  DISMISS_FATIGUE_WARNING:   [],
   // UI offset — display-only shift (§19)
   SET_UI_OFFSET:             ['uiOffset'],
 };
@@ -64,7 +65,7 @@ export function reducer(currentState, action) {
 
     case 'SET_ACTIVE_SESSION': {
       if (currentState.activeSessionId === payload.sessionId) return currentState;
-      return { ...currentState, activeSessionId: payload.sessionId };
+      return { ...currentState, activeSessionId: payload.sessionId, sessionStarted: null };
     }
 
     case 'TOGGLE_SET': {
@@ -327,7 +328,28 @@ export function reducer(currentState, action) {
     }
 
     case 'UPDATE_FATIGUE_STATUS': {
-      return { ...currentState, fatigueStatus: payload.fatigueStatus };
+      const prevFatigue = currentState.fatigueStatus;
+      const nextFatigue = payload.fatigueStatus;
+      const dismissed = (prevFatigue && prevFatigue.level === 'warning' && nextFatigue.level === 'warning')
+        ? (prevFatigue.dismissed ?? false)
+        : false;
+      return {
+        ...currentState,
+        fatigueStatus: {
+          ...nextFatigue,
+          dismissed
+        }
+      };
+    }
+
+    case 'DISMISS_FATIGUE_WARNING': {
+      return {
+        ...currentState,
+        fatigueStatus: {
+          ...currentState.fatigueStatus,
+          dismissed: true
+        }
+      };
     }
 
     case 'UPDATE_CARDIO': {
@@ -376,7 +398,17 @@ export function dispatch(type, payload = {}) {
       }
     }
 
-    const nextState = reducer(state, { type, payload });
+    const isDoneTransition = (() => {
+      if (type === 'LOG_AND_MARK_DONE') return true;
+      if (type === 'TOGGLE_SET') {
+        const prev = (state.exercises[payload.exId] || [])[payload.idx]?.s ?? '';
+        const tempNextState = reducer(state, { type, payload });
+        return prev !== 'done' && (tempNextState.exercises[payload.exId] || [])[payload.idx]?.s === 'done';
+      }
+      return false;
+    })();
+
+    let nextState = reducer(state, { type, payload });
 
     if (DEV_MODE) {
       console.log(`▶ ${type}`, payload);
@@ -386,15 +418,6 @@ export function dispatch(type, payload = {}) {
     setState(nextState);
     persist();
     _renderFn?.(state);
-
-    const isDoneTransition = (() => {
-      if (type === 'LOG_AND_MARK_DONE') return true;
-      if (type === 'TOGGLE_SET') {
-        const prev = (state.exercises[payload.exId] || [])[payload.idx]?.s ?? '';
-        return prev !== 'done' && (nextState.exercises[payload.exId] || [])[payload.idx]?.s === 'done';
-      }
-      return false;
-    })();
 
     if (isDoneTransition) {
       let restDuration = REST_DURATION;
@@ -426,12 +449,19 @@ export function dispatch(type, payload = {}) {
     );
 
     if (recomputeFatigue) {
-      let fatigueStatus = analyzeFatigueTrends(state.history ?? []);
-      if (state.isDeloadActive) {
+      const exerciseIndex = nextState?.sessions
+        ? Object.fromEntries(
+            (nextState.sessions || []).flatMap(s =>
+              (s.blocks || []).flatMap(b => (b.exercises || []).map(ex => [ex.id, ex]))
+            )
+          )
+        : EXERCISE_INDEX;
+      let fatigueStatus = analyzeFatigueTrends(nextState.history ?? [], 14, exerciseIndex);
+      if (nextState.isDeloadActive) {
         fatigueStatus = { level: 'normal', indicators: [], timestamp: Date.now(), debug: fatigueStatus.debug };
       }
-      const withFatigue = reducer(state, { type: 'UPDATE_FATIGUE_STATUS', payload: { fatigueStatus } });
-      setState(withFatigue);
+      nextState = reducer(nextState, { type: 'UPDATE_FATIGUE_STATUS', payload: { fatigueStatus } });
+      setState(nextState);
       persist();
       _renderFn?.(state);
     }
@@ -443,8 +473,8 @@ export function dispatch(type, payload = {}) {
       const session = workouts.find(s => s.id === payload.sessionId);
       if (session) {
         const allExercises = session.blocks.flatMap(b => b.exercises);
-        const newProgState = { ...(state.progressionState || {}) };
-        const lastEntry = query.sessionHistory(state, payload.sessionId).slice(-1)[0];
+        const newProgState = { ...(nextState.progressionState || {}) };
+        const lastEntry = query.sessionHistory(nextState, payload.sessionId).slice(-1)[0];
 
         const durationMs = (lastEntry && lastEntry.startTimestamp) ? lastEntry.timestamp - lastEntry.startTimestamp : 0;
         const durationMin = durationMs > 0 ? durationMs / 60000 : null;
@@ -460,6 +490,9 @@ export function dispatch(type, payload = {}) {
         const density = durationMin ? sessionVolume / durationMin : null;
 
         for (const ex of allExercises) {
+          if (ex.invariant) {
+            continue;
+          }
           const sets    = lastEntry?.exercises[ex.id] || [];
           const prev    = newProgState[ex.id] || {};
           const updated = updateProgressionState(prev, sets, {
@@ -467,7 +500,7 @@ export function dispatch(type, payload = {}) {
             riskMultiplier: ex.riskMultiplier ?? 1.0,
             // §28.5 HARD RULE: pass the authoritative stored deltaW from the exercise template.
             // Resolver priority: session template ex.deltaW → exerciseOverrides[].deltaW → prev.dw
-            deltaW: currentState.exerciseOverrides?.[ex.id]?.deltaW ?? ex.deltaW
+            deltaW: nextState.exerciseOverrides?.[ex.id]?.deltaW ?? ex.deltaW
           });
           newProgState[ex.id] = {
             T:   updated.T,
@@ -480,11 +513,11 @@ export function dispatch(type, payload = {}) {
           };
         }
 
-        const withProg = reducer(state, {
+        nextState = reducer(nextState, {
           type:    'UPDATE_PROGRESSION_STATE',
           payload: { progressionState: newProgState }
         });
-        setState(withProg);
+        setState(nextState);
         persist();
         _renderFn?.(state);
       }

@@ -176,15 +176,15 @@ export function discretize(w_t, u_t, dw) {
  * @returns {number}  Risk_t ∈ [0, ∞); values >0.65 suppress progression
  */
 export function computeRisk({ deltaPct = 0, deltaF = 0, avgRIR = null, density = null, riskMultiplier = 1.0 } = {}) {
-  const effortProxy = avgRIR !== null ? avgRIR : 0; // low RIR → high effort → higher risk
   const d           = density !== null ? density : 0;
 
   const a = 0.30, b = 0.25, c = 0.20, d2 = 0.15, e = 0.10;
+  const effortContribution = avgRIR !== null ? c * (1 / (avgRIR + 1)) : 0;
 
   return (
     a * Math.abs(deltaPct) +
     b * Math.max(0, deltaF) +
-    c * (1 / (effortProxy + 1)) +
+    effortContribution +
     d2 * d +
     e * riskMultiplier
   );

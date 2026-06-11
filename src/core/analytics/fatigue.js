@@ -62,11 +62,13 @@ function _bestE1rm(sets) {
 /**
  * Compute total volume (Σ w*r) for all done sets across an entire history entry.
  * @param {{ exercises: Record<string, Array<{s:string, w:number|null, r:number|null}>> }} entry
+ * @param {object} exerciseIndex
  * @returns {number}
  */
-function _entryVolume(entry) {
+function _entryVolume(entry, exerciseIndex = {}) {
   let vol = 0;
-  for (const sets of Object.values(entry.exercises || {})) {
+  for (const [exId, sets] of Object.entries(entry.exercises || {})) {
+    if (exerciseIndex[exId]?.invariant) continue;
     for (const s of sets) {
       if (s.s === 'done' && s.w !== null && s.r !== null) {
         vol += s.w * s.r;
@@ -82,15 +84,17 @@ function _entryVolume(entry) {
  *
  * Returns null if no usable data exists.
  * @param {object[]} entries
+ * @param {object} exerciseIndex
  * @returns {number|null}
  */
-function _avgE1rmAcrossEntries(entries) {
+function _avgE1rmAcrossEntries(entries, exerciseIndex = {}) {
   if (!entries.length) return null;
 
   // Collect per-exercise best E1RM across all entries in this window
   const perEx = {};
   for (const entry of entries) {
     for (const [exId, sets] of Object.entries(entry.exercises || {})) {
+      if (exerciseIndex[exId]?.invariant) continue;
       const e = _bestE1rm(sets);
       if (e === null) continue;
       if (!(exId in perEx) || e > perEx[exId]) {
@@ -141,7 +145,7 @@ function _avgE1rmAcrossEntries(entries) {
  *   }
  * }}
  */
-export function analyzeFatigueTrends(history, rollingWindowDays = 14) {
+export function analyzeFatigueTrends(history, rollingWindowDays = 14, exerciseIndex = {}) {
   const now = Date.now();
   const msPerDay = 86_400_000;
 
@@ -164,16 +168,16 @@ export function analyzeFatigueTrends(history, rollingWindowDays = 14) {
   );
 
   // ── Compute Rolling Systemic Volume ──────────────────
-  const currentVolume  = currentEntries.length  ? currentEntries.reduce((s, e)  => s + _entryVolume(e),  0) : null;
-  const baselineVolume = baselineEntries.length ? baselineEntries.reduce((s, e) => s + _entryVolume(e), 0) : null;
+  const currentVolume  = currentEntries.length  ? currentEntries.reduce((s, e)  => s + _entryVolume(e, exerciseIndex),  0) : null;
+  const baselineVolume = baselineEntries.length ? baselineEntries.reduce((s, e) => s + _entryVolume(e, exerciseIndex), 0) : null;
 
   // Normalise by session count so a week with fewer sessions doesn't look like fatigue
   const currentVolNorm  = currentEntries.length  ? currentVolume  / currentEntries.length  : null;
   const baselineVolNorm = baselineEntries.length ? baselineVolume / baselineEntries.length : null;
 
   // ── Compute Average E1RM across compounds ─────────────
-  const currentE1rm  = _avgE1rmAcrossEntries(currentEntries);
-  const baselineE1rm = _avgE1rmAcrossEntries(baselineEntries);
+  const currentE1rm  = _avgE1rmAcrossEntries(currentEntries, exerciseIndex);
+  const baselineE1rm = _avgE1rmAcrossEntries(baselineEntries, exerciseIndex);
 
   // ── Drop calculations ─────────────────────────────────
   let volumeDropPct = null;
