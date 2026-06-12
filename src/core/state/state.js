@@ -57,13 +57,14 @@ export function makeCardio() {
  *
  * @param {Array} sessions — sessions array from workoutsData
  */
-export function makeDefaultExercises(sessions) {
+export function makeDefaultExercises(sessions, exerciseLibrary = {}) {
   const result = {};
   (sessions || []).forEach(session =>
     (session.blocks || []).forEach(block =>
       (block.exercises || []).forEach(ex => {
         const key  = ex.instanceId;
-        const sets = ex.sets ?? 3;
+        // Resolve sets: instance override → library definition → fallback 3
+        const sets = ex.sets ?? exerciseLibrary[ex.exerciseRef]?.sets ?? 3;
         if (key) result[key] = Array.from({ length: sets }, () => makeSet());
       })
     )
@@ -79,14 +80,15 @@ export function makeDefaultExercises(sessions) {
  */
 export function createDefaultState(workoutsData) {
   const sessions = workoutsData?.sessions ?? [];
+  const library  = workoutsData?.exercises ?? {};
   return {
     version:         STATE_VERSION,
-    exerciseLibrary: workoutsData?.exercises ?? {},
+    exerciseLibrary: library,
     programDefaults: workoutsData?.defaults  ?? {},
     sessions:        JSON.parse(JSON.stringify(sessions)),
     sessionsPerWeek: 3,
     activeSessionId: sessions[0]?.id ?? null,
-    exercises:       makeDefaultExercises(sessions),
+    exercises:       makeDefaultExercises(sessions, library),
     runtimeOverrides: {},
     history:          [],
     completedWorkouts: 0,
