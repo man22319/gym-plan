@@ -190,9 +190,8 @@ export function buildSession(session, appState) {
     </div>
     ${session.blocks.map(b => buildBlock(b, appState, finished)).join('')}
     <div class="finisher-card ${finisherDone ? 'finisher-done' : ''}">
-      <div class="finisher-card-body">
-        <div class="finisher-label">Finisher</div>
-        <div class="finisher-text">${finisherText}</div>
+      <div style="flex:1; min-width:0;">
+        <span><strong>FINISHER</strong> <span>· ${finisherText}</span></span>
       </div>
       <input
         type="checkbox"
