@@ -8,10 +8,10 @@
  *                            ↘ CANCELLED
  *
  * Timing:
- *   DEBOUNCE_MS  (80 ms)  — minimum press time before the ring even appears.
+ *   DEBOUNCE_MS  (200 ms) — minimum press time before the ring even appears.
  *                           A release before this is always a plain tap.
  *   HOLD_MS      (600 ms) — total hold duration from ring-start → completion.
- *                           Total activation = DEBOUNCE_MS + HOLD_MS ≈ 680 ms.
+ *                           Total activation = DEBOUNCE_MS + HOLD_MS ≈ 800 ms.
  *
  * Design constraints:
  *   • The SVG ring is injected imperatively (not part of the HTML string from
@@ -28,7 +28,7 @@ import { dispatch } from '../../core/logic/reducer.js';
 import { openLogModal } from '../modals/index.js';
 
 // ── Timing constants ──────────────────────────────────────────────────────────
-const DEBOUNCE_MS = 80;   // tap vs. hold discriminator
+const DEBOUNCE_MS = 200;  // tap vs. hold discriminator (forgiving tap window)
 const HOLD_MS     = 600;  // ring-fill duration → completion
 
 // ── State keys ───────────────────────────────────────────────────────────────
@@ -110,6 +110,12 @@ function enterHolding() {
 
   // Inject SVG ring
   const { svg, circle } = buildRingEl();
+
+  // Adapt ring color: black on done dots (white bg), white otherwise
+  if (session.dot.classList.contains('done')) {
+    circle.style.stroke = '#000';
+  }
+
   session.dot.appendChild(svg);
   session.ring = { svg, circle };
 
@@ -183,6 +189,25 @@ let pressStartX = 0;
 let pressStartY = 0;
 
 export function setupPressInteraction() {
+
+  // ── Suppress iOS native long-press callout on set-dots ──
+  // Belt-and-suspenders: CSS -webkit-touch-callout:none handles most cases,
+  // but some iOS versions still fire contextmenu on long-press.
+  document.addEventListener('contextmenu', e => {
+    if (e.target.closest('.set-dot')) {
+      e.preventDefault();
+    }
+  });
+
+  // ── Prevent iOS from starting its own gesture recognizer ──
+  // On iOS Safari, touchstart.preventDefault() is the nuclear option that
+  // tells the OS "I own this gesture" — it won't try callout/selection/etc.
+  // We only do this on set-dots so normal page scrolling is unaffected.
+  document.addEventListener('touchstart', e => {
+    if (e.target.closest('.set-dot')) {
+      e.preventDefault();
+    }
+  }, { passive: false });
 
   // ── Touch/pointer down ───────────────────────────────
   document.addEventListener('pointerdown', e => {
