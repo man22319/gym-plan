@@ -523,40 +523,7 @@
   margin-top: 2px;
   display: block;
 }
-.finisher-checkbox {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border-hi, #444);
-  border-radius: 4px;
-  background-color: var(--bg2);
-  cursor: pointer;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  transition: background-color 0.15s, border-color 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  margin: 0;
-  outline: none;
-}
-.finisher-checkbox:checked {
-  background-color: var(--green, #5cff8a);
-  border-color: var(--green, #5cff8a);
-}
-.finisher-checkbox:checked::after {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 1px;
-  width: 5px;
-  height: 9px;
-  border: solid var(--bg, #0a0a0a);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
+
 
 /* ── Journal Notes ── */
 .live-notes-row {
