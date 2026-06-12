@@ -310,10 +310,12 @@ export function reducer(currentState, action) {
 }
 
 let _renderFn = null;
+let _patchRenderFn = null;
 let _sessionCompleteFn = null;
 let _startWorkoutModalFn = null;
 
 export function onRender(fn) { _renderFn = fn; }
+export function onPatchRender(fn) { _patchRenderFn = fn; }
 export function onSessionComplete(fn) { _sessionCompleteFn = fn; }
 export function registerStartWorkoutModal(fn) { _startWorkoutModalFn = fn; }
 
@@ -364,7 +366,14 @@ export function dispatch(type, payload = {}) {
 
     setState(nextState);
     persist();
-    _renderFn?.(state);
+
+    // Use targeted patch for set-level actions; full render for everything else.
+    const isSetAction = type === 'TOGGLE_SET' || type === 'LOG_AND_MARK_DONE';
+    if (isSetAction && _patchRenderFn) {
+      _patchRenderFn(state, payload.exId);
+    } else {
+      _renderFn?.(state);
+    }
 
     if (isDoneTransition) {
       let restDuration = REST_DURATION;

@@ -671,6 +671,11 @@
 .superset-section {
   transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), filter 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   margin-bottom: 24px;
+  /* Default to fully visible — the IntersectionObserver adds .out-of-focus
+     for off-screen sections.  Without this, new DOM nodes flash to the
+     browser's initial value for one frame before the observer fires. */
+  opacity: 1;
+  filter: none;
 }
 .superset-section.out-of-focus {
   opacity: 0.3;

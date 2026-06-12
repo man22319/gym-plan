@@ -1,4 +1,4 @@
-import { workouts, programDefaults, EXERCISE_INDEX } from '../../core/state/store.js';
+import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX } from '../../core/state/store.js';
 import { query } from '../../core/logic/queries.js';
 import { getEffectiveExercise } from '../../core/utils/helpers.js';
 import { updateProgressionState } from '../../core/logic/progression.js';
@@ -75,7 +75,7 @@ export function render(appState) {
       el.addEventListener('animationend', () => el.classList.remove('is-entering'), { once: true });
       updateProgressBar(appState);
       updateWeekSession(appState);
-      initScrollObserver();
+      initScrollObserver(true);
     };
     el.addEventListener('transitionend', doSwap, { once: true });
   } else {
@@ -83,7 +83,7 @@ export function render(appState) {
     el.innerHTML = buildApp(appState);
     updateProgressBar(appState);
     updateWeekSession(appState);
-    initScrollObserver();
+    initScrollObserver(true);
   }
 }
 
@@ -687,26 +687,142 @@ export function buildDot(exId, idx, setObj, readOnly = false, effEx = null) {
   </span>`;
 }
 
-export function initScrollObserver() {
+// ── Singleton IntersectionObserver ─────────────────────────────────────────
+// Kept as a module-level singleton to avoid re-creating observers on every
+// render cycle.  disconnect() is called before re-observing fresh DOM nodes
+// to prevent ghost callbacks on stale elements.
+let _scrollObserver = null;
 
+export function initScrollObserver(forceRebind = false) {
   if (typeof IntersectionObserver === 'undefined') return;
-  const options = {
-    root: null,
-    rootMargin: '-30% 0px -30% 0px',
-    threshold: 0.1
-  };
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('in-focus');
-        entry.target.classList.remove('out-of-focus');
-      } else {
-        entry.target.classList.remove('in-focus');
-        entry.target.classList.add('out-of-focus');
-      }
+
+  // Create the observer once
+  if (!_scrollObserver) {
+    _scrollObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-focus');
+          entry.target.classList.remove('out-of-focus');
+        } else {
+          entry.target.classList.remove('in-focus');
+          entry.target.classList.add('out-of-focus');
+        }
+      });
+    }, {
+      root: null,
+      rootMargin: '-30% 0px -30% 0px',
+      threshold: 0.1
     });
-  }, options);
-  document.querySelectorAll('.superset-section').forEach(sec => {
-    observer.observe(sec);
-  });
+  }
+
+  // On full rebuild the old nodes are gone — disconnect and re-observe
+  if (forceRebind) {
+    _scrollObserver.disconnect();
+    document.querySelectorAll('.superset-section').forEach(sec => {
+      _scrollObserver.observe(sec);
+    });
+  }
+}
+
+// ── Targeted DOM-patch path ───────────────────────────────────────────────
+// Instead of rebuilding the whole #app innerHTML, replace only the exercise
+// card(s) that actually changed.  This preserves IntersectionObserver state,
+// CSS transition continuity, and avoids flashing static elements.
+
+/**
+ * Replace a single exercise card in the DOM without touching its siblings,
+ * the superset labels, or any other part of the tree.
+ *
+ * @param {object}  appState   — current app state
+ * @param {string}  exId       — instanceId of the exercise to patch
+ * @param {boolean} readOnly   — whether the session is finished
+ */
+function patchExerciseCard(appState, exId, readOnly) {
+  const existing = document.querySelector(`.exercise-card[data-ex-id="${exId}"]`);
+  if (!existing) return;
+
+  // Find the exercise instance from the workouts data
+  let exerciseInst = null;
+  for (const s of workouts) {
+    for (const b of s.blocks) {
+      for (const ex of b.exercises) {
+        if (ex.instanceId === exId) { exerciseInst = ex; break; }
+      }
+      if (exerciseInst) break;
+    }
+    if (exerciseInst) break;
+  }
+  if (!exerciseInst) return;
+
+  // Build the new card HTML
+  const newHtml = buildCard(exerciseInst, appState, readOnly);
+
+  // Parse into a real DOM node
+  const template = document.createElement('template');
+  template.innerHTML = newHtml.trim();
+  const newNode = template.content.firstElementChild;
+  if (!newNode) return;
+
+  // Swap in-place — siblings, parent section, and IntersectionObserver are untouched
+  existing.replaceWith(newNode);
+}
+
+/**
+ * Targeted render for TOGGLE_SET / LOG_AND_MARK_DONE actions.
+ *
+ * Patches only the affected exercise card (and any siblings whose visual
+ * completion state changed) then updates the progress bar.  Everything
+ * else — superset headers, other cards, IntersectionObserver — is left alone.
+ *
+ * @param {object} appState  — current app state (already committed via setState)
+ * @param {string} exId      — instanceId of the exercise that was toggled
+ */
+export function renderSetUpdate(appState, exId) {
+  const sessionId = EX_SESSION_INDEX[exId];
+  if (!sessionId || sessionId !== appState.activeSessionId) {
+    // Shouldn't happen, but fall back to full render
+    render(appState);
+    return;
+  }
+
+  const finished = query.isSessionFinishedInCurrentWeek(appState, sessionId);
+
+  // 1. Patch the toggled exercise card
+  patchExerciseCard(appState, exId, finished);
+
+  // 2. Patch any sibling exercises whose completion class might have changed.
+  //    This handles the case where completing the last set of exercise A
+  //    visually dims the card (opacity 0.32), while the next exercise's
+  //    visual state is unaffected (it's driven by its own sets, not A's).
+  const session = workouts.find(s => s.id === sessionId);
+  if (session) {
+    const allExIds = session.blocks.flatMap(b => b.exercises.map(e => e.instanceId));
+    for (const siblingId of allExIds) {
+      if (siblingId === exId) continue;
+      const siblingCard = document.querySelector(`.exercise-card[data-ex-id="${siblingId}"]`);
+      if (!siblingCard) continue;
+
+      // Check if the DOM completion class is stale
+      const wasComplete = siblingCard.classList.contains('completed');
+      const isComplete  = query.isExerciseComplete(appState, siblingId);
+      if (wasComplete !== isComplete) {
+        patchExerciseCard(appState, siblingId, finished);
+      }
+    }
+  }
+
+  // 3. Update the session-complete banner if needed
+  const isComplete = query.isSessionComplete(appState, sessionId);
+  const banner = document.querySelector('.complete-banner');
+  if (banner && !finished) {
+    const isStarted = appState.sessionStarted !== null;
+    if (isComplete && isStarted) {
+      banner.classList.add('visible');
+    } else {
+      banner.classList.remove('visible');
+    }
+  }
+
+  // 4. Update progress bar (already has in-place logic)
+  updateProgressBar(appState);
 }
