@@ -44,7 +44,9 @@ body::before {
 
 /* ── Header ── */
 header {
-  padding: 8px 14px 6px;
+  /* Safe-area padding: clears iOS notch / Dynamic Island on edge-to-edge displays.
+     Falls back to 8px on devices without a notch or on desktop. */
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 14px 6px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
