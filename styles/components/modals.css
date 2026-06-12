@@ -164,6 +164,7 @@
   max-width: 560px;
   max-height: 82vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   animation: slideUp 0.22s ease;
   padding-bottom: 36px;
 }
@@ -334,8 +335,8 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   z-index: 200;
   display: flex;
   align-items: center;
