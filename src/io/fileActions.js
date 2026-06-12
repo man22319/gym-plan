@@ -1,4 +1,4 @@
-import { workouts, state, setState } from '../core/state/store.js';
+import { workouts, state, setState, defaultWorkoutsData, resolveInstance } from '../core/state/store.js';
 import { dispatch } from '../core/logic/reducer.js';
 import { formatReps, formatWeight, render } from '../features/workout/rendering.js';
 import { persist, normalize, sanitizeSessions } from '../core/state/persistence.js';
@@ -78,6 +78,14 @@ export function importData() {
 }
 
 export function copyWorkout(btn) {
+  // Copy the PROGRAM TEMPLATE (workouts.json), not the live session state.
+  // This gives the user the original prescribed program for easy sharing.
+  const template = defaultWorkoutsData;
+  if (!template) { alert('Template data not loaded.'); return; }
+
+  const library  = template.exercises ?? {};
+  const defaults = template.defaults  ?? {};
+
   // Read gym name + address from the live DOM header so the clipboard output
   // stays in sync with whatever the header displays — no hardcoded strings.
   const gymName    = document.querySelector('.logo')?.textContent?.trim();
@@ -87,24 +95,26 @@ export function copyWorkout(btn) {
   if (gymAddress) lines.push(gymAddress);
   if (lines.length) lines.push('');
 
-  workouts.forEach(session => {
+  const sessions = template.sessions ?? [];
+  sessions.forEach(session => {
     lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     lines.push(`${session.dayLabel} — ${session.sessionLabel}`);
     lines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    lines.push(`Warm-up: ${session.warmup}`);
+    lines.push(`Warm-up: ${session.warmup ?? defaults.warmup ?? ''}`);
     lines.push('');
-    session.blocks.forEach(block => {
+    (session.blocks ?? []).forEach(block => {
       lines.push(block.label);
-      block.exercises.forEach(ex => {
+      (block.exercises ?? []).forEach(inst => {
+        const ex = resolveInstance(inst, library, defaults);
         lines.push(`  ${ex.letter ?? ''}  ${ex.name}`);
-        lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${formatWeight(ex.load ?? ex.weight)}`);
+        lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${formatWeight(ex.load)}`);
         if (ex.notes) lines.push(`     Note: ${ex.notes}`);
         const alts = Array.isArray(ex.alternatives) ? ex.alternatives : [];
         if (alts.length) lines.push(`     Alt: ${alts.join(', ')}`);
       });
       lines.push('');
     });
-    lines.push(`Finisher: ${session.finisher}`);
+    lines.push(`Finisher: ${session.finisher ?? defaults.finisher ?? ''}`);
     lines.push('');
   });
 
