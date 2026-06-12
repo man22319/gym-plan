@@ -1,4 +1,4 @@
-import { STORAGE_KEY, STATE_VERSION, makeSet, makeCardio, createDefaultState } from '../store/state.js';
+import { STORAGE_KEY, STATE_VERSION, makeSet, makeCardio, createDefaultState, EQUIPMENT_DELTA_W_DEFAULTS } from '../store/state.js';
 import { defaultWorkouts, workouts, state, setState, EXERCISE_INDEX, completedSessionsBase as _base } from './workouts.js';
 
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
@@ -41,15 +41,38 @@ export function migrate(raw) {
       blocks: (session.blocks || []).map(block => ({
         ...block,
         exercises: (block.exercises || []).map(entry => {
+          let resolvedEx;
           if (typeof entry === 'string') {
             const resolved = EXERCISE_INDEX[entry] || defaultWorkouts.flatMap(s => s.blocks.flatMap(b => b.exercises)).find(e => e.id === entry);
             if (!resolved) {
               console.warn(`[migrate] missing exercise metadata for "${entry}"`);
-              return { id: entry, name: entry, sets: 0, reps: null, load: null, equipmentType: 'other', deltaW: 2.5, manualDeltaWOverride: false };
+              resolvedEx = { id: entry, name: entry, sets: 0, reps: null, load: null, equipmentType: 'other', deltaW: 2.5, manualDeltaWOverride: false };
+            } else {
+              resolvedEx = JSON.parse(JSON.stringify(resolved));
             }
-            return JSON.parse(JSON.stringify(resolved));
+          } else {
+            resolvedEx = { ...entry };
           }
-          return entry;
+
+          // Repair migration: ensure equipmentType, deltaW, manualDeltaWOverride are defined.
+          if (resolvedEx.equipmentType === undefined) {
+            const libEx = EXERCISE_INDEX[resolvedEx.id] || defaultWorkouts.flatMap(s => s.blocks.flatMap(b => b.exercises)).find(e => e.id === resolvedEx.id);
+            resolvedEx.equipmentType = libEx?.equipmentType ?? 'other';
+          }
+          if (resolvedEx.manualDeltaWOverride === undefined) {
+            const libEx = EXERCISE_INDEX[resolvedEx.id] || defaultWorkouts.flatMap(s => s.blocks.flatMap(b => b.exercises)).find(e => e.id === resolvedEx.id);
+            resolvedEx.manualDeltaWOverride = libEx?.manualDeltaWOverride ?? false;
+          }
+          if (resolvedEx.deltaW === undefined) {
+            const libEx = EXERCISE_INDEX[resolvedEx.id] || defaultWorkouts.flatMap(s => s.blocks.flatMap(b => b.exercises)).find(e => e.id === resolvedEx.id);
+            if (libEx?.deltaW !== undefined) {
+              resolvedEx.deltaW = libEx.deltaW;
+            } else {
+              const typeDw = EQUIPMENT_DELTA_W_DEFAULTS[resolvedEx.equipmentType];
+              resolvedEx.deltaW = typeDw !== undefined ? typeDw : 2.5;
+            }
+          }
+          return resolvedEx;
         })
       }))
     }));

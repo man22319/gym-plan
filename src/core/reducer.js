@@ -1,4 +1,4 @@
-import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState } from '../store/state.js';
+import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, EQUIPMENT_DELTA_W_DEFAULTS } from '../store/state.js';
 import { workouts, EXERCISE_INDEX, state, setState } from './workouts.js';
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from './helpers.js';
@@ -7,16 +7,7 @@ import { persist, normalize } from './persistence.js';
 import { analyzeFatigueTrends } from './analytics/fatigue.js';
 import { updateProgressionState } from './progression.js';
 
-// §28.3: Default deltaW per equipmentType (used when manualDeltaWOverride = false).
-// Applied on exercise creation and on equipmentType change (§28.4).
-export const EQUIPMENT_DELTA_W_DEFAULTS = {
-  machine:    5,
-  dumbbell:   5,
-  barbell:    5,
-  cable:      5,
-  bodyweight: 0,
-  other:      2.5,
-};
+
 
 export const ALLOWED_ACTIONS = {
   SET_ACTIVE_SESSION:        ['sessionId'],
@@ -181,12 +172,13 @@ export function reducer(currentState, action) {
         // Preserve canonical counters + history on reset (§4)
         history:          currentState.history          ?? [],
         completedWorkouts: currentState.completedWorkouts ?? 0,
-        progressionState: currentState.progressionState ?? {}
+        progressionState: currentState.progressionState ?? {},
+        fatigueStatus:    currentState.fatigueStatus    ?? { level: 'normal', indicators: [], timestamp: 0, dismissed: false }
       };
     }
 
     case 'IMPORT_STATE': {
-      return payload.data;
+      return rebuildAllProgressions(payload.data);
     }
 
     case 'IMPORT_TEMPLATE': {

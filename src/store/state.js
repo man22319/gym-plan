@@ -8,6 +8,15 @@ export const MAX_REST_DURATION = 300; // 5 minutes — hard cap
 export const STATE_VERSION = 9;
 export const DEV_MODE      = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
 
+export const EQUIPMENT_DELTA_W_DEFAULTS = {
+  machine:    5,
+  dumbbell:   5,
+  barbell:    5,
+  cable:      5,
+  bodyweight: 0,
+  other:      2.5,
+};
+
 // ==========================================
 // ─── FACTORY ───
 // ==========================================
