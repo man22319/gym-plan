@@ -603,6 +603,15 @@ header {
   transform: scale(0.98);
 }
 
+/* ── Desktop layout — center the app like a phone ── */
+@media (min-width: 600px) {
+  body {
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
 /* ── Keyframe animations (shared) ── */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp {
