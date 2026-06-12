@@ -336,18 +336,42 @@ export function openLogModal(exId, setIdx) {
   const savedScrollY = window.scrollY;
 
   const ex       = EXERCISE_INDEX[exId];
-  const setObj   = (state.exercises[exId] || [])[setIdx] || makeSet();
+  const sets     = state.exercises[exId] || [];
+  const setObj   = sets[setIdx] || makeSet();
   const prevSets = query.lastExerciseSets(state, exId);
   const prevSet  = prevSets ? prevSets[setIdx] : null;
 
-  const prefillW = setObj.w !== null ? setObj.w : '';
-  const prefillR = setObj.r !== null ? setObj.r : '';
-  const prefillN = setObj.n !== null ? setObj.n : '';
+  // ── Intra-session carry-forward ──────────────────────────────────
+  // If an earlier set in THIS session was already logged, use its
+  // weight/reps/rir as the default.  This saves re-typing the same
+  // numbers across sets 2, 3, 4…
+  let carryW = null, carryR = null, carryRIR = null;
+  for (let i = setIdx - 1; i >= 0; i--) {
+    const prev = sets[i];
+    if (prev && (prev.s === 'done' || prev.s === 'failed')) {
+      if (carryW === null && prev.w !== null) carryW = prev.w;
+      if (carryR === null && prev.r !== null) carryR = prev.r;
+      if (carryRIR === null && prev.rir !== null && prev.rir !== undefined) carryRIR = prev.rir;
+      if (carryW !== null && carryR !== null) break;
+    }
+  }
 
+  // Priority: already-logged value on THIS set > carry-forward from earlier set > last session > prescribed
   const defaultW = resolveWeight(null, exId);
   const defaultR = lowerBound(ex?.reps);
-  const placeholderW = prevSet?.w ?? (defaultW !== null ? defaultW : '—');
-  const placeholderR = prevSet?.r ?? (defaultR !== null ? defaultR : '—');
+
+  const prefillW = setObj.w !== null ? setObj.w
+                 : carryW  !== null ? carryW
+                 : prevSet?.w       ?? (defaultW !== null ? defaultW : '');
+  const prefillR = setObj.r !== null ? setObj.r
+                 : carryR  !== null ? carryR
+                 : prevSet?.r       ?? (defaultR !== null ? defaultR : '');
+  const prefillN = setObj.n !== null ? setObj.n : '';
+  const prefillRIR = setObj.rir !== null && setObj.rir !== undefined ? setObj.rir
+                   : carryRIR !== null ? carryRIR : '';
+
+  const placeholderW = prefillW !== '' ? prefillW : '—';
+  const placeholderR = prefillR !== '' ? prefillR : '—';
 
   const overlay = document.createElement('div');
   overlay.className = 'log-modal-overlay';
@@ -382,7 +406,7 @@ export function openLogModal(exId, setIdx) {
           <div class="log-input-wrap">
             <input class="log-input" id="log-rir" type="number"
               inputmode="numeric" min="0" max="10" step="1"
-              placeholder="0-1" value="${setObj.rir !== null ? setObj.rir : ''}"/>
+              placeholder="0-1" value="${prefillRIR}"/>
             <span class="log-unit">RIR</span>
           </div>
         </div>
