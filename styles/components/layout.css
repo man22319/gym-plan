@@ -242,6 +242,51 @@ header {
   border-top: 1px solid var(--border);
 }
 
+/* ── Reset Dropdown — wider panel with descriptions ── */
+.reset-dropdown-content {
+  min-width: 210px;
+}
+.reset-dropdown-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+}
+.dropdown-item-label {
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: color 0.12s;
+}
+.dropdown-item-desc {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.45rem;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+  text-transform: none;
+  opacity: 0.7;
+}
+.reset-dropdown-item:hover .dropdown-item-label { color: var(--white); }
+.reset-dropdown-item:hover .dropdown-item-desc { opacity: 1; }
+
+/* Danger tier divider — amber glow separator */
+.dropdown-divider-danger {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255, 160, 50, 0.4), transparent);
+  margin: 2px 0;
+}
+
+/* Factory Reset item — danger styling */
+.dropdown-item-danger .dropdown-item-label { color: rgba(255, 140, 50, 0.8); }
+.dropdown-item-danger .dropdown-item-desc  { color: rgba(255, 140, 50, 0.5); }
+.dropdown-item-danger:hover { background-color: rgba(255, 80, 50, 0.08); }
+.dropdown-item-danger:hover .dropdown-item-label { color: #ff6b3d; }
+.dropdown-item-danger:hover .dropdown-item-desc  { color: rgba(255, 107, 61, 0.7); opacity: 1; }
+
+
 /* ── Rest Timer ── */
 #rest-timer-bar {
   position: fixed;

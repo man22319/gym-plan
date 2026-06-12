@@ -1,4 +1,4 @@
-import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, EQUIPMENT_DELTA_W_DEFAULTS } from '../state/state.js';
+import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, EQUIPMENT_DELTA_W_DEFAULTS, STORAGE_KEY } from '../state/state.js';
 import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from '../utils/helpers.js';
@@ -11,6 +11,8 @@ export const ALLOWED_ACTIONS = {
   TOGGLE_SET:                ['exId', 'idx'],
   LOG_AND_MARK_DONE:         ['exId', 'idx', 'weight', 'reps', 'note'],
   RESET_SESSION:             [],
+  RELOAD_IMPORTED_DATA:      [],
+  FACTORY_RESET:             [],
   IMPORT_STATE:              ['data'],
   START_SESSION:             [],
   UPDATE_EXERCISE_OVERRIDE:  ['exId', 'fields'],
@@ -184,6 +186,43 @@ export function reducer(currentState, action) {
       return rebuildAllProgressions(payload.data);
     }
 
+    case 'RELOAD_IMPORTED_DATA': {
+      // Pull the most recent backup slot from localStorage (primary → backup → lkg)
+      const KEYS = {
+        primary: STORAGE_KEY,
+        backup:  STORAGE_KEY + '_bk',
+        lkg:     STORAGE_KEY + '_lkg'
+      };
+      let reloaded = null;
+      for (const key of [KEYS.backup, KEYS.lkg, KEYS.primary]) {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.history) && Array.isArray(parsed.sessions)) {
+            reloaded = parsed;
+            break;
+          }
+        } catch (_) {}
+      }
+      if (!reloaded) {
+        alert('No importable backup found in storage. Use "Import Data" to load a file first.');
+        return currentState;
+      }
+      const msg2 = `Data reloaded — ${(reloaded.history || []).length} session record(s) restored.`;
+      console.log('[RELOAD_IMPORTED_DATA]', msg2);
+      alert(msg2);
+      return rebuildAllProgressions(reloaded);
+    }
+
+    case 'FACTORY_RESET': {
+      // Wipe all localStorage slots then return a clean default state
+      const FKEYS = [STORAGE_KEY, STORAGE_KEY + '_bk', STORAGE_KEY + '_lkg'];
+      FKEYS.forEach(k => localStorage.removeItem(k));
+      console.log('[FACTORY_RESET] All storage cleared.');
+      return createDefaultState(defaultWorkoutsData ?? { sessions: workouts });
+    }
+
     case 'UPDATE_TEMPLATE': {
       const { sessions, sessionsPerWeek, exerciseLibrary: newLib } = payload;
       const updatedLib = newLib ? JSON.parse(JSON.stringify(newLib)) : currentState.exerciseLibrary;
@@ -345,7 +384,13 @@ export function dispatch(type, payload = {}) {
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       const sessionEntries = query.sessionHistory(nextState, payload.sessionId);
       const completedEntry = sessionEntries[sessionEntries.length - 1];
-      if (completedEntry) _sessionCompleteFn?.(completedEntry, nextState);
+      // Detect cycle boundary BEFORE the reset fires (nextCompleted is pre-reset state's count)
+      const completedCount = nextState.completedWorkouts ?? 0;
+      const spwCheck = nextState.sessionsPerWeek ?? 3;
+      // After FINISH_WORKOUT, if the cycle reset fired, completedCount % spwCheck === 0
+      // We read from the nextState BEFORE the nested RESET_SESSION call to capture the boundary
+      const isCycleComplete = completedCount > 0 && completedCount % spwCheck === 0;
+      if (completedEntry) _sessionCompleteFn?.(completedEntry, nextState, isCycleComplete);
       persist();
       _renderFn?.(state);
     }

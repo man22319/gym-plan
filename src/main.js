@@ -30,9 +30,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   onRender(render);
 
   // Wire session-complete callback with the 600ms delay the UI needs.
-  onSessionComplete((entry, appState) =>
-    setTimeout(() => openSessionSummaryModal(entry, appState), 600)
+  onSessionComplete((entry, appState, isCycleComplete) =>
+    setTimeout(() => openSessionSummaryModal(entry, appState, isCycleComplete), 600)
   );
+
 
   render(state);
   setupEvents();

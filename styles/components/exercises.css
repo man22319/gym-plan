@@ -360,30 +360,139 @@
   background: #e0e0e0;
 }
 
-/* ── A: Progression Recommendation Chip ── */
-.progression-chip {
+/* ── Progression Coaching Row (Layer B + C) ── */
+.prog-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 16px 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 10px;
+}
+.prog-chip {
   font-family: 'IBM Plex Mono', monospace;
-}
-.prog-label {
-  font-size: 0.42rem;
-  letter-spacing: 2px;
-  color: var(--dim);
+  font-size: 0.5rem;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  flex-shrink: 0;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  line-height: 1.5;
 }
-.prog-text {
-  font-size: 0.62rem;
-  letter-spacing: 0.5px;
-  font-weight: 500;
+.prog-chip strong {
+  color: var(--white);
+  font-weight: 600;
 }
-.prog-increase .prog-text { color: #66bb6a; }
-.prog-maintain .prog-text { color: var(--muted); }
-.prog-reduce  .prog-text  { color: #ef5350; }
-.prog-watch   .prog-text  { color: #fdd835; }
+/* Session-start suggestion (before any sets) */
+.prog-chip-preview {
+  border-color: rgba(100, 180, 255, 0.2);
+  background: rgba(100, 180, 255, 0.05);
+  color: rgba(100, 180, 255, 0.8);
+}
+.prog-chip-preview strong { color: rgba(140, 200, 255, 1); }
+
+/* Review mode (finished session) */
+.prog-chip-review {
+  border-color: rgba(100, 210, 130, 0.25);
+  background: rgba(100, 210, 130, 0.06);
+  color: rgba(100, 210, 130, 0.8);
+}
+.prog-chip-review strong { color: #64d282; }
+
+/* Fatigue warning (amber) */
+.prog-chip-warn {
+  border-color: rgba(255, 183, 77, 0.3);
+  background: rgba(255, 183, 77, 0.07);
+  color: rgba(255, 183, 77, 0.9);
+}
+
+/* Risk warning (red) */
+.prog-chip-danger {
+  border-color: rgba(255, 80, 60, 0.35);
+  background: rgba(255, 80, 60, 0.08);
+  color: rgba(255, 100, 80, 0.9);
+  animation: pulseRisk 2.5s ease-in-out infinite;
+}
+@keyframes pulseRisk {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 6px rgba(255, 80, 60, 0.3); }
+}
+
+/* Suppressed progression */
+.prog-chip-suppressed {
+  border-color: rgba(255, 183, 77, 0.2);
+  background: rgba(255, 183, 77, 0.04);
+  color: rgba(255, 183, 77, 0.6);
+  letter-spacing: 1.5px;
+}
+
+/* ── Model confidence badge (inline inside weight suggestion chip) ── */
+.prog-conf {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.38rem;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  line-height: 1.4;
+  /* Slightly inset — reads as a sub-label inside the chip */
+  background: rgba(0, 0, 0, 0.25);
+}
+/* LOW — amber: model hasn't seen enough sessions yet */
+.prog-conf-low  {
+  color: rgba(255, 183, 77, 0.9);
+  border: 1px solid rgba(255, 183, 77, 0.3);
+}
+/* MED — white/muted: reasonable but still converging */
+.prog-conf-med  {
+  color: var(--muted);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+/* HIGH — green: EMA well-converged, high-signal recommendation */
+.prog-conf-high {
+  color: rgba(100, 210, 130, 0.9);
+  border: 1px solid rgba(100, 210, 130, 0.3);
+}
+
+
+/* ── Layer A: Set-level dot feedback ── */
+/* Wrapper so the label sits below the dot without affecting row flex layout */
+.dot-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.dot-feedback-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.38rem;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+}
+.dot-feedback-on-target { color: rgba(100, 210, 130, 0.85); }
+.dot-feedback-light     { color: rgba(100, 180, 255, 0.8);  }
+.dot-feedback-heavy     { color: rgba(255, 183, 77, 0.85);  }
+.dot-feedback-failed    { color: rgba(255, 80, 60, 0.8);    }
+
+/* Subtle tint on the dot itself to reinforce feedback */
+.set-dot.dot-light  {
+  border-color: rgba(100, 180, 255, 0.4);
+  box-shadow: 0 0 8px rgba(100, 180, 255, 0.15), inset 0 -2px 4px rgba(0,0,0,0.1);
+}
+.set-dot.dot-heavy  {
+  border-color: rgba(255, 183, 77, 0.5);
+  box-shadow: 0 0 8px rgba(255, 183, 77, 0.15), inset 0 -2px 4px rgba(0,0,0,0.1);
+}
+
+
 
 /* ── Previous Session Data ── */
 .prev-data {

@@ -1,6 +1,38 @@
-import { workouts, state } from '../core/state/store.js';
+import { workouts, state, setState } from '../core/state/store.js';
 import { dispatch } from '../core/logic/reducer.js';
-import { formatReps, formatWeight } from '../features/workout/rendering.js';
+import { formatReps, formatWeight, render } from '../features/workout/rendering.js';
+import { persist, normalize, sanitizeSessions } from '../core/state/persistence.js';
+
+
+
+// ── Reload Workout Schema ─────────────────────────────────────────────────────
+
+/**
+ * Re-fetch workouts.json and apply the fresh schema to the running state.
+ * History, progressionState, and all user-accumulated data are preserved.
+ * Only sessions, exerciseLibrary, and programDefaults are replaced.
+ */
+export async function reloadWorkoutSchema() {
+  const res = await fetch('./data/workouts.json');
+  if (!res.ok) throw new Error(`Failed to fetch workouts.json: ${res.status}`);
+  const data = await res.json();
+
+  const updated = sanitizeSessions(normalize({
+    ...state,
+    sessions:        JSON.parse(JSON.stringify(data.sessions  ?? [])),
+    exerciseLibrary: JSON.parse(JSON.stringify(data.exercises ?? {})),
+    programDefaults: JSON.parse(JSON.stringify(data.defaults  ?? {})),
+    // Preserve active session if it still exists in the new schema, else reset to first
+    activeSessionId: (data.sessions ?? []).some(s => s.id === state.activeSessionId)
+      ? state.activeSessionId
+      : (data.sessions?.[0]?.id ?? null),
+  }));
+
+  setState(updated);
+  persist();
+  render(state);
+  console.log('[reloadWorkoutSchema] Schema refreshed — history and progression preserved.');
+}
 
 export function exportData() {
   try {

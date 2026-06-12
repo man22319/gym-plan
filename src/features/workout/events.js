@@ -5,13 +5,14 @@
  *   - Session tab selection
  *   - Set dot tap (toggle) / long-press (open log modal)
  *   - Finish Workout button
- *   - Reset session
+ *   - Reset dropdown (Reset Session / Reload Data / Factory Reset)
  * ─────────────────────────────────────────────────────────
  */
 
 import { dispatch } from '../../core/logic/reducer.js';
 import { skipRestTimer } from '../../core/utils/restTimer.js';
-import { openLogModal } from '../modals/index.js';
+import { openLogModal, showConfirmModal } from '../modals/index.js';
+import { reloadWorkoutSchema } from '../../io/fileActions.js';
 
 const pressTimers = new Map();
 
@@ -51,6 +52,35 @@ function commitPress(exId, idx) {
     cancelPress(key);
     dispatch('TOGGLE_SET', { exId, idx });
   }
+}
+
+// ── Reset dropdown helpers ────────────────────────────────
+
+function closeResetDropdown() {
+  const dd = document.getElementById('reset-dropdown');
+  if (dd) dd.classList.remove('open');
+}
+
+function setupResetDropdown() {
+  const trigger = document.getElementById('reset-dropdown-trigger');
+  const dropdown = document.getElementById('reset-dropdown');
+  if (!trigger || !dropdown) return;
+
+  // Toggle on trigger click
+  trigger.addEventListener('click', e => {
+    e.stopPropagation();
+    dropdown.classList.toggle('open');
+  });
+
+  // Close on outside click
+  document.addEventListener('click', e => {
+    if (!dropdown.contains(e.target)) closeResetDropdown();
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeResetDropdown();
+  });
 }
 
 export function setupWorkoutEvents() {
@@ -101,13 +131,58 @@ export function setupWorkoutEvents() {
       return;
     }
 
-    // ── Reset session ────────────────────────────────────
-    if (e.target.closest('#reset-btn')) {
-      if (confirm('Reset current session? This will clear your set inputs and cardio. Your workout history and progression data will be kept.')) {
-        skipRestTimer();
-        dispatch('RESET_SESSION', {});
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+    // ── Reset Session ───────────────────────────────────
+    if (e.target.closest('#reset-session-btn')) {
+      closeResetDropdown();
+      showConfirmModal(
+        'Reset Session',
+        'Clear all set inputs and cardio for this session.<br><br>Your workout history and progression data will be kept.',
+        () => {
+          skipRestTimer();
+          dispatch('RESET_SESSION', {});
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        { dangerous: false, confirmLabel: 'Reset Session', cancelLabel: 'Cancel' }
+      );
+      return;
+    }
+
+    // ── Reload Imported Data ─────────────────────────────
+    if (e.target.closest('#reload-data-btn')) {
+      closeResetDropdown();
+      showConfirmModal(
+        'Reload Imported Data',
+        'Fetch a fresh copy of the workout schema from the source file.<br><br>Your history and progression data will be preserved.',
+        async () => {
+          try {
+            await reloadWorkoutSchema();
+          } catch (err) {
+            console.error('[Reload] Failed to reload workout schema:', err);
+            alert('Reload failed: ' + err.message);
+          }
+        },
+        { dangerous: false, confirmLabel: 'Reload', cancelLabel: 'Cancel' }
+      );
+      return;
+    }
+
+    // ── Factory Reset ────────────────────────────────────
+    if (e.target.closest('#factory-reset-btn')) {
+      closeResetDropdown();
+      showConfirmModal(
+        '⚠ Factory Reset',
+        '<strong>This will permanently wipe all workout history, progression data, and session logs.</strong><br><br>The app will return to a fresh install state. This cannot be undone.',
+        () => {
+          skipRestTimer();
+          dispatch('FACTORY_RESET', {});
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        { dangerous: true, confirmLabel: 'Wipe Everything', cancelLabel: 'Cancel' }
+      );
+      return;
     }
   });
+
+  // ── Reset dropdown toggle ─────────────────────────────
+  setupResetDropdown();
 }

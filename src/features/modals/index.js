@@ -227,7 +227,7 @@ export function buildNotesHistory(history) {
 
 export let activeSummaryModal = null;
 
-export function openSessionSummaryModal(entry, appState) {
+export function openSessionSummaryModal(entry, appState, isCycleComplete = false) {
   closeSessionSummaryModal();
 
   const session = workouts.find(s => s.id === entry.sessionId);
@@ -293,10 +293,20 @@ export function openSessionSummaryModal(entry, appState) {
       </div>`
     : '';
 
+  const cycleCompleteHtml = isCycleComplete ? `
+    <div class="summary-cycle-banner">
+      <div class="summary-cycle-icon">🏆</div>
+      <div class="summary-cycle-body">
+        <div class="summary-cycle-title">WEEKLY CYCLE COMPLETE</div>
+        <div class="summary-cycle-sub">All sessions done · Next cycle ready</div>
+      </div>
+    </div>` : '';
+
   const overlay = document.createElement('div');
   overlay.className = 'summary-modal-overlay';
   overlay.innerHTML = `
     <div class="summary-modal" role="dialog" aria-modal="true" aria-label="Session Summary">
+      ${cycleCompleteHtml}
       <div class="summary-header">
         <div class="summary-title">SESSION COMPLETE</div>
         <div class="summary-subtitle">${session.dayLabel} · ${session.sessionLabel}</div>
@@ -481,3 +491,45 @@ export function showStartWorkoutModal(onConfirm, onCancel) {
 }
 
 registerStartWorkoutModal(showStartWorkoutModal);
+
+// ── Confirm Modal (destructive-action guard) ────────────────────────────────
+// opts: { dangerous: bool, confirmLabel: string, cancelLabel: string }
+
+export function showConfirmModal(title, body, onConfirm, opts = {}) {
+  const existing = document.querySelector('.confirm-modal-overlay');
+  if (existing) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-modal-overlay';
+
+  const dangerous     = opts.dangerous    ?? false;
+  const confirmLabel  = opts.confirmLabel ?? 'Confirm';
+  const cancelLabel   = opts.cancelLabel  ?? 'Cancel';
+
+  overlay.innerHTML = `
+    <div class="confirm-modal" role="dialog" aria-modal="true">
+      <div class="confirm-modal-title">${title}</div>
+      <div class="confirm-modal-body">${body}</div>
+      <div class="confirm-modal-actions">
+        <button class="confirm-modal-btn confirm-modal-btn-cancel" id="confirm-cancel">${cancelLabel}</button>
+        <button class="confirm-modal-btn confirm-modal-btn-confirm ${dangerous ? 'danger' : ''}" id="confirm-ok">${confirmLabel}</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  const close = () => overlay.remove();
+
+  const doConfirm = () => { close(); onConfirm?.(); };
+  const doCancel  = () => close();
+
+  overlay.querySelector('#confirm-ok').addEventListener('click', doConfirm);
+  overlay.querySelector('#confirm-cancel').addEventListener('click', doCancel);
+  overlay.addEventListener('click', e => { if (e.target === overlay) doCancel(); });
+
+  const escHandler = e => {
+    if (e.key === 'Escape') { document.removeEventListener('keydown', escHandler); doCancel(); }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+

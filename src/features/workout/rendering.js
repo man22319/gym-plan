@@ -1,6 +1,8 @@
-import { workouts, programDefaults } from '../../core/state/store.js';
+import { workouts, programDefaults, EXERCISE_INDEX } from '../../core/state/store.js';
 import { query } from '../../core/logic/queries.js';
 import { getEffectiveExercise } from '../../core/utils/helpers.js';
+import { updateProgressionState } from '../../core/logic/progression.js';
+
 
 
 
@@ -275,6 +277,9 @@ export function buildCard(ex, appState, readOnly = false) {
   // In completed sessions the card should appear fully lit (not faded) since all sets are done
   const cardClass = readOnly ? 'session-done-card' : (complete ? 'completed' : '');
 
+  // Layer B: live progression row (active) or review row (finished)
+  const progressionRowHtml = buildProgressionRow(instanceId, appState, readOnly);
+
   return `<div class="exercise-card ${cardClass}" data-ex-id="${instanceId}">
     <div class="exercise-header" data-ex-id="${instanceId}" role="button" aria-label="View history for ${displayName}" tabindex="0" ${readOnly ? 'style="cursor: default; pointer-events: none;"' : ''}>
       <div class="ex-letter">${ex.letter || ''}</div>
@@ -297,10 +302,11 @@ export function buildCard(ex, appState, readOnly = false) {
     </div>
     ${editPanelHtml}
     ${buildNotesRow(ex, appState)}
+    ${progressionRowHtml}
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
     <div class="set-row">
-      ${sets.map((s, i) => buildDot(instanceId, i, s, readOnly)).join('')}
+      ${sets.map((s, i) => buildDot(instanceId, i, s, readOnly, effEx)).join('')}
     </div>
   </div>`;
 }
@@ -409,15 +415,217 @@ export function buildDelta(weightDelta, repsDelta) {
   return parts.length ? `<span class="delta-group">${parts.join('')}</span>` : '';
 }
 
-export function buildDot(exId, idx, setObj, readOnly = false) {
+// ── Model confidence helper ───────────────────────────────────────────────────
+
+/**
+ * Compute model confidence as EMA convergence fraction.
+ *
+ * The strength estimator T is an EMA with learning rate η = 0.2.
+ * After n sessions it has absorbed (1 - (1-η)^n) of the true signal.
+ * This is a principled, parameter-free confidence metric that matches
+ * exactly the uncertainty in T itself.
+ *
+ * @param {number} n  — number of completed sessions for this exercise
+ * @returns {{ pct: number, label: string, level: 'low'|'med'|'high' }}
+ */
+function modelConfidence(n) {
+  const ETA = 0.2; // must match DEFAULTS.η in progression.js
+  const pct = Math.round((1 - Math.pow(1 - ETA, n)) * 100);
+  const level = pct < 40 ? 'low' : pct < 75 ? 'med' : 'high';
+  const label = level === 'high' ? 'HIGH' : level === 'med' ? 'MED' : 'LOW';
+  return { pct, label, level };
+}
+
+// ── Layer B: Live Progression Row ─────────────────────────────────────────────
+
+/**
+ * Compute and render the coaching row for an exercise card.
+ *
+ * Active session (readOnly = false):
+ *   Calls updateProgressionState() live against current sets — pure computation,
+ *   no dispatch, no persistence. Updates after every set via the normal render cycle.
+ *
+ * Finished session (readOnly = true):
+ *   Reads from committed progressionState[exId] — evaluation/review mode.
+ *
+ * Confidence: derived from EMA convergence (1 - (1-η)^n), shown on every
+ * weight suggestion chip. Low/Med/High classification with colour coding.
+ *
+ * Returns '' for invariant exercises or exercises with no usable data.
+ */
+export function buildProgressionRow(instanceId, appState, readOnly = false) {
+  const ex = EXERCISE_INDEX[instanceId];
+  if (ex?.invariant) return '';
+
+
+  // n = number of history entries that contain data for this exercise
+  const historyN = query.exerciseHistory(appState, instanceId).length;
+  const conf     = modelConfidence(historyN);
+
+  const chips = [];
+
+  if (readOnly) {
+    // ── Layer C output: read committed progressionState ──
+    const ps = appState?.progressionState?.[instanceId];
+    if (!ps || ps.T === null) return '';
+
+    const suggested  = ps.lastSuggested;
+    const fatigue    = ps.F   ?? 0;
+    const risk       = ps.lastRisk ?? 0;
+    const suppressed = ps.lastSuppressed ?? false;
+
+    if (suggested !== null && suggested !== undefined) {
+      chips.push(
+        `<span class="prog-chip prog-chip-review"
+           title="Recommended weight for your next session · Model confidence: ${conf.pct}% (${historyN} session${historyN !== 1 ? 's' : ''})">
+          NEXT SESSION: <strong>${suggested} lbs</strong>
+          <span class="prog-conf prog-conf-${conf.level}">${conf.label} ${conf.pct}%</span>
+        </span>`
+      );
+    }
+
+    if (fatigue > 0.6) {
+      chips.push(
+        `<span class="prog-chip prog-chip-warn" title="Fatigue index: ${fatigue.toFixed(2)}">
+          ⚡ FATIGUE: ${fatigue.toFixed(2)}
+        </span>`
+      );
+    }
+
+    if (risk > 0.65) {
+      chips.push(
+        `<span class="prog-chip prog-chip-danger" title="Risk score: ${risk.toFixed(2)}">
+          ⚠ RISK: ${risk.toFixed(2)}
+        </span>`
+      );
+    }
+
+    if (suppressed) {
+      chips.push(
+        `<span class="prog-chip prog-chip-suppressed" title="Progression held back due to risk">SUPPRESSED</span>`
+      );
+    }
+
+  } else {
+    // ── Layer B: live computation during active session ──
+    const currentSets = appState.exercises[instanceId] || [];
+    const hasDoneSet  = currentSets.some(s => s.s === 'done' || s.s === 'failed');
+
+    // Retrieve stored progression state as baseline
+    const prevPs = appState?.progressionState?.[instanceId] ?? {};
+    const deltaW = appState?.runtimeOverrides?.[instanceId]?.deltaW ?? ex?.deltaW;
+
+    if (hasDoneSet) {
+      // At least one set done — compute live update
+      const result = updateProgressionState(prevPs, currentSets, {
+        deltaW,
+        riskMultiplier: ex?.riskMultiplier ?? 1.0,
+        density: null  // density unknown mid-session (no finish timestamp yet)
+      });
+
+      if (result.suggestedWeight !== null) {
+        // Live confidence uses historyN + 1 because the current session is in progress
+        const liveConf = modelConfidence(historyN + 1);
+        chips.push(
+          `<span class="prog-chip"
+             title="Live suggested weight from current session · Model confidence: ${liveConf.pct}% (${historyN + 1} session${historyN + 1 !== 1 ? 's' : ''})">
+            TARGET: <strong>${result.suggestedWeight} lbs</strong>
+            <span class="prog-conf prog-conf-${liveConf.level}">${liveConf.label} ${liveConf.pct}%</span>
+          </span>`
+        );
+      }
+
+      if (result.F > 0.6) {
+        chips.push(
+          `<span class="prog-chip prog-chip-warn" title="Estimated fatigue: ${result.F.toFixed(2)}">
+            ⚡ FATIGUE: ${result.F.toFixed(2)}
+          </span>`
+        );
+      }
+
+      if (result.riskScore > 0.65) {
+        chips.push(
+          `<span class="prog-chip prog-chip-danger" title="Risk score: ${result.riskScore.toFixed(2)}">
+            ⚠ RISK: ${result.riskScore.toFixed(2)}
+          </span>`
+        );
+      }
+
+      if (result.suppressed) {
+        chips.push(
+          `<span class="prog-chip prog-chip-suppressed" title="Hold steady — progression risk-gated">HOLD WEIGHT</span>`
+        );
+      }
+
+    } else if (prevPs.lastSuggested !== null && prevPs.lastSuggested !== undefined) {
+      // No sets logged yet — show last committed suggestion as a warmup target
+      chips.push(
+        `<span class="prog-chip prog-chip-preview"
+           title="Suggested target from last session · Model confidence: ${conf.pct}% (${historyN} session${historyN !== 1 ? 's' : ''})">
+          START: <strong>${prevPs.lastSuggested} lbs</strong>
+          <span class="prog-conf prog-conf-${conf.level}">${conf.label} ${conf.pct}%</span>
+        </span>`
+      );
+      if (prevPs.F > 0.6) {
+        chips.push(
+          `<span class="prog-chip prog-chip-warn" title="Carrying fatigue from last session">
+            ⚡ FATIGUE: ${(prevPs.F ?? 0).toFixed(2)}
+          </span>`
+        );
+      }
+    }
+  }
+
+  if (!chips.length) return '';
+
+  return `<div class="prog-row">${chips.join('')}</div>`;
+}
+
+
+// ── Layer A: Set-level dot feedback ──────────────────────────────────────────
+
+/**
+ * Returns a feedback label for a completed/failed set based on how the logged
+ * weight compares to the prescribed range in the exercise definition.
+ *
+ * @param {object} setObj   — { s, w, r }
+ * @param {object} effEx    — resolved exercise with .load
+ * @returns {string}        — 'light' | 'heavy' | 'on-target' | '' | 'failed'
+ */
+function getSetFeedback(setObj, effEx) {
+  if (setObj.s === 'failed') return 'failed';
+  if (setObj.s !== 'done' || setObj.w === null) return '';
+
+  const load = effEx?.load;
+  if (!load) return '';
+
+  const w = setObj.w;
+  const min = load.min ?? load.value ?? null;
+  const max = load.max ?? load.value ?? null;
+
+  if (min === null && max === null) return '';
+  if (max !== null && w > max * 1.1) return 'heavy';   // >10% above target max
+  if (min !== null && w < min * 0.9) return 'light';   // >10% below target min
+  return 'on-target';
+}
+
+export function buildDot(exId, idx, setObj, readOnly = false, effEx = null) {
   const { s, w, r } = setObj;
   let cls = 'set-dot';
   let inner = '';
 
   const hasData = w !== null || r !== null;
 
+  // Layer A: set-level feedback (active sessions only)
+  const feedback = (!readOnly && effEx) ? getSetFeedback(setObj, effEx) : '';
+  const feedbackLabel = feedback
+    ? `<span class="dot-feedback-label dot-feedback-${feedback}">${feedback === 'on-target' ? '✓' : feedback.toUpperCase()}</span>`
+    : '';
+
   if (s === 'done') {
     cls += ' done';
+    if (feedback === 'light') cls += ' dot-light';
+    if (feedback === 'heavy') cls += ' dot-heavy';
     inner = hasData
       ? `<span class="dot-data"><span class="dot-w">${w ?? '?'}</span><span class="dot-x">×</span><span class="dot-r">${r ?? '?'}</span></span>`
       : '&#10003;';
@@ -440,13 +648,16 @@ export function buildDot(exId, idx, setObj, readOnly = false) {
       aria-label="Set ${idx + 1}: hold to view log">${inner}</button>`;
   }
 
-  return `<button class="${cls}"
-    data-ex-id="${exId}"
-    data-set-idx="${idx}"
-    aria-label="Set ${idx + 1}: tap to toggle, hold to log">${inner}</button>`;
+  return `<span class="dot-wrap">
+    <button class="${cls}"
+      data-ex-id="${exId}"
+      data-set-idx="${idx}"
+      aria-label="Set ${idx + 1}: tap to toggle, hold to log">${inner}</button>${feedbackLabel}
+  </span>`;
 }
 
 export function initScrollObserver() {
+
   if (typeof IntersectionObserver === 'undefined') return;
   const options = {
     root: null,

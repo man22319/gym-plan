@@ -1,67 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<meta name="theme-color" content="#0c0c0e"/>
-<title>Planet Fitness Tracker</title>
-<link rel="icon" type="image/x-icon" href="assets/img/favicon.ico" />
-<link rel="icon" type="image/jpeg" href="assets/img/icon.jpeg" />
-<link rel="apple-touch-icon" href="assets/img/icon.jpeg" />
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=IBM+Plex+Mono:wght@400;500&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="./styles/base/main.css" />
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0c0c0e" />
+  <title>Planet Fitness Tracker</title>
+  <link rel="icon" type="image/x-icon" href="assets/img/favicon.ico" />
+  <link rel="icon" type="image/jpeg" href="assets/img/icon.jpeg" />
+  <link rel="apple-touch-icon" href="assets/img/icon.jpeg" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=IBM+Plex+Mono:wght@400;500&family=Barlow:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="./styles/base/main.css" />
 </head>
+
 <body>
-<header>
-<div class="wordmark">
-<div class="brand-wrap">
-  <img class="header-logo-img" src="assets/img/icon.jpeg" alt="Planet Fitness Logo" />
-  <div class="logo">Planet <span>Fitness</span></div>
-</div>
-<div class="subtitle">3525 Washington St · Strength Plan</div>
-<div class="week-session" id="week-session-display"></div>
-<div id="global-progress-bar-container"></div>
-</div>
-<div class="header-actions">
-  <div class="action-pill-group">
-    <button id="copy-btn" class="header-btn" title="Copy Workout">
-      <svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-      </svg>
-    </button>
-    <div class="dropdown">
-      <button class="header-btn dropdown-trigger" title="Data Menu">
-        <span>DATA ▾</span>
-      </button>
-      <div class="dropdown-content">
-        <button class="dropdown-item" id="import-data-btn">Import Data</button>
-        <button class="dropdown-item" id="export-data-btn">Export Data</button>
+  <header>
+    <div class="wordmark">
+      <div class="brand-wrap">
+        <img class="header-logo-img" src="assets/img/icon.jpeg" alt="Planet Fitness Logo" />
+        <div class="logo">Planet <span>Fitness</span></div>
+      </div>
+      <div class="subtitle">3525 Washington St · Strength Plan</div>
+      <div class="week-session" id="week-session-display"></div>
+      <div id="global-progress-bar-container"></div>
+    </div>
+    <div class="header-actions">
+      <div class="action-pill-group">
+        <button id="copy-btn" class="header-btn" title="Copy Workout">
+          <svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+        <div class="dropdown">
+          <button class="header-btn dropdown-trigger" title="Data Menu">
+            <span>DATA ▾</span>
+          </button>
+          <div class="dropdown-content">
+            <button class="dropdown-item" id="import-data-btn">Import Data</button>
+            <button class="dropdown-item" id="export-data-btn">Export Data</button>
+          </div>
+        </div>
+        <div class="dropdown" id="reset-dropdown">
+          <button class="header-btn dropdown-trigger" id="reset-dropdown-trigger" title="Reset options">
+            <span>RESET ▾</span>
+          </button>
+          <div class="dropdown-content reset-dropdown-content">
+            <button class="dropdown-item reset-dropdown-item" id="reset-session-btn">
+              <span class="dropdown-item-label">Reset Session</span>
+              <span class="dropdown-item-desc">Clear set inputs · keep history</span>
+            </button>
+            <button class="dropdown-item reset-dropdown-item" id="reload-data-btn">
+              <span class="dropdown-item-label">Reload Imported Data</span>
+              <span class="dropdown-item-desc">Restore schema · keep history</span>
+            </button>
+            <div class="dropdown-divider-danger"></div>
+            <button class="dropdown-item reset-dropdown-item dropdown-item-danger" id="factory-reset-btn">
+              <span class="dropdown-item-label">Factory Reset</span>
+              <span class="dropdown-item-desc">Wipe all data · fresh install</span>
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
-    <button id="reset-btn" class="header-btn" title="Reset Tracker">
-      <svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="23 4 23 10 17 10"></polyline>
-        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-      </svg>
-    </button>
+  </header>
+  <!-- Rest Timer -->
+  <div class="hidden" id="rest-timer-bar">
+    <span id="rest-timer-label">REST</span>
+    <div id="rest-timer-track">
+      <div id="rest-timer-fill"></div>
+    </div>
+    <span id="rest-timer-count">90</span>
+    <button id="rest-timer-extend" class="timer-action-btn" title="Add 30 seconds">+30s</button>
+    <button id="rest-timer-skip" class="timer-action-btn" title="Skip rest timer">✕</button>
   </div>
-</div>
-</header>
-<!-- Rest Timer -->
-<div class="hidden" id="rest-timer-bar">
-<span id="rest-timer-label">REST</span>
-<div id="rest-timer-track"><div id="rest-timer-fill"></div></div>
-<span id="rest-timer-count">90</span>
-<button id="rest-timer-extend" class="timer-action-btn" title="Add 30 seconds">+30s</button>
-<button id="rest-timer-skip" class="timer-action-btn" title="Skip rest timer">✕</button>
-</div>
-<div id="app"></div>
-<div class="log-hint" style="padding: 8px 0 80px; text-align: center;">
-  TAP set to toggle · HOLD to log weight &amp; reps
-</div>
-<script type="module" src="./src/main.js"></script>
+  <div id="app"></div>
+  <div class="log-hint" style="padding: 8px 0 80px; text-align: center;">
+    TAP set to toggle · HOLD to log weight &amp; reps
+  </div>
+  <script type="module" src="./src/main.js"></script>
 </body>
+
 </html>
