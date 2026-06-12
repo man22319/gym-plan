@@ -11,48 +11,12 @@
 
 import { dispatch } from '../../core/logic/reducer.js';
 import { skipRestTimer } from '../../core/utils/restTimer.js';
-import { openLogModal, showConfirmModal } from '../modals/index.js';
+import { showConfirmModal } from '../modals/index.js';
 import { reloadWorkoutSchema } from '../../io/fileActions.js';
+import { setupPressInteraction } from './pressInteraction.js';
 
-const pressTimers = new Map();
-
-const LONG_PRESS_MS = 480;
-// Track pointer start position to cancel long-press on move.
-// iOS Safari doesn't reliably supply e.movementX/Y, so we track manually.
-let pressStartX = 0;
-let pressStartY = 0;
-
-function pressKey(exId, idx) { return `${exId}:${idx}`; }
-
-function startPress(exId, idx, clientX, clientY) {
-  const key = pressKey(exId, idx);
-  cancelPress(key);
-  pressStartX = clientX ?? 0;
-  pressStartY = clientY ?? 0;
-  pressTimers.set(key, setTimeout(() => {
-    pressTimers.delete(key);
-    openLogModal(exId, idx);
-  }, LONG_PRESS_MS));
-}
-
-function cancelPress(key) {
-  if (pressTimers.has(key)) {
-    clearTimeout(pressTimers.get(key));
-    pressTimers.delete(key);
-  }
-}
-
-function cancelAllPresses() {
-  for (const [key] of pressTimers) cancelPress(key);
-}
-
-function commitPress(exId, idx) {
-  const key = pressKey(exId, idx);
-  if (pressTimers.has(key)) {
-    cancelPress(key);
-    dispatch('TOGGLE_SET', { exId, idx });
-  }
-}
+// Press-and-hold interaction is handled entirely by pressInteraction.js.
+// See that module for the full state machine (IDLE → PRESSED → HOLDING → COMPLETED/CANCELLED).
 
 // ── Reset dropdown helpers ────────────────────────────────
 
@@ -84,37 +48,8 @@ function setupResetDropdown() {
 }
 
 export function setupWorkoutEvents() {
-  // ── Set dot: press start ─────────────────────────────
-  document.addEventListener('pointerdown', e => {
-    const dot = e.target.closest('.set-dot');
-    if (dot) {
-      startPress(dot.dataset.exId, parseInt(dot.dataset.setIdx, 10), e.clientX, e.clientY);
-    }
-  });
-
-  // ── Set dot: press end (tap = toggle, held = log modal already opened) ──
-  document.addEventListener('pointerup', e => {
-    const dot = e.target.closest('.set-dot');
-    if (dot) {
-      commitPress(dot.dataset.exId, parseInt(dot.dataset.setIdx, 10));
-    } else {
-      cancelAllPresses();
-    }
-  });
-
-  document.addEventListener('pointercancel', () => {
-    cancelAllPresses();
-  });
-
-  document.addEventListener('pointermove', e => {
-    // Cancel long-press if pointer drifted more than 4px from start.
-    // We do NOT use e.movementX/Y because iOS Safari doesn't populate them.
-    const dx = e.clientX - pressStartX;
-    const dy = e.clientY - pressStartY;
-    if (dx * dx + dy * dy > 16) {
-      cancelAllPresses();
-    }
-  });
+  // ── Set dot: iOS-style press-and-hold state machine ──
+  setupPressInteraction();
 
   // ── Session tab click ────────────────────────────────
   document.addEventListener('click', e => {
