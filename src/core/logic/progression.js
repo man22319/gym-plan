@@ -51,12 +51,16 @@ const DEFAULTS = {
   // ── Risk scoring coefficients (§21.1) ───────────────────────────────────
   // Weights for each risk factor in computeRisk().
   // Kept here (not inside the function) so they're tunable alongside other params.
+  // NOTE: coefficients must sum to ≤ 1.0 so that Risk_t stays on a [0, ~1] scale
+  // at typical inputs, making the 0.65 threshold meaningful.
   riskCoeffs: {
-    a: 0.30,   // weight change magnitude (Δ%)
-    b: 0.25,   // fatigue delta
+    a: 0.25,   // weight change magnitude (Δ%)
+    b: 0.15,   // fatigue delta (ΔF, only when positive — accumulating)
     c: 0.20,   // effort contribution (via RIR)
-    d: 0.15,   // volume density
-    e: 0.10,   // per-exercise risk multiplier
+    d: 0.10,   // volume density
+    e: 0.05,   // per-exercise risk multiplier
+    f: 0.25,   // absolute fatigue level above Fstar (chronic load term)
+               // must dominate b at high F so risk is monotonic with chronic fatigue
   },
 };
 
@@ -200,27 +204,42 @@ export function discretize(w_t, u_t, dw) {
  *
  * Parameters:
  *   deltaPct      — Δ% = Δw / w_t  (fractional weight increase)
- *   deltaF        — ΔF = F_t − F_{t−1}  (fatigue change)
+ *   deltaF        — ΔF = F_t − F_{t−1}  (fatigue change; only positive accumulation penalised)
+ *   F_t           — absolute post-session fatigue state (chronic load term)
  *   avgRIR        — mean RIR this session (null → treated as low effort)
  *   density       — volume / session duration minutes (null → 0)
  *   riskMultiplier — per-exercise injury risk factor (default 1.0)
  *
- * Coefficients (tunable):
- *   a=0.3, b=0.25, c=0.2, d=0.15, e=0.1
+ * Coefficients (tunable, sum ≤ 1.0 at typical inputs):
+ *   a=0.25  weight change magnitude (Δ%)
+ *   b=0.20  fatigue accumulation delta (ΔF when > 0)
+ *   c=0.20  effort contribution (via RIR)
+ *   d=0.10  volume density
+ *   e=0.10  per-exercise risk multiplier
+ *   f=0.15  absolute fatigue above Fstar (chronic load — not captured by deltaF alone
+ *           when fatigue is decaying from an already-high level)
+ *
+ * Why the `f` term matters:
+ *   When an athlete carries high chronic fatigue (F > Fstar) and trains again,
+ *   F_next can be slightly lower than F_prev (decay > accumulation), making deltaF < 0.
+ *   Without `f`, max(0, deltaF) = 0 and the high fatigue state is invisible to risk.
+ *   The `f` term ensures chronic high-load athletes are still risk-penalised.
  *
  * @returns {number}  Risk_t ∈ [0, ∞); values >0.65 suppress progression
  */
-export function computeRisk({ deltaPct = 0, deltaF = 0, avgRIR = null, density = null, riskMultiplier = 1.0 } = {}) {
+export function computeRisk({ deltaPct = 0, deltaF = 0, F_t = 0, avgRIR = null, density = null, riskMultiplier = 1.0 } = {}) {
   const d = density !== null ? density : 0;
-  const { a, b, c, d: dCoeff, e } = DEFAULTS.riskCoeffs;
+  const { a, b, c, d: dCoeff, e, f } = DEFAULTS.riskCoeffs;
   const effortContribution = avgRIR !== null ? c * (1 / (avgRIR + 1)) : 0;
+  const chronicFatigueLoad = f * Math.max(0, F_t - DEFAULTS.Fstar);
 
   return (
     a * Math.abs(deltaPct) +
     b * Math.max(0, deltaF) +
     effortContribution +
     dCoeff * d +
-    e * riskMultiplier
+    e * riskMultiplier +
+    chronicFatigueLoad
   );
 }
 
@@ -270,7 +289,15 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     : T_next;
 
   const R_t = readiness(T_next, F_next);
-  const u_t = controlSignal(R_t, w_t);
+  const u_raw = controlSignal(R_t, w_t);
+
+  // §28.8 – Per-session step cap: clamp u to ±2×dw so that large initial
+  // strength-weight gaps (e.g. first boot after data import) don't produce
+  // multi-plate jumps in a single session. The controller converges over
+  // multiple sessions instead of front-loading the correction.
+  const uCap = 2 * dw;
+  const u_t  = Math.max(-uCap, Math.min(uCap, u_raw));
+
   const w_next_continuous = w_t + u_t;
 
   // Risk assessment (§21.1 + §28.7)
@@ -292,6 +319,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const riskScore = computeRisk({
     deltaPct,
     deltaF,
+    F_t: F_next,        // absolute fatigue — chronic load term (§21.1 fix)
     avgRIR,
     density: opts.density ?? null,
     riskMultiplier: effectiveRiskMultiplier
