@@ -1,8 +1,7 @@
-import { STORAGE_KEY, STATE_VERSION, makeSet, makeCardio, createDefaultState, EQUIPMENT_DELTA_W_DEFAULTS } from '../store/state.js';
-import { defaultWorkouts, workouts, state, setState, EXERCISE_INDEX } from './workouts.js';
+import { STORAGE_KEY, STATE_VERSION, makeSet, createDefaultState } from '../store/state.js';
+import { defaultWorkoutsData, workouts, state, setState } from './workouts.js';
 
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
-
 let writeCount = 0;
 
 export function persist() {
@@ -14,6 +13,8 @@ export function persist() {
   } catch (e) { console.error('persist() failed:', e); }
 }
 
+// ── Load ─────────────────────────────────────────────────────────────────────
+
 export function loadState() {
   for (const key of [KEYS.primary, KEYS.backup, KEYS.lkg]) {
     const raw = localStorage.getItem(key);
@@ -21,27 +22,42 @@ export function loadState() {
     try {
       const parsed = JSON.parse(raw);
       const normal = normalize(parsed);
-      if (validate(normal)) {
-        setState(normal);
+      const clean  = sanitizeSessions(normal); // surgical repair — history untouched
+      if (validate(clean)) {
+        setState(clean);
         return;
       }
     } catch (_) {}
   }
-  setState(createDefaultState(defaultWorkouts));
+  // All slots failed — start fresh
+  setState(createDefaultState(defaultWorkoutsData));
 }
 
+// ── Normalize ────────────────────────────────────────────────────────────────
+
+/**
+ * Ensure exercises set-tracking map has correct shape for current sessions.
+ * Adds missing rows, trims extra rows, re-shapes individual set objects.
+ * Uses instanceId as the key.
+ */
 export function normalize(appState) {
   const exercises = { ...appState.exercises };
   const currentSessions = appState.sessions || workouts;
+
+  // Resolve the number of sets for an instance: instance override > library > default 3
+  const lib = appState.exerciseLibrary ?? {};
   currentSessions.forEach(session =>
     (session.blocks || []).forEach(block =>
       (block.exercises || []).forEach(ex => {
-        const arr = exercises[ex.id];
+        const key  = ex.instanceId;  // instanceId is required in v1
+        if (!key) return;            // skip malformed instances (sanitizeSessions handles them)
+        const sets = ex.sets ?? lib[ex.exerciseRef]?.sets ?? 3;
+        const arr  = exercises[key];
         if (!Array.isArray(arr)) {
-          exercises[ex.id] = Array.from({ length: ex.sets }, () => makeSet());
+          exercises[key] = Array.from({ length: sets }, () => makeSet());
           return;
         }
-        const copy = arr.slice(0, ex.sets).map(s => ({
+        const copy = arr.slice(0, sets).map(s => ({
           s:   s.s   ?? '',
           w:   s.w   ?? null,
           r:   s.r   ?? null,
@@ -49,25 +65,71 @@ export function normalize(appState) {
           rir: (s.rir !== undefined && s.rir !== null && s.rir >= 0) ? s.rir : null,
           rom: s.rom ?? 'full'
         }));
-        while (copy.length < ex.sets) copy.push(makeSet());
-        exercises[ex.id] = copy;
+        while (copy.length < sets) copy.push(makeSet());
+        exercises[key] = copy;
       })
     )
   );
+
   return {
     ...appState,
     exercises,
-    exerciseOverrides:     appState.exerciseOverrides     ?? {},
-    cardio:                null,
-    completedWorkouts:     appState.completedWorkouts     ?? 0,
-    progressionState:      appState.progressionState      ?? {},
-    version:               STATE_VERSION
+    runtimeOverrides:  appState.runtimeOverrides  ?? {},
+    exerciseLibrary:   appState.exerciseLibrary   ?? {},
+    programDefaults:   appState.programDefaults   ?? {},
+    cardio:            null,
+    completedWorkouts: appState.completedWorkouts ?? 0,
+    progressionState:  appState.progressionState  ?? {},
+    version:           STATE_VERSION
   };
 }
 
+// ── Sanitize sessions ────────────────────────────────────────────────────────
+
+/**
+ * Surgically remove session exercise instances with missing or dangling
+ * exerciseRef values. Leaves history, progression, and all other state intact.
+ * Logs each removal.
+ *
+ * This runs BEFORE validate() so a bad template reference never causes a
+ * full state wipe.
+ */
+export function sanitizeSessions(appState) {
+  const lib = appState.exerciseLibrary ?? {};
+  let dirty = false;
+  const sessions = (appState.sessions ?? []).map(session => {
+    const blocks = (session.blocks ?? []).map(block => {
+      const exercises = (block.exercises ?? []).filter(inst => {
+        if (!inst.instanceId || !inst.exerciseRef) {
+          console.warn(`[sanitize] Dropped instance missing instanceId/exerciseRef in session "${session.id}"`);
+          dirty = true;
+          return false;
+        }
+        if (!Object.prototype.hasOwnProperty.call(lib, inst.exerciseRef)) {
+          console.warn(`[sanitize] Dropped "${inst.instanceId}" — exerciseRef "${inst.exerciseRef}" not in library`);
+          dirty = true;
+          return false;
+        }
+        return true;
+      });
+      return { ...block, exercises };
+    });
+    return { ...session, blocks };
+  });
+  return dirty ? { ...appState, sessions } : appState;
+}
+
+// ── Validate ─────────────────────────────────────────────────────────────────
+
+/**
+ * Structural validation. Returns false only for genuinely broken state
+ * (wrong types, missing required fields). Dangling refs are handled by
+ * sanitizeSessions() before this is called.
+ */
 export function validate(appState) {
   if (!appState || typeof appState !== 'object')              return false;
   if (typeof appState.version !== 'number')                   return false;
+  if (appState.version !== STATE_VERSION)                     return false;
   if (appState.activeSessionId !== null && typeof appState.activeSessionId !== 'string') return false;
   if (!Array.isArray(appState.history))                       return false;
   if (typeof appState.exercises !== 'object')                 return false;
@@ -78,21 +140,19 @@ export function validate(appState) {
       if (!['', 'done', 'failed'].includes(s.s)) return false;
     }
   }
-  if (appState.exerciseOverrides && typeof appState.exerciseOverrides !== 'object') return false;
+  if (appState.runtimeOverrides && typeof appState.runtimeOverrides !== 'object') return false;
   if (!Array.isArray(appState.sessions))                      return false;
   if (typeof appState.sessionsPerWeek !== 'number')           return false;
   if (typeof appState.completedWorkouts !== 'number')         return false;
-
+  // Session instances are validated structurally (type checks only).
+  // Dangling ref check was already done by sanitizeSessions().
   for (const session of appState.sessions) {
     for (const block of (session.blocks || [])) {
-      for (const ex of (block.exercises || [])) {
-        if (ex.equipmentType      === undefined ||
-            ex.deltaW             === undefined ||
-            ex.manualDeltaWOverride === undefined) return false;
-        if (typeof ex.deltaW !== 'number' || ex.deltaW < 0) return false;
+      for (const inst of (block.exercises || [])) {
+        if (typeof inst.instanceId  !== 'string' || !inst.instanceId)  return false;
+        if (typeof inst.exerciseRef !== 'string' || !inst.exerciseRef) return false;
       }
     }
   }
-
   return true;
 }

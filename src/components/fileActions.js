@@ -90,15 +90,14 @@ export function copyWorkout(btn) {
 
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(text).then(done).catch(() => {
-      // Modern API failed — try legacy fallback
-      legacyCopy(text, done);
+      fallbackCopy(text, done);
     });
   } else {
-    legacyCopy(text, done);
+    fallbackCopy(text, done);
   }
 }
 
-function legacyCopy(text, onSuccess) {
+function fallbackCopy(text, onSuccess) {
   const ta = Object.assign(document.createElement('textarea'), { value: text });
   Object.assign(ta.style, { position: 'fixed', opacity: '0' });
   document.body.appendChild(ta);

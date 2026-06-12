@@ -237,7 +237,8 @@ export function openSessionSummaryModal(entry, appState) {
 
   let totalVolume = 0, completedEx = 0, failedSets = 0, totalSets = 0;
   for (const ex of allEx) {
-    const sets = entry.exercises[ex.id] || [];
+    const instanceId = ex.instanceId;
+    const sets = entry.exercises[instanceId] || [];
     const done = sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
     const failed = sets.filter(s => s.s === 'failed');
     const exComplete = sets.length > 0 && sets.every(s => s.s === 'done' || s.s === 'failed');

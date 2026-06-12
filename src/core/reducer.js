@@ -1,9 +1,9 @@
 import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, EQUIPMENT_DELTA_W_DEFAULTS } from '../store/state.js';
-import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX } from './workouts.js';
+import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from './workouts.js';
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from './helpers.js';
 import { startRestTimer } from './restTimer.js';
-import { persist, normalize } from './persistence.js';
+import { persist, normalize, sanitizeSessions } from './persistence.js';
 import { updateProgressionState } from './progression.js';
 
 export const ALLOWED_ACTIONS = {
@@ -14,7 +14,7 @@ export const ALLOWED_ACTIONS = {
   IMPORT_STATE:              ['data'],
   START_SESSION:             [],
   UPDATE_EXERCISE_OVERRIDE:  ['exId', 'fields'],
-  UPDATE_TEMPLATE:           ['sessions', 'sessionsPerWeek'],
+  UPDATE_TEMPLATE:           ['sessions', 'sessionsPerWeek'],  // exerciseLibrary is optional
   FINISH_WORKOUT:            ['sessionId'],
   UPDATE_CARDIO:             ['cardio'],
   UPDATE_PROGRESSION_STATE:  ['progressionState'],
@@ -124,14 +124,15 @@ export function reducer(currentState, action) {
 
     case 'UPDATE_EXERCISE_OVERRIDE': {
       const { exId, fields } = payload;
-      const exerciseOverrides = { ...(currentState.exerciseOverrides || {}) };
+      const runtimeOverrides = { ...(currentState.runtimeOverrides || {}) };
       if (fields === null) {
-        delete exerciseOverrides[exId];
+        delete runtimeOverrides[exId];
       } else {
-        const current = exerciseOverrides[exId] || {};
+        const current = runtimeOverrides[exId] || {};
         const merged  = { ...current };
-        if (fields.weight === null) delete merged.weight;
-        else if (fields.weight !== undefined) merged.weight = fields.weight;
+        // UI passes fields.weight; stored as .load to match library field name
+        if (fields.weight === null) delete merged.load;
+        else if (fields.weight !== undefined) merged.load = fields.weight;
         if (fields.reps   === null) delete merged.reps;
         else if (fields.reps   !== undefined) merged.reps   = fields.reps;
         if (fields.notes  === null) delete merged.notes;
@@ -153,18 +154,21 @@ export function reducer(currentState, action) {
         }
 
         if (Object.keys(merged).length === 0) {
-          delete exerciseOverrides[exId];
+          delete runtimeOverrides[exId];
         } else {
-          exerciseOverrides[exId] = merged;
+          runtimeOverrides[exId] = merged;
         }
       }
-      return { ...currentState, exerciseOverrides };
+      return { ...currentState, runtimeOverrides };
     }
 
     case 'RESET_SESSION': {
-      const defaultState = createDefaultState(currentState.sessions || workouts);
+      const defaultState = createDefaultState(defaultWorkoutsData ?? { sessions: workouts });
       return {
         ...defaultState,
+        exerciseLibrary:   currentState.exerciseLibrary  ?? defaultState.exerciseLibrary,
+        programDefaults:   currentState.programDefaults  ?? defaultState.programDefaults,
+        sessions:          currentState.sessions         ?? defaultState.sessions,
         sessionsPerWeek:   currentState.sessionsPerWeek  ?? 3,
         history:           currentState.history          ?? [],
         completedWorkouts: currentState.completedWorkouts ?? 0,
@@ -181,15 +185,18 @@ export function reducer(currentState, action) {
     }
 
     case 'UPDATE_TEMPLATE': {
-      const { sessions, sessionsPerWeek } = payload;
-      return normalize({
+      const { sessions, sessionsPerWeek, exerciseLibrary: newLib } = payload;
+      const updatedLib = newLib ? JSON.parse(JSON.stringify(newLib)) : currentState.exerciseLibrary;
+      const updated = sanitizeSessions(normalize({
         ...currentState,
         sessions:        JSON.parse(JSON.stringify(sessions)),
+        exerciseLibrary: updatedLib,
         sessionsPerWeek,
         activeSessionId: sessions.some(s => s.id === currentState.activeSessionId)
           ? currentState.activeSessionId
           : (sessions[0]?.id || null)
-      });
+      }));
+      return updated;
     }
 
     case 'START_SESSION': {
@@ -203,16 +210,20 @@ export function reducer(currentState, action) {
       if (!session) return currentState;
 
       const exerciseSnapshot = {};
-      session.blocks.flatMap(b => b.exercises).forEach(ex => {
-        const sets = currentState.exercises[ex.id] || [];
-        exerciseSnapshot[ex.id] = sets.map(s => ({
+      const exerciseRefs     = {};
+      session.blocks.flatMap(b => b.exercises).forEach(inst => {
+        // instanceId is the key; exerciseRef recorded for cross-session queries
+        const instanceId = inst.instanceId;
+        const sets = currentState.exercises[instanceId] || [];
+        exerciseSnapshot[instanceId] = sets.map(s => ({
           ...s,
-          w:   s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, ex.id) : s.w,
-          r:   s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, ex.id)   : s.r,
+          w:   s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, instanceId) : s.w,
+          r:   s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, instanceId)   : s.r,
           n:   s.n ?? '',
           rir: s.rir ?? null,
           rom: s.rom ?? 'full'
         }));
+        exerciseRefs[instanceId] = inst.exerciseRef;
       });
 
       const now = Date.now();
@@ -223,6 +234,7 @@ export function reducer(currentState, action) {
         timestamp:      now,
         startTimestamp: currentState.sessionStarted ?? null,
         exercises:      exerciseSnapshot,
+        exerciseRefs,   // enables cross-session exerciseRef queries
         cardio:         currentState.cardio ?? null
       });
       history.sort((a, b) => a.timestamp - b.timestamp);
@@ -321,9 +333,10 @@ export function dispatch(type, payload = {}) {
       const ex = EXERCISE_INDEX[exId];
       if (ex) {
         const isLastSet = idx >= ex.sets - 1;
+        // camelCase fields only (restBetweenSets / restBetweenExercises) from resolved exercise
         restDuration = isLastSet
-          ? (ex.rest_between_exercises ?? REST_DURATION)
-          : (ex.rest_between_sets      ?? REST_DURATION);
+          ? (ex.restBetweenExercises ?? REST_DURATION)
+          : (ex.restBetweenSets      ?? REST_DURATION);
       }
       startRestTimer(restDuration);
     }
@@ -358,16 +371,18 @@ export function dispatch(type, payload = {}) {
         }
         const density = durationMin ? sessionVolume / durationMin : null;
 
-        for (const ex of allExercises) {
-          if (ex.invariant) continue;
-          const sets    = lastEntry?.exercises[ex.id] || [];
-          const prev    = newProgState[ex.id] || {};
+        for (const inst of allExercises) {
+          if (inst.invariant) continue;
+          const instanceId = inst.instanceId;
+          const ex   = EXERCISE_INDEX[instanceId] ?? inst;
+          const sets = lastEntry?.exercises[instanceId] || [];
+          const prev = newProgState[instanceId] || {};
           const updated = updateProgressionState(prev, sets, {
             density,
             riskMultiplier: ex.riskMultiplier ?? 1.0,
-            deltaW: nextState.exerciseOverrides?.[ex.id]?.deltaW ?? ex.deltaW
+            deltaW: nextState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW
           });
-          newProgState[ex.id] = {
+          newProgState[instanceId] = {
             T:   updated.T,
             F:   updated.F,
             dw:  updated.dw,
@@ -398,14 +413,6 @@ export function rebuildAllProgressions(appState) {
   const history = [...appState.history].sort((a, b) => a.timestamp - b.timestamp);
   let newProgState = {};
 
-  const EXERCISE_INDEX_local = appState?.sessions
-    ? Object.fromEntries(
-        (appState.sessions || []).flatMap(s =>
-          (s.blocks || []).flatMap(b => (b.exercises || []).map(ex => [ex.id, ex]))
-        )
-      )
-    : EXERCISE_INDEX;
-
   for (const entry of history) {
     const session = (appState.sessions || []).find(s => s.id === entry.sessionId)
       ?? workouts.find(s => s.id === entry.sessionId);
@@ -413,7 +420,7 @@ export function rebuildAllProgressions(appState) {
 
     const allExercises = session.blocks.flatMap(b => b.exercises);
 
-    const durationMs = entry.startTimestamp ? entry.timestamp - entry.startTimestamp : 0;
+    const durationMs  = entry.startTimestamp ? entry.timestamp - entry.startTimestamp : 0;
     const durationMin = durationMs > 0 ? durationMs / 60000 : null;
 
     let sessionVolume = 0;
@@ -426,16 +433,18 @@ export function rebuildAllProgressions(appState) {
     }
     const density = durationMin ? sessionVolume / durationMin : null;
 
-    for (const ex of allExercises) {
-      if (ex.invariant) continue;
-      const sets = entry.exercises[ex.id] || [];
-      const prev = newProgState[ex.id] || {};
+    for (const inst of allExercises) {
+      if (inst.invariant) continue;
+      const instanceId = inst.instanceId;
+      const ex   = EXERCISE_INDEX[instanceId] ?? inst;
+      const sets = entry.exercises[instanceId] || [];
+      const prev = newProgState[instanceId] || {};
       const updated = updateProgressionState(prev, sets, {
         density,
         riskMultiplier: ex.riskMultiplier ?? 1.0,
-        deltaW: appState.exerciseOverrides?.[ex.id]?.deltaW ?? ex.deltaW
+        deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW
       });
-      newProgState[ex.id] = {
+      newProgState[instanceId] = {
         T:   updated.T,
         F:   updated.F,
         dw:  updated.dw,

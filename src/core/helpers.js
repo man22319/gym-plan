@@ -7,30 +7,63 @@ export function lowerBound(obj) {
   return null;
 }
 
-export function getEffectiveExercise(appState, exId) {
-  const base = EXERCISE_INDEX[exId];
+/**
+ * Resolve the effective exercise for a given instanceId.
+ *
+ * Applies layer 4 (runtimeOverrides) on top of the EXERCISE_INDEX entry
+ * which already has layers 1–3 merged (programDefaults + library + instance overrides).
+ *
+ * All fields use the same naming convention as the library:
+ *   load, reps, notes, deltaW, equipmentType, manualDeltaWOverride
+ * The old .weight alias is removed — callers use .load.
+ *
+ * @param {object} appState
+ * @param {string} instanceId
+ * @returns {object|null}
+ */
+export function getEffectiveExercise(appState, instanceId) {
+  const base = EXERCISE_INDEX[instanceId];
   if (!base) return null;
-  const overrides = appState?.exerciseOverrides?.[exId];
-  if (!overrides) return base;
+  const override = appState?.runtimeOverrides?.[instanceId];
+  if (!override) return base;
 
   const result = { ...base };
-  if (overrides.weight) result.load = overrides.weight;
-  if (overrides.reps)   result.reps = overrides.reps;
-  if (overrides.notes)  result.notes = overrides.notes;
-  result.weight = result.load;
+  // All override keys match library field names
+  if (override.load  !== undefined) result.load  = override.load;
+  if (override.reps  !== undefined) result.reps  = override.reps;
+  if (override.notes !== undefined) result.notes = override.notes;
+  if (override.deltaW !== undefined) result.deltaW = override.deltaW;
+  if (override.equipmentType !== undefined) result.equipmentType = override.equipmentType;
+  if (override.manualDeltaWOverride !== undefined) result.manualDeltaWOverride = override.manualDeltaWOverride;
   return result;
 }
 
-export function resolveWeight(userValue, exId) {
+/**
+ * Resolve the working weight for an exercise.
+ * Reads runtimeOverrides (keyed by instanceId) then falls back to library load.
+ *
+ * @param {number|null} userValue — explicitly typed value (wins if present)
+ * @param {string} instanceId
+ * @returns {number|null}
+ */
+export function resolveWeight(userValue, instanceId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
-  const overrides = state?.exerciseOverrides?.[exId];
-  const weightObj = overrides?.weight ?? EXERCISE_INDEX[exId]?.load ?? EXERCISE_INDEX[exId]?.weight;
-  return weightObj ? lowerBound(weightObj) : null;
+  const override = state?.runtimeOverrides?.[instanceId];
+  const loadObj  = override?.load ?? EXERCISE_INDEX[instanceId]?.load;
+  return loadObj ? lowerBound(loadObj) : null;
 }
 
-export function resolveReps(userValue, exId) {
+/**
+ * Resolve the target reps for an exercise.
+ * Reads runtimeOverrides (keyed by instanceId) then falls back to library reps.
+ *
+ * @param {number|null} userValue — explicitly typed value (wins if present)
+ * @param {string} instanceId
+ * @returns {number|null}
+ */
+export function resolveReps(userValue, instanceId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
-  const overrides = state?.exerciseOverrides?.[exId];
-  const repsObj = overrides?.reps ?? EXERCISE_INDEX[exId]?.reps;
+  const override = state?.runtimeOverrides?.[instanceId];
+  const repsObj  = override?.reps ?? EXERCISE_INDEX[instanceId]?.reps;
   return repsObj ? lowerBound(repsObj) : null;
 }

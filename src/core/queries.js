@@ -21,13 +21,21 @@ export const query = {
     return hist.length ? hist[0] : null;
   },
 
-  // Last completed sets for a specific exercise.
-  lastExerciseSets(appState, exId) {
-    const sessionId = EX_SESSION_INDEX[exId];
-    if (!sessionId) return null;
-    const entry = this.lastSession(appState, sessionId);
-    if (!entry) return null;
-    return entry.exercises[exId] || null;
+  // Last completed sets for a specific exercise (by instanceId).
+  // Searches all history entries — works even when the same exercise appears in multiple sessions.
+  lastExerciseSets(appState, instanceId) {
+    const hist = this.chronological(appState)
+      .filter(e => e.exercises && e.exercises[instanceId]);
+    if (!hist.length) return null;
+    return hist[hist.length - 1].exercises[instanceId];
+  },
+
+  // All history entries containing a given exerciseRef (definition identity).
+  // Uses the exerciseRefs map added to history entries on FINISH_WORKOUT (and backfilled on migration).
+  exerciseRefHistory(appState, exerciseRef) {
+    return this.chronological(appState).filter(entry =>
+      entry.exerciseRefs && Object.values(entry.exerciseRefs).includes(exerciseRef)
+    );
   },
 
   // Last N entries for an exercise (for trend analysis).
@@ -57,14 +65,14 @@ export const query = {
     if (!session) return false;
     const allEx = session.blocks.flatMap(b => b.exercises);
     if (!allEx.length) return false;
-    return allEx.every(ex => {
-      const sets = appState.exercises[ex.id] || [];
+    return allEx.every(inst => {
+      const sets = appState.exercises[inst.instanceId] || [];
       return sets.length > 0 && sets.every(s => s.s === 'done' || s.s === 'failed');
     });
   },
 
-  isExerciseComplete(appState, exId) {
-    const sets = appState.exercises[exId] || [];
+  isExerciseComplete(appState, instanceId) {
+    const sets = appState.exercises[instanceId] || [];
     return sets.length > 0 && sets.every(s => s.s === 'done' || s.s === 'failed');
   },
 
@@ -88,19 +96,20 @@ export const query = {
     const allEx = session.blocks.flatMap(b => b.exercises);
     if (!allEx.length) return { valid: true, reason: null };
 
-    for (const ex of allEx) {
-      const sets = appState.exercises[ex.id] || [];
+    for (const inst of allEx) {
+      const name = EXERCISE_INDEX[inst.instanceId]?.name ?? inst.instanceId;
+      const sets = appState.exercises[inst.instanceId] || [];
 
       // All sets must have been interacted with (not blank)
       const allVisited = sets.every(s => s.s === 'done' || s.s === 'failed');
       if (!allVisited) {
-        return { valid: false, reason: `Complete all sets for "${ex.name}" before finishing.` };
+        return { valid: false, reason: `Complete all sets for "${name}" before finishing.` };
       }
 
       // All done sets must have weight AND reps
       for (const s of sets) {
         if (s.s === 'done' && (s.w === null || s.r === null)) {
-          return { valid: false, reason: `Set missing weight or reps in "${ex.name}".` };
+          return { valid: false, reason: `Set missing weight or reps in "${name}".` };
         }
       }
     }
@@ -112,11 +121,15 @@ export const query = {
     const session = workouts.find(s => s.id === sessionId)
       ?? (appState.sessions || []).find(s => s.id === sessionId);
     if (!session) return 0;
+    const lib    = appState.exerciseLibrary ?? {};
     const allEx  = session.blocks.flatMap(b => b.exercises);
-    const total  = allEx.reduce((n, ex) => n + ex.sets, 0);
+    const total  = allEx.reduce((n, inst) => {
+      const sets = inst.sets ?? EXERCISE_INDEX[inst.instanceId]?.sets ?? lib[inst.exerciseRef]?.sets ?? 3;
+      return n + sets;
+    }, 0);
     if (!total) return 0;
-    const resolved = allEx.reduce((n, ex) => {
-      const sets = appState.exercises[ex.id] || [];
+    const resolved = allEx.reduce((n, inst) => {
+      const sets = appState.exercises[inst.instanceId] || [];
       return n + sets.filter(s => s.s === 'done' || s.s === 'failed').length;
     }, 0);
     return Math.round((resolved / total) * 100);
@@ -180,14 +193,7 @@ export const query = {
    * @returns {{ suggestedWeight: number, suppressed: boolean, riskScore: number } | null}
    */
   progressionSuggestion(appState, exId) {
-    const EXERCISE_INDEX_local = appState?.sessions
-      ? Object.fromEntries(
-          (appState.sessions || []).flatMap(s =>
-            (s.blocks || []).flatMap(b => (b.exercises || []).map(ex => [ex.id, ex]))
-          )
-        )
-      : EXERCISE_INDEX;
-    const ex = EXERCISE_INDEX_local[exId];
+    const ex = EXERCISE_INDEX[exId];
     if (ex?.invariant) return null;
 
     const ps = appState?.progressionState?.[exId];
@@ -264,12 +270,12 @@ export const query = {
     const priorState    = { ...appState, history: priorHistory };
 
     for (const block of session.blocks) {
-      for (const ex of block.exercises) {
-        const exId      = ex.id;
-        const entrySets = (entry.exercises[exId] || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
+      for (const inst of block.exercises) {
+        const instanceId = inst.instanceId;
+        const entrySets  = (entry.exercises[instanceId] || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
         if (!entrySets.length) continue;
 
-        const prior = query.exerciseHistory(priorState, exId);
+        const prior = query.exerciseHistory(priorState, instanceId);
         let prWeight = null, prReps = null, prVolume = null;
         for (const h of prior) {
           const sets = h.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
@@ -289,7 +295,7 @@ export const query = {
         if (prWeight !== null && currMaxW > prWeight) prs.push('weight');
         if (prReps   !== null && currMaxR > prReps)   prs.push('reps');
         if (prVolume !== null && currVol  > prVolume) prs.push('volume');
-        if (prs.length) result[exId] = prs;
+        if (prs.length) result[instanceId] = prs;
       }
     }
     return result;

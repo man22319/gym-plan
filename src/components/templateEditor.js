@@ -123,7 +123,8 @@ function renderMain() {
   // Generate blocks HTML
   const blocksHtml = (currentSession.blocks || []).map((block, blockIdx) => {
     const exercisesHtml = (block.exercises || []).map((ex, exIdx) => {
-      const isExpanded = expandedExerciseIds.has(ex.id);
+      const instanceId = ex.instanceId;
+      const isExpanded = expandedExerciseIds.has(instanceId);
       const expandIcon = isExpanded ? '▼' : '▶';
       const bodyClass = isExpanded ? 'visible' : 'hidden';
 
@@ -165,7 +166,7 @@ function renderMain() {
       }
 
       return `
-        <div class="te-exercise-card ${isExpanded ? 'expanded' : ''}" data-ex-id="${ex.id}">
+        <div class="te-exercise-card ${isExpanded ? 'expanded' : ''}" data-ex-id="${instanceId}">
           <div class="te-ex-header" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}">
             <div class="te-ex-header-title">
               <span class="te-ex-toggle-icon">${expandIcon}</span>
@@ -222,11 +223,11 @@ function renderMain() {
 
               <div class="te-field">
                 <label class="te-field-label">Rest Between Sets (sec)</label>
-                <input type="number" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="rest_between_sets" value="${ex.rest_between_sets ?? 90}" />
+                <input type="number" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="restBetweenSets" value="${ex.restBetweenSets ?? 90}" />
               </div>
               <div class="te-field">
                 <label class="te-field-label">Rest Between Exercises (sec)</label>
-                <input type="number" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="rest_between_exercises" value="${ex.rest_between_exercises ?? 60}" />
+                <input type="number" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="restBetweenExercises" value="${ex.restBetweenExercises ?? 60}" />
               </div>
 
               <div class="te-field" style="grid-column: span 2;">
@@ -375,10 +376,10 @@ function setupEditorEvents() {
         ex.notes = value;
       } else if (fieldPath === 'alternatives') {
         ex.alternatives = value.split(',').map(s => s.trim()).filter(Boolean);
-      } else if (fieldPath === 'rest_between_sets') {
-        ex.rest_between_sets = parseInt(value, 10) || 90;
-      } else if (fieldPath === 'rest_between_exercises') {
-        ex.rest_between_exercises = parseInt(value, 10) || 60;
+      } else if (fieldPath === 'restBetweenSets') {
+        ex.restBetweenSets = parseInt(value, 10) || 90;
+      } else if (fieldPath === 'restBetweenExercises') {
+        ex.restBetweenExercises = parseInt(value, 10) || 60;
       } else if (fieldPath.startsWith('reps.')) {
         if (!ex.reps) ex.reps = {};
         const sub = fieldPath.split('.')[1];
@@ -540,8 +541,8 @@ function setupEditorEvents() {
           sets: 3,
           reps: { min: 8, max: 12 },
           weight: { min: 50, max: 70, unit: 'lbs' },
-          rest_between_sets: 90,
-          rest_between_exercises: 60,
+          restBetweenSets: 90,
+          restBetweenExercises: 60,
           notes: '',
           alternatives: []
         });

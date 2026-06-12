@@ -11,8 +11,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const res = await fetch('./src/store/workouts.json');
     if (!res.ok) throw new Error(`Failed to load workouts.json: ${res.status}`);
     const data = await res.json();
-    const sessions = data.sessions || [];
-    initWorkouts(sessions);
+    // Pass the full data object: { exercises, defaults, sessions }
+    // initWorkouts extracts each layer and seeds the module-level caches.
+    initWorkouts(data);
   } catch (err) {
     console.error('[boot] Could not load workouts.json:', err);
     return;

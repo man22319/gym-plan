@@ -1,4 +1,4 @@
-import { workouts } from '../core/workouts.js';
+import { workouts, programDefaults } from '../core/workouts.js';
 import { query } from '../core/queries.js';
 import { getEffectiveExercise } from '../core/helpers.js';
 
@@ -169,10 +169,14 @@ export function buildSession(session, appState) {
       </div>`;
   }
 
+  // warmup and finisher: read from session first, fall back to programDefaults
+  const warmupText   = session.warmup   ?? appState.programDefaults?.warmup   ?? programDefaults.warmup   ?? '';
+  const finisherText = session.finisher ?? appState.programDefaults?.finisher ?? programDefaults.finisher ?? '';
+
   return `<div class="session ${active}" id="${session.id}">
     <div class="warmup-bar ${warmupDone ? 'warmup-done' : ''}">
       <div style="flex:1; min-width:0;">
-        <span><strong>WARM-UP</strong> <span>· ${session.warmup}</span></span>
+        <span><strong>WARM-UP</strong> <span>· ${warmupText}</span></span>
       </div>
       <input
         type="checkbox"
@@ -188,7 +192,7 @@ export function buildSession(session, appState) {
     <div class="finisher-card ${finisherDone ? 'finisher-done' : ''}">
       <div class="finisher-card-body">
         <div class="finisher-label">Finisher</div>
-        <div class="finisher-text">${session.finisher}</div>
+        <div class="finisher-text">${finisherText}</div>
       </div>
       <input
         type="checkbox"
@@ -227,16 +231,17 @@ export function buildBlock(block, appState, readOnly = false) {
 }
 
 export function buildCard(ex, appState, readOnly = false) {
-  const sets      = appState.exercises[ex.id] || [];
-  const complete  = query.isExerciseComplete(appState, ex.id);
-  const prevSets  = query.lastExerciseSets(appState, ex.id);
+  const instanceId = ex.instanceId;
+  const sets      = appState.exercises[instanceId] || [];
+  const complete  = query.isExerciseComplete(appState, instanceId);
+  const prevSets  = query.lastExerciseSets(appState, instanceId);
   
-  const effEx     = getEffectiveExercise(appState, ex.id);
-  const displayName = ex.name;
-  const isOverridden = !!appState?.exerciseOverrides?.[ex.id];
+  const effEx     = getEffectiveExercise(appState, instanceId);
+  const displayName = effEx?.name ?? ex.name ?? instanceId;
+  const isOverridden = !!appState?.runtimeOverrides?.[instanceId];
   
-  const wStr      = formatWeight(effEx.load ?? effEx.weight);
-  const prs       = query.currentSetPRs(appState, ex.id);
+  const wStr      = formatWeight(effEx?.load);
+  const prs       = query.currentSetPRs(appState, instanceId);
   const hasPR     = prs.length > 0;
 
   const currentSetsWithNotes = sets.filter(s => s.n && s.n.trim());
@@ -251,11 +256,11 @@ export function buildCard(ex, appState, readOnly = false) {
   const isOverriddenClass = isOverridden ? 'overridden' : '';
   const overrideIndicator = isOverridden ? ' <span class="ex-override-indicator" title="Custom targets active">●</span>' : '';
 
-  const editBtnHtml = readOnly ? '' : `<button class="ex-edit-btn" data-ex-id="${ex.id}" aria-label="Edit targets" title="Edit targets">✎</button>`;
-  const editPanelHtml = (editingExId === ex.id && !readOnly) ? buildEditPanel(ex, appState) : '';
+  const editBtnHtml = readOnly ? '' : `<button class="ex-edit-btn" data-ex-id="${instanceId}" aria-label="Edit targets" title="Edit targets">✎</button>`;
+  const editPanelHtml = (editingExId === instanceId && !readOnly) ? buildEditPanel(ex, appState) : '';
 
-  return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${ex.id}">
-    <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${displayName}" tabindex="0" ${readOnly ? 'style="cursor: default;"' : ''}>
+  return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${instanceId}">
+    <div class="exercise-header" data-ex-id="${instanceId}" role="button" aria-label="View history for ${displayName}" tabindex="0" ${readOnly ? 'style="cursor: default;"' : ''}>
       <div class="ex-letter">${ex.letter || ''}</div>
       <div class="ex-title-group">
         <div class="ex-name">
@@ -263,9 +268,9 @@ export function buildCard(ex, appState, readOnly = false) {
           ${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}
         </div>
         <div class="ex-info-group ex-metadata-row-sub">
-          <span class="ex-metadata-sets-reps">${effEx.sets} × ${formatReps(effEx.reps)}</span>
+          <span class="ex-metadata-sets-reps">${effEx?.sets ?? '?'} × ${formatReps(effEx?.reps)}</span>
           ${wStr ? `<span class="ex-metadata-weight-tag ${isOverriddenClass}">${wStr}${overrideIndicator}</span>` : ''}
-          ${effEx.equipmentType ? `<span class="ex-metadata-type-badge">${effEx.equipmentType}</span>` : ''}
+          ${effEx?.equipmentType ? `<span class="ex-metadata-type-badge">${effEx.equipmentType}</span>` : ''}
         </div>
       </div>
       <div class="ex-header-right-actions">
@@ -278,60 +283,63 @@ export function buildCard(ex, appState, readOnly = false) {
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
     <div class="set-row">
-      ${sets.map((s, i) => buildDot(ex.id, i, s, readOnly)).join('')}
+      ${sets.map((s, i) => buildDot(instanceId, i, s, readOnly)).join('')}
     </div>
   </div>`;
 }
 
 export function buildEditPanel(ex, appState) {
-  const effEx = getEffectiveExercise(appState, ex.id);
+  const instanceId = ex.instanceId;
+  const effEx = getEffectiveExercise(appState, instanceId);
 
-  const weightObj = effEx.load ?? effEx.weight;
+  // Use .load only — no .weight alias
+  const weightObj = effEx?.load;
   let weightVal = '';
   if (weightObj) {
     weightVal = weightObj.value ?? weightObj.min ?? '';
   }
 
-  const repMin = effEx.reps?.min ?? '';
-  const repMax = effEx.reps?.max ?? '';
+  const repMin = effEx?.reps?.min ?? '';
+  const repMax = effEx?.reps?.max ?? '';
 
-  const notesVal = effEx.notes ?? '';
+  const notesVal = effEx?.notes ?? '';
 
   return `
-    <div class="ex-edit-panel" data-ex-id="${ex.id}">
+    <div class="ex-edit-panel" data-ex-id="${instanceId}">
       <div class="ex-edit-fields">
         <div class="ex-edit-field">
-          <label for="edit-weight-${ex.id}">Target Weight</label>
+          <label for="edit-weight-${instanceId}">Target Weight</label>
           <div class="ex-edit-input-wrap">
-            <input type="number" class="ex-edit-input" id="edit-weight-${ex.id}" step="2.5" min="0" value="${weightVal}" placeholder="Prescribed weight" />
+            <input type="number" class="ex-edit-input" id="edit-weight-${instanceId}" step="2.5" min="0" value="${weightVal}" placeholder="Prescribed weight" />
             <span class="ex-edit-unit">lbs</span>
           </div>
         </div>
         <div class="ex-edit-field">
           <label>Reps (Min / Max)</label>
           <div class="ex-edit-reps-wrap">
-            <input type="number" class="ex-edit-input" id="edit-repmin-${ex.id}" min="0" value="${repMin}" placeholder="Min" />
+            <input type="number" class="ex-edit-input" id="edit-repmin-${instanceId}" min="0" value="${repMin}" placeholder="Min" />
             <span class="ex-edit-reps-dash">—</span>
-            <input type="number" class="ex-edit-input" id="edit-repmax-${ex.id}" min="0" value="${repMax}" placeholder="Max" />
+            <input type="number" class="ex-edit-input" id="edit-repmax-${instanceId}" min="0" value="${repMax}" placeholder="Max" />
           </div>
         </div>
         <div class="ex-edit-field" style="grid-column: span 2;">
-          <label for="edit-notes-${ex.id}">Exercise Notes</label>
+          <label for="edit-notes-${instanceId}">Exercise Notes</label>
           <div class="ex-edit-input-wrap">
-            <textarea class="ex-edit-textarea" id="edit-notes-${ex.id}" placeholder="e.g. seat height 4, focus on squeeze" rows="2">${notesVal}</textarea>
+            <textarea class="ex-edit-textarea" id="edit-notes-${instanceId}" placeholder="e.g. seat height 4, focus on squeeze" rows="2">${notesVal}</textarea>
           </div>
         </div>
       </div>
       <div class="ex-edit-actions">
-        <button class="ex-edit-btn-cancel" data-ex-id="${ex.id}">Cancel</button>
-        <button class="ex-edit-btn-save" data-ex-id="${ex.id}">Save</button>
+        <button class="ex-edit-btn-cancel" data-ex-id="${instanceId}">Cancel</button>
+        <button class="ex-edit-btn-save" data-ex-id="${instanceId}">Save</button>
       </div>
     </div>
   `;
 }
 
 export function buildNotesRow(ex, appState) {
-  const effEx = getEffectiveExercise(appState, ex.id);
+  const instanceId = ex.instanceId;
+  const effEx = getEffectiveExercise(appState, instanceId);
   const hasNotes = effEx?.notes && effEx.notes.trim();
 
   if (!hasNotes) return '';
