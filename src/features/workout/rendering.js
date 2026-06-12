@@ -133,7 +133,8 @@ function updateProgressBar(appState) {
         <div class="progress-pct"></div>
         <span id="eta-display" class="eta-display"></span>
         <span id="elapsed-display" class="elapsed-display"></span>
-      </div>`;
+      </div>
+      <div id="eta-departure-header" class="eta-departure-header"></div>`;
     fill = progContainer.querySelector('.progress-bar-fill');
   }
 
@@ -925,7 +926,7 @@ function updateETADisplay(appState) {
   const sessionDef = workouts.find(s => s.id === appState.activeSessionId);
   const eta = sessionDef ? calculateETA(appState, sessionDef) : null;
 
-  // Header display
+  // Header display — remaining time ("~18 min")
   const headerEl = document.getElementById('eta-display');
   if (headerEl) {
     if (eta && eta.completedSets > 0) {
@@ -940,7 +941,20 @@ function updateETADisplay(appState) {
     }
   }
 
-  // Departure display near finish button
+  // Departure display below progress bar ("Est. departure: 4:25 PM")
+  const departureHeaderEl = document.getElementById('eta-departure-header');
+  if (departureHeaderEl) {
+    if (eta && eta.completedSets > 0) {
+      departureHeaderEl.textContent = `Est. departure: ${eta.departureLabel}`;
+      departureHeaderEl.classList.add('has-value');
+      departureHeaderEl.classList.toggle('conf-low', eta.confidence.level === 'low');
+    } else {
+      departureHeaderEl.textContent = '';
+      departureHeaderEl.classList.remove('has-value', 'conf-low');
+    }
+  }
+
+  // Departure display in the completion banner
   const departureEl = document.getElementById('eta-departure');
   if (departureEl) {
     if (eta && eta.completedSets > 0) {

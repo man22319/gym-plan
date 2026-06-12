@@ -633,6 +633,29 @@ header {
   margin-top: 8px;
 }
 
+/* ── ETA departure — below progress bar (always visible during session) ── */
+.eta-departure-header {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.48rem;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-align: right;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.3s, max-height 0.3s, margin 0.3s;
+}
+.eta-departure-header.has-value {
+  color: var(--muted);
+  opacity: 1;
+  max-height: 20px;
+  margin-top: 3px;
+}
+.eta-departure-header.conf-low {
+  opacity: 0.45;
+}
+
 /* ── Warm-up ── */
 .warmup-bar {
   margin: 8px 0 8px;
