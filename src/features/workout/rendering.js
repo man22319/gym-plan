@@ -650,11 +650,8 @@ export function buildDot(exId, idx, setObj, readOnly = false, effEx = null) {
 
   const hasData = w !== null || r !== null;
 
-  // Layer A: set-level feedback (active sessions only)
+  // Layer A: set-level feedback (active sessions only) — label removed; dot colour conveys state
   const feedback = (!readOnly && effEx) ? getSetFeedback(setObj, effEx) : '';
-  const feedbackLabel = feedback
-    ? `<span class="dot-feedback-label dot-feedback-${feedback}">${feedback === 'on-target' ? '✓' : feedback.toUpperCase()}</span>`
-    : '';
 
   if (s === 'done') {
     cls += ' done';
@@ -686,7 +683,7 @@ export function buildDot(exId, idx, setObj, readOnly = false, effEx = null) {
     <button class="${cls}"
       data-ex-id="${exId}"
       data-set-idx="${idx}"
-      aria-label="Set ${idx + 1}: tap to toggle, hold to log">${inner}</button>${feedbackLabel}
+      aria-label="Set ${idx + 1}: tap to toggle, hold to log">${inner}</button>
   </span>`;
 }
 
