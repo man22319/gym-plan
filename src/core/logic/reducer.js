@@ -91,7 +91,8 @@ export function reducer(currentState, action) {
         nextN = '';
       }
 
-      sets[idx] = { ...existing, s: nextStatus, w: nextW, r: nextR, n: nextN };
+      sets[idx] = { ...existing, s: nextStatus, w: nextW, r: nextR, n: nextN,
+                     completedAt: nextStatus === 'done' ? Date.now() : null };
       return {
         ...currentState,
         exercises: { ...currentState.exercises, [exId]: sets }
@@ -116,7 +117,8 @@ export function reducer(currentState, action) {
         r:   resolvedReps,
         n:   resolvedNote,
         rir: resolvedRIR,
-        rom: 'full'
+        rom: 'full',
+        completedAt: Date.now()
       };
       return {
         ...currentState,

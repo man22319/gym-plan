@@ -31,7 +31,7 @@ export const EQUIPMENT_DELTA_W_DEFAULTS = {
  * rom: full Range of Motion flag (boolean, default true per §10)
  */
 export function makeSet(s = '', w = null, r = null, n = '', rir = null) {
-  return { s, w, r, n, rir, rom: 'full' };
+  return { s, w, r, n, rir, rom: 'full', completedAt: null };
 }
 
 /**

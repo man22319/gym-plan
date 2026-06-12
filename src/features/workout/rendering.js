@@ -1,7 +1,8 @@
-import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX } from '../../core/state/store.js';
+import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX, state } from '../../core/state/store.js';
 import { query } from '../../core/logic/queries.js';
 import { getEffectiveExercise } from '../../core/utils/helpers.js';
 import { updateProgressionState } from '../../core/logic/progression.js';
+import { calculateETA } from '../../core/utils/eta.js';
 
 
 
@@ -130,6 +131,8 @@ function updateProgressBar(appState) {
       <div class="progress-wrap">
         <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:0%"></div></div>
         <div class="progress-pct"></div>
+        <span id="eta-display" class="eta-display"></span>
+        <span id="elapsed-display" class="elapsed-display"></span>
       </div>`;
     fill = progContainer.querySelector('.progress-bar-fill');
   }
@@ -140,6 +143,9 @@ function updateProgressBar(appState) {
     pctEl.textContent = pct + '%';
     pctEl.className = 'progress-pct' + (pct === 100 ? ' lit' : '');
   }
+
+  updateETADisplay(appState);
+  updateElapsedDisplay(appState);
 }
 
 export function buildApp(appState) {
@@ -260,6 +266,7 @@ export function buildSession(session, appState) {
     bannerHtml = `
       <div class="complete-banner ${complete ? 'visible' : ''}">
         SESSION COMPLETE<small>Rest up. You earned it.</small>
+        <div class="eta-departure" id="eta-departure"></div>
         <button class="finish-workout-btn" data-session-id="${session.id}">Finish Workout</button>
       </div>`;
   }
@@ -901,4 +908,108 @@ export function renderCardioUpdate(appState) {
     const finisherCb = finisherCard.querySelector('.finisher-checkbox');
     if (finisherCb) finisherCb.checked = c.finisherDone === true;
   }
+}
+
+// ── ETA Display ───────────────────────────────────────────────────────────────
+
+/**
+ * Update the ETA display elements in the DOM.
+ *
+ * Two display locations:
+ *   1. Header progress bar: "~18 min" next to the percentage
+ *   2. Session area: "Est. departure: 4:25 PM" near the finish button
+ *
+ * @param {object} appState
+ */
+function updateETADisplay(appState) {
+  const sessionDef = workouts.find(s => s.id === appState.activeSessionId);
+  const eta = sessionDef ? calculateETA(appState, sessionDef) : null;
+
+  // Header display
+  const headerEl = document.getElementById('eta-display');
+  if (headerEl) {
+    if (eta && eta.completedSets > 0) {
+      headerEl.textContent = `· ${eta.remainingLabel}`;
+      headerEl.classList.add('has-value');
+      headerEl.classList.toggle('conf-low', eta.confidence.level === 'low');
+      headerEl.title = `Est. departure: ${eta.departureLabel} · Confidence: ${eta.confidence.level}`;
+    } else {
+      headerEl.textContent = '';
+      headerEl.classList.remove('has-value', 'conf-low');
+      headerEl.title = '';
+    }
+  }
+
+  // Departure display near finish button
+  const departureEl = document.getElementById('eta-departure');
+  if (departureEl) {
+    if (eta && eta.completedSets > 0) {
+      departureEl.textContent = `Est. departure: ${eta.departureLabel}`;
+      departureEl.classList.add('has-value');
+    } else {
+      departureEl.textContent = '';
+      departureEl.classList.remove('has-value');
+    }
+  }
+}
+
+// ── Elapsed Timer ─────────────────────────────────────────────────────────────
+
+/**
+ * Format milliseconds as H:MM:SS (or M:SS if under 10 minutes).
+ *
+ * @param {number} ms
+ * @returns {string}
+ */
+function formatElapsed(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = n => String(n).padStart(2, '0');
+  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+  return `${m}:${pad(s)}`;
+}
+
+/**
+ * Update the elapsed time display in the header.
+ *
+ * Computes delta from sessionStarted — works correctly after app close/reopen
+ * because sessionStarted is a persisted Date.now() timestamp.
+ *
+ * @param {object} appState
+ */
+function updateElapsedDisplay(appState) {
+  const el = document.getElementById('elapsed-display');
+  if (!el) return;
+
+  if (appState.sessionStarted) {
+    const elapsed = Date.now() - appState.sessionStarted;
+    el.textContent = formatElapsed(elapsed);
+    el.classList.add('has-value');
+  } else {
+    el.textContent = '';
+    el.classList.remove('has-value');
+  }
+}
+
+/**
+ * Initialize the ETA + elapsed display tick.
+ *
+ * Runs every second to keep the elapsed clock and departure time fresh.
+ * No new timer framework — just a simple interval that reads current
+ * state and patches the DOM elements.
+ */
+let _etaIntervalId = null;
+
+export function initETAUI() {
+  // Clear any existing interval (safe for hot-reload)
+  if (_etaIntervalId) clearInterval(_etaIntervalId);
+
+  _etaIntervalId = setInterval(() => {
+    if (state) {
+      updateElapsedDisplay(state);
+      updateETADisplay(state);
+    }
+  }, 1_000);
 }

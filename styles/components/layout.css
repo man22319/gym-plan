@@ -572,6 +572,67 @@ header {
 }
 .progress-pct.lit { color: var(--white); }
 
+/* ── ETA Display — inline with progress bar ── */
+.eta-display {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.52rem;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+  transition: opacity 0.3s, color 0.3s;
+  flex-shrink: 0;
+  white-space: nowrap;
+  opacity: 0;
+}
+.eta-display.has-value {
+  color: var(--muted);
+  opacity: 1;
+}
+.eta-display.conf-low {
+  opacity: 0.5;
+}
+
+/* ── Elapsed timer — live session clock ── */
+.elapsed-display {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.52rem;
+  color: var(--dim);
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-variant-numeric: tabular-nums;
+}
+.elapsed-display.has-value {
+  color: var(--muted);
+  opacity: 1;
+}
+.elapsed-display::before {
+  content: '·';
+  margin-right: 0;
+  color: var(--dim);
+}
+
+/* ── ETA departure line — near finish button ── */
+.eta-departure {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: opacity 0.3s, color 0.3s;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.3s, max-height 0.3s;
+}
+.eta-departure.has-value {
+  color: var(--muted);
+  opacity: 1;
+  max-height: 30px;
+  margin-top: 8px;
+}
+
 /* ── Warm-up ── */
 .warmup-bar {
   margin: 8px 0 8px;

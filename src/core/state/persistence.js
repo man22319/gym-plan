@@ -63,7 +63,8 @@ export function normalize(appState) {
           r:   s.r   ?? null,
           n:   s.n   ?? '',
           rir: (s.rir !== undefined && s.rir !== null && s.rir >= 0) ? s.rir : null,
-          rom: s.rom ?? 'full'
+          rom: s.rom ?? 'full',
+          completedAt: s.completedAt ?? null
         }));
         while (copy.length < sets) copy.push(makeSet());
         exercises[key] = copy;

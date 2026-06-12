@@ -4,3 +4,4 @@ export { lowerBound, getEffectiveExercise, resolveWeight, resolveReps } from './
 export { ALLOWED_ACTIONS, validateAction, cycleStatus, reducer, onRender, onPatchRender, onCardioRender, onSessionComplete, dispatch, rebuildAllProgressions } from './logic/reducer.js';
 export { restTimerId, startRestTimer, startRestTimerLoop, extendRestTimer, getRestState, skipRestTimer, onTimerUpdate } from './utils/restTimer.js';
 export { persist, loadState, normalize, validate, sanitizeSessions } from './state/persistence.js';
+export { calculateETA } from './utils/eta.js';
