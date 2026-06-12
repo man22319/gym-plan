@@ -1,5 +1,5 @@
 import { STORAGE_KEY, STATE_VERSION, makeSet, makeCardio, createDefaultState } from '../store/state.js';
-import { defaultWorkouts, workouts, state, setState, completedSessionsBase as _base } from './workouts.js';
+import { defaultWorkouts, workouts, state, setState, EXERCISE_INDEX, completedSessionsBase as _base } from './workouts.js';
 
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
 
@@ -34,9 +34,25 @@ export function loadState() {
 export function migrate(raw) {
   if (!raw || typeof raw !== 'object') return createDefaultState(defaultWorkouts);
 
-  const sessions = raw.sessions
+  const sessions = (raw.sessions
     ? JSON.parse(JSON.stringify(raw.sessions))
-    : JSON.parse(JSON.stringify(defaultWorkouts));
+    : JSON.parse(JSON.stringify(defaultWorkouts))).map(session => ({
+      ...session,
+      blocks: (session.blocks || []).map(block => ({
+        ...block,
+        exercises: (block.exercises || []).map(entry => {
+          if (typeof entry === 'string') {
+            const resolved = EXERCISE_INDEX[entry] || defaultWorkouts.flatMap(s => s.blocks.flatMap(b => b.exercises)).find(e => e.id === entry);
+            if (!resolved) {
+              console.warn(`[migrate] missing exercise metadata for "${entry}"`);
+              return { id: entry, name: entry, sets: 0, reps: null, load: null, equipmentType: 'other', deltaW: 2.5, manualDeltaWOverride: false };
+            }
+            return JSON.parse(JSON.stringify(resolved));
+          }
+          return entry;
+        })
+      }))
+    }));
 
   const sessionsPerWeek = raw.sessionsPerWeek ?? 3;
 
