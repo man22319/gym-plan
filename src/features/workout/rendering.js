@@ -61,32 +61,66 @@ export function render(appState) {
   lastRenderedSessionId = appState.activeSessionId;
 
   if (sessionIdChanged) {
-    el.classList.add('animate-entrance');
+    // CSS state machine: fade out → swap content at opacity 0 → fade in.
+    // The render pipeline is never delayed — innerHTML is written synchronously
+    // inside transitionend, at the exact moment the element is invisible.
+    el.classList.remove('is-entering');
+    el.classList.add('is-leaving');
+
+    const doSwap = () => {
+      el.removeEventListener('transitionend', doSwap);
+      el.innerHTML = buildApp(appState);
+      el.classList.remove('is-leaving');
+      el.classList.add('is-entering');
+      el.addEventListener('animationend', () => el.classList.remove('is-entering'), { once: true });
+      updateProgressBar(appState);
+      updateWeekSession(appState);
+      initScrollObserver();
+    };
+    el.addEventListener('transitionend', doSwap, { once: true });
   } else {
-    el.classList.remove('animate-entrance');
+    // Intra-session update: write directly with zero animation overhead.
+    el.innerHTML = buildApp(appState);
+    updateProgressBar(appState);
+    updateWeekSession(appState);
+    initScrollObserver();
   }
+}
 
-  el.innerHTML = buildApp(appState);
-
+function updateWeekSession(appState) {
   const { week, session } = getTrainingWeekAndSession(appState);
   const weekSessionEl = document.getElementById('week-session-display');
   if (weekSessionEl) {
     weekSessionEl.textContent = `Week ${week} · Session ${session}`;
   }
+}
 
+function updateProgressBar(appState) {
   const progContainer = document.getElementById('global-progress-bar-container');
-  if (progContainer) {
-    const activeSessionId = appState.activeSessionId;
-    const pct = activeSessionId ? query.sessionProgress(appState, activeSessionId) : 0;
+  if (!progContainer) return;
+
+  const pct = appState.activeSessionId
+    ? query.sessionProgress(appState, appState.activeSessionId)
+    : 0;
+
+  // Build the scaffold once; update fill width in-place so the CSS transition fires.
+  // Recreating innerHTML resets width to 0 every time, killing the transition.
+  let fill = progContainer.querySelector('.progress-bar-fill');
+  if (!fill) {
     progContainer.innerHTML = `
       <div class="progress-wrap">
-        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
-        <div class="progress-pct ${pct === 100 ? 'lit' : ''}">${pct}%</div>
-      </div>
-    `;
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:0%"></div></div>
+        <div class="progress-pct"></div>
+      </div>`;
+    fill = progContainer.querySelector('.progress-bar-fill');
   }
 
-  initScrollObserver();
+  fill.style.width = pct + '%';
+  const pctEl = progContainer.querySelector('.progress-pct');
+  if (pctEl) {
+    pctEl.textContent = pct + '%';
+    pctEl.className = 'progress-pct' + (pct === 100 ? ' lit' : '');
+  }
 }
 
 export function buildApp(appState) {

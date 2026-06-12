@@ -195,7 +195,15 @@ header {
   white-space: nowrap;
 }
 .dropdown-content {
-  display: none;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.97);
+  pointer-events: none;
+  /* visibility delay matches fade-out duration so it stays hidden until fully gone */
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s cubic-bezier(0.25, 1, 0.5, 1),
+    visibility 0s linear 0.18s;
   position: absolute;
   right: 0;
   background-color: rgba(28, 28, 30, 0.95);
@@ -210,12 +218,27 @@ header {
   -webkit-backdrop-filter: blur(20px);
 }
 .dropdown.open .dropdown-content {
-  display: block;
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  /* no delay on open — appear immediately */
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s cubic-bezier(0.25, 1, 0.5, 1),
+    visibility 0s;
 }
 /* Keep hover working on desktop */
 @media (hover: hover) {
   .dropdown:hover .dropdown-content {
-    display: block;
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+    transition:
+      opacity 0.18s ease,
+      transform 0.18s cubic-bezier(0.25, 1, 0.5, 1),
+      visibility 0s;
   }
 }
 .dropdown-item {
@@ -483,7 +506,31 @@ header {
 
 /* ── Session ── */
 .session { display: none; padding: 0 12px; }
-.session.active { display: block; }
+.session.active {
+  display: block;
+  animation: sessionEnter 0.28s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+@keyframes sessionEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── #app cross-fade state machine ── */
+#app {
+  transition: opacity 0.12s ease;
+  will-change: opacity;
+}
+#app.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+#app.is-entering {
+  animation: appEnter 0.22s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+@keyframes appEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 /* ── Progress — full-width strip beneath Week/Session header text ── */
 #global-progress-bar-container {
@@ -506,7 +553,7 @@ header {
   height: 100%;
   background: var(--accent, #ffffff);
   border-radius: 2px;
-  transition: width 0.4s ease;
+  transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
   width: 0%;
 }
 .progress-pct {
@@ -618,14 +665,15 @@ header {
 }
 
 .complete-banner {
-  display: none;
+  /* Always in DOM — visibility controlled by opacity/max-height so transitions fire */
+  display: block;
   margin: 18px 0 0;
   background: rgba(40,40,40,0.6);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 12px;
-  padding: 20px 16px;
+  padding: 0 16px;
   text-align: center;
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
@@ -634,8 +682,25 @@ header {
   color: var(--white);
   text-transform: uppercase;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  /* Transition state — collapsed and invisible by default */
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition:
+    opacity 0.3s ease,
+    max-height 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+    transform 0.3s ease,
+    padding 0.35s cubic-bezier(0.25, 1, 0.5, 1);
 }
-.complete-banner.visible { display: block; }
+.complete-banner.visible {
+  opacity: 1;
+  max-height: 300px;
+  padding: 20px 16px;
+  transform: translateY(0);
+  pointer-events: auto;
+}
 .complete-banner small {
   display: block;
   font-family: 'IBM Plex Mono', monospace;
@@ -648,17 +713,20 @@ header {
 
 /* ── Finished (completed-this-week) banner ── */
 .finished-banner {
-  display: flex !important;
+  /* Layout always flex — visibility still driven by .complete-banner base/visible states */
+  display: flex;
   flex-direction: row;
   align-items: center;
   gap: 16px;
   text-align: left;
-  padding: 18px 20px;
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  border-left: 3px solid rgba(255, 255, 255, 0.3);
   font-size: inherit;
   letter-spacing: inherit;
+}
+.finished-banner.visible {
+  padding: 18px 20px;
 }
 .finished-banner-icon {
   font-size: 2rem;
