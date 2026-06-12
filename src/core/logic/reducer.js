@@ -311,11 +311,13 @@ export function reducer(currentState, action) {
 
 let _renderFn = null;
 let _patchRenderFn = null;
+let _cardioRenderFn = null;
 let _sessionCompleteFn = null;
 let _startWorkoutModalFn = null;
 
 export function onRender(fn) { _renderFn = fn; }
 export function onPatchRender(fn) { _patchRenderFn = fn; }
+export function onCardioRender(fn) { _cardioRenderFn = fn; }
 export function onSessionComplete(fn) { _sessionCompleteFn = fn; }
 export function registerStartWorkoutModal(fn) { _startWorkoutModalFn = fn; }
 
@@ -371,6 +373,8 @@ export function dispatch(type, payload = {}) {
     const isSetAction = type === 'TOGGLE_SET' || type === 'LOG_AND_MARK_DONE';
     if (isSetAction && _patchRenderFn) {
       _patchRenderFn(state, payload.exId);
+    } else if (type === 'UPDATE_CARDIO' && _cardioRenderFn) {
+      _cardioRenderFn(state);
     } else {
       _renderFn?.(state);
     }

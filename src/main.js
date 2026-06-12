@@ -3,8 +3,8 @@
 // ==========================================
 // Entry point. No business logic here — only wires up modules and starts the app.
 
-import { initWorkouts, loadState, state, setState, onRender, onPatchRender, onSessionComplete, rebuildAllProgressions } from './core/engine.js';
-import { render, renderSetUpdate, setupEvents, openSessionSummaryModal } from './io/uiBarrel.js';
+import { initWorkouts, loadState, state, setState, onRender, onPatchRender, onCardioRender, onSessionComplete, rebuildAllProgressions } from './core/engine.js';
+import { render, renderSetUpdate, renderCardioUpdate, setupEvents, openSessionSummaryModal } from './io/uiBarrel.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -30,6 +30,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   onRender(render);
   // Wire targeted patch-render for set-level actions (avoids full innerHTML rebuild).
   onPatchRender(renderSetUpdate);
+  // Wire targeted cardio render for warm-up / finisher toggles.
+  onCardioRender(renderCardioUpdate);
 
   // Wire session-complete callback with the 600ms delay the UI needs.
   onSessionComplete((entry, appState, isCycleComplete) =>

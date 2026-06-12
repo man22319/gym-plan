@@ -61,26 +61,41 @@ export function render(appState) {
   lastRenderedSessionId = appState.activeSessionId;
 
   if (sessionIdChanged) {
-    // CSS state machine: fade out → swap content at opacity 0 → fade in.
-    // The render pipeline is never delayed — innerHTML is written synchronously
-    // inside transitionend, at the exact moment the element is invisible.
-    el.classList.remove('is-entering');
-    el.classList.add('is-leaving');
+    // ── Tab switch: patch tabs in-place, cross-fade only session content ──
+    // Tabs stay visible throughout — only the active class toggles.
+    patchTabs(appState);
+
+    // Find or create the session-content wrapper
+    let contentEl = el.querySelector('.session-content');
+    if (!contentEl) {
+      // First render used the old layout — rebuild with the new structure
+      el.innerHTML = buildTabsHtml(appState) +
+        `<div class="session-content">${buildSessionsHtml(appState)}</div>`;
+      updateProgressBar(appState);
+      updateWeekSession(appState);
+      initScrollObserver(true);
+      return;
+    }
+
+    // CSS fade-out → swap at opacity 0 → fade-in
+    contentEl.classList.remove('is-entering');
+    contentEl.classList.add('is-leaving');
 
     const doSwap = () => {
-      el.removeEventListener('transitionend', doSwap);
-      el.innerHTML = buildApp(appState);
-      el.classList.remove('is-leaving');
-      el.classList.add('is-entering');
-      el.addEventListener('animationend', () => el.classList.remove('is-entering'), { once: true });
+      contentEl.removeEventListener('transitionend', doSwap);
+      contentEl.innerHTML = buildSessionsHtml(appState);
+      contentEl.classList.remove('is-leaving');
+      contentEl.classList.add('is-entering');
+      contentEl.addEventListener('animationend', () => contentEl.classList.remove('is-entering'), { once: true });
       updateProgressBar(appState);
       updateWeekSession(appState);
       initScrollObserver(true);
     };
-    el.addEventListener('transitionend', doSwap, { once: true });
+    contentEl.addEventListener('transitionend', doSwap, { once: true });
   } else {
-    // Intra-session update: write directly with zero animation overhead.
-    el.innerHTML = buildApp(appState);
+    // Intra-session full rebuild (non-set-toggle paths like edit save, etc.)
+    el.innerHTML = buildTabsHtml(appState) +
+      `<div class="session-content">${buildSessionsHtml(appState)}</div>`;
     updateProgressBar(appState);
     updateWeekSession(appState);
     initScrollObserver(true);
@@ -126,6 +141,33 @@ function updateProgressBar(appState) {
 export function buildApp(appState) {
   return buildTabs(appState) +
     workouts.map(s => buildSession(s, appState)).join('');
+}
+
+// Split helpers — used by the new render() to separate tabs from session content
+function buildTabsHtml(appState) {
+  return buildTabs(appState);
+}
+
+function buildSessionsHtml(appState) {
+  return workouts.map(s => buildSession(s, appState)).join('');
+}
+
+/**
+ * Patch tabs in-place by toggling the .active class on existing DOM nodes.
+ * This avoids destroying and recreating the tab bar during session switches,
+ * keeping it visually stable while the session content cross-fades.
+ */
+function patchTabs(appState) {
+  const tabEls = document.querySelectorAll('.tab[data-session-id]');
+  tabEls.forEach(tab => {
+    const isActive = tab.dataset.sessionId === appState.activeSessionId;
+    tab.classList.toggle('active', isActive);
+    // Update the day-label styling that depends on .active
+    const dayLabel = tab.querySelector('.day-label');
+    if (dayLabel) {
+      dayLabel.style.color = ''; // let CSS handle it via .tab.active .day-label
+    }
+  });
 }
 
 export function getSuggestedSessionId(appState) {
@@ -825,4 +867,34 @@ export function renderSetUpdate(appState, exId) {
 
   // 4. Update progress bar (already has in-place logic)
   updateProgressBar(appState);
+}
+
+/**
+ * Targeted render for UPDATE_CARDIO actions (warm-up / finisher toggles).
+ *
+ * Only toggles the CSS class on the warmup bar and finisher card — no
+ * innerHTML rebuild, no observer re-init, no card reconstruction.
+ *
+ * @param {object} appState — current app state (already committed via setState)
+ */
+export function renderCardioUpdate(appState) {
+  const c = appState?.cardio || {};
+
+  // Warmup bar: toggle .warmup-done class
+  const warmupBar = document.querySelector('.warmup-bar');
+  if (warmupBar) {
+    warmupBar.classList.toggle('warmup-done', c.warmupDone === true);
+    // Sync the checkbox state (the DOM checkbox may already be correct from
+    // the user click, but keep it consistent with state)
+    const warmupCb = warmupBar.querySelector('.warmup-checkbox');
+    if (warmupCb) warmupCb.checked = c.warmupDone === true;
+  }
+
+  // Finisher card: toggle .finisher-done class
+  const finisherCard = document.querySelector('.finisher-card');
+  if (finisherCard) {
+    finisherCard.classList.toggle('finisher-done', c.finisherDone === true);
+    const finisherCb = finisherCard.querySelector('.finisher-checkbox');
+    if (finisherCb) finisherCb.checked = c.finisherDone === true;
+  }
 }

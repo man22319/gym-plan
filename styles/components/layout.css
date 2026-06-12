@@ -515,16 +515,21 @@ header {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── #app cross-fade state machine ── */
+/* ── #app / session-content cross-fade state machine ── */
+/* Tabs live directly in #app; only .session-content cross-fades on tab switch.
+   This keeps the tab bar stable and visible throughout transitions. */
 #app {
+  will-change: auto;
+}
+.session-content {
   transition: opacity 0.12s ease;
   will-change: opacity;
 }
-#app.is-leaving {
+.session-content.is-leaving {
   opacity: 0;
   pointer-events: none;
 }
-#app.is-entering {
+.session-content.is-entering {
   animation: appEnter 0.22s cubic-bezier(0.25, 1, 0.5, 1) both;
 }
 @keyframes appEnter {
