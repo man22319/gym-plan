@@ -17,14 +17,17 @@
 }
 
 .log-modal {
-  background: var(--bg2);
-  border: 1px solid var(--border-hi);
+  background: var(--modal-glass-bg);
+  border: none;
   border-bottom: none;
   border-radius: 16px 16px 0 0;
   padding: 28px 24px 36px;
   width: 100%;
   max-width: 480px;
   animation: slideUp 0.2s ease;
+  -webkit-backdrop-filter: blur(30px) saturate(150%) brightness(110%);
+  backdrop-filter: blur(30px) saturate(150%) brightness(110%);
+  box-shadow: var(--modal-glass-shadow);
 }
 
 .log-modal-title {
@@ -62,8 +65,8 @@
 .log-input-wrap {
   display: flex;
   align-items: center;
-  background: var(--bg3);
-  border: 1px solid var(--border-hi);
+  background: var(--modal-glass-input-bg);
+  border: 1px solid var(--modal-glass-input-border);
   border-radius: 6px;
   overflow: hidden;
 }
