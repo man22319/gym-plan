@@ -86,7 +86,11 @@ export function render(appState) {
       contentEl.innerHTML = buildSessionsHtml(appState);
       contentEl.classList.remove('is-leaving');
       contentEl.classList.add('is-entering');
-      contentEl.addEventListener('animationend', () => contentEl.classList.remove('is-entering'), { once: true });
+      // Remove is-entering after the last card's animation completes
+      // (150ms max delay + 450ms duration = 600ms).  Using a timeout
+      // instead of animationend because the event bubbles from child
+      // cards and can fire prematurely from the first card, not the last.
+      setTimeout(() => contentEl.classList.remove('is-entering'), 620);
       updateProgressBar(appState);
       updateWeekSession(appState);
       initScrollObserver(true);
