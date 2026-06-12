@@ -38,7 +38,7 @@ export function formatDuration(ms) {
 
 export function formatDate(ts) {
   const d = new Date(ts);
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${months[d.getMonth()]} ${d.getDate()}`;
 }
 
@@ -85,7 +85,7 @@ export function render(appState) {
       </div>
     `;
   }
-  
+
   initScrollObserver();
 }
 
@@ -113,9 +113,9 @@ export function buildTabs(appState) {
   const suggestedId = getSuggestedSessionId(appState);
 
   const tabs = workouts.map(session => {
-    const active    = session.id === appState.activeSessionId ? 'active' : '';
-    const finished  = query.isSessionFinishedInCurrentWeek(appState, session.id);
-    const ts        = query.lastDoneTimestamp(appState, session.id);
+    const active = session.id === appState.activeSessionId ? 'active' : '';
+    const finished = query.isSessionFinishedInCurrentWeek(appState, session.id);
+    const ts = query.lastDoneTimestamp(appState, session.id);
 
     let recency = '';
     if (ts) {
@@ -154,11 +154,11 @@ export function buildTabs(appState) {
 }
 
 export function buildSession(session, appState) {
-  const active    = session.id === appState.activeSessionId ? 'active' : '';
-  const finished  = query.isSessionFinishedInCurrentWeek(appState, session.id);
-  const complete  = query.isSessionComplete(appState, session.id) && !finished && appState.sessionStarted !== null;
+  const active = session.id === appState.activeSessionId ? 'active' : '';
+  const finished = query.isSessionFinishedInCurrentWeek(appState, session.id);
+  const complete = query.isSessionComplete(appState, session.id) && !finished && appState.sessionStarted !== null;
   const c = appState?.cardio || {};
-  const warmupDone   = c.warmupDone   === true;
+  const warmupDone = c.warmupDone === true;
   const finisherDone = c.finisherDone === true;
 
   let bannerHtml = '';
@@ -185,7 +185,7 @@ export function buildSession(session, appState) {
   }
 
   // warmup and finisher: read from session first, fall back to programDefaults
-  const warmupText   = session.warmup   ?? appState.programDefaults?.warmup   ?? programDefaults.warmup   ?? '';
+  const warmupText = session.warmup ?? appState.programDefaults?.warmup ?? programDefaults.warmup ?? '';
   const finisherText = session.finisher ?? appState.programDefaults?.finisher ?? programDefaults.finisher ?? '';
 
   return `<div class="session ${active} ${finished ? 'session-completed' : ''}" id="${session.id}">
@@ -246,17 +246,17 @@ export function buildBlock(block, appState, readOnly = false) {
 
 export function buildCard(ex, appState, readOnly = false) {
   const instanceId = ex.instanceId;
-  const sets      = appState.exercises[instanceId] || [];
-  const complete  = query.isExerciseComplete(appState, instanceId);
-  const prevSets  = query.lastExerciseSets(appState, instanceId);
-  
-  const effEx     = getEffectiveExercise(appState, instanceId);
+  const sets = appState.exercises[instanceId] || [];
+  const complete = query.isExerciseComplete(appState, instanceId);
+  const prevSets = query.lastExerciseSets(appState, instanceId);
+
+  const effEx = getEffectiveExercise(appState, instanceId);
   const displayName = effEx?.name ?? ex.name ?? instanceId;
   const isOverridden = !!appState?.runtimeOverrides?.[instanceId];
-  
-  const wStr      = formatWeight(effEx?.load);
-  const prs       = query.currentSetPRs(appState, instanceId);
-  const hasPR     = prs.length > 0;
+
+  const wStr = formatWeight(effEx?.load);
+  const prs = query.currentSetPRs(appState, instanceId);
+  const hasPR = prs.length > 0;
 
   const currentSetsWithNotes = sets.filter(s => s.n && s.n.trim());
   let currentNotesHtml = '';
@@ -390,7 +390,7 @@ export function buildPrevRow(prevSets, currSets) {
     const w = s.w !== null ? s.w : '—';
     const r = s.r !== null ? s.r : '—';
     const fail = s.s === 'failed' ? ' <span class="prev-x">✗</span>' : '';
-    return `<span class="prev-set">S${i+1} <span class="prev-nums">${w}&times;${r}</span>${fail}</span>`;
+    return `<span class="prev-set">S${i + 1} <span class="prev-nums">${w}&times;${r}</span>${fail}</span>`;
   }).join('');
 
   const deltaHtml = buildDelta(weightDelta, repsDelta);
@@ -460,7 +460,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
 
   // n = number of history entries that contain data for this exercise
   const historyN = query.exerciseHistory(appState, instanceId).length;
-  const conf     = modelConfidence(historyN);
+  const conf = modelConfidence(historyN);
 
   const chips = [];
 
@@ -469,9 +469,9 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
     const ps = appState?.progressionState?.[instanceId];
     if (!ps || ps.T === null) return '';
 
-    const suggested  = ps.lastSuggested;
-    const fatigue    = ps.F   ?? 0;
-    const risk       = ps.lastRisk ?? 0;
+    const suggested = ps.lastSuggested;
+    const fatigue = ps.F ?? 0;
+    const risk = ps.lastRisk ?? 0;
     const suppressed = ps.lastSuppressed ?? false;
 
     if (suggested !== null && suggested !== undefined) {
@@ -487,7 +487,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
     if (fatigue > 0.6) {
       chips.push(
         `<span class="prog-chip prog-chip-warn" title="Fatigue index: ${fatigue.toFixed(2)}">
-          ⚡ FATIGUE: ${fatigue.toFixed(2)}
+          ⚠  FATIGUE: ${fatigue.toFixed(2)}
         </span>`
       );
     }
@@ -509,7 +509,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
   } else {
     // ── Layer B: live computation during active session ──
     const currentSets = appState.exercises[instanceId] || [];
-    const hasDoneSet  = currentSets.some(s => s.s === 'done' || s.s === 'failed');
+    const hasDoneSet = currentSets.some(s => s.s === 'done' || s.s === 'failed');
 
     // Retrieve stored progression state as baseline
     const prevPs = appState?.progressionState?.[instanceId] ?? {};
@@ -538,7 +538,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       if (result.F > 0.6) {
         chips.push(
           `<span class="prog-chip prog-chip-warn" title="Estimated fatigue: ${result.F.toFixed(2)}">
-            ⚡ FATIGUE: ${result.F.toFixed(2)}
+            ⚠  FATIGUE: ${result.F.toFixed(2)}
           </span>`
         );
       }
@@ -569,7 +569,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       if (prevPs.F > 0.6) {
         chips.push(
           `<span class="prog-chip prog-chip-warn" title="Carrying fatigue from last session">
-            ⚡ FATIGUE: ${(prevPs.F ?? 0).toFixed(2)}
+            ⚠  FATIGUE: ${(prevPs.F ?? 0).toFixed(2)}
           </span>`
         );
       }
