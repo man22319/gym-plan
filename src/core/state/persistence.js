@@ -72,6 +72,17 @@ export function normalize(appState) {
     )
   );
 
+  // Forward-compat: ensure progressionState entries have new fields
+  const rawProgState = appState.progressionState ?? {};
+  const progressionState = {};
+  for (const [key, ps] of Object.entries(rawProgState)) {
+    progressionState[key] = {
+      ...ps,
+      lastSessionTimestamp: ps.lastSessionTimestamp ?? null,
+      lastTopWeight:        ps.lastTopWeight ?? null,
+    };
+  }
+
   return {
     ...appState,
     exercises,
@@ -80,7 +91,7 @@ export function normalize(appState) {
     programDefaults:   appState.programDefaults   ?? {},
     cardio:            null,
     completedWorkouts: appState.completedWorkouts ?? 0,
-    progressionState:  appState.progressionState  ?? {},
+    progressionState,
     version:           STATE_VERSION
   };
 }

@@ -410,7 +410,7 @@ export function dispatch(type, payload = {}) {
       _renderFn?.(state);
     }
 
-    // ── Progression pipeline (§21) ───────────────────────────────────────────
+    // ── Progression pipeline ───────────────────────────────────────────────
     if (type === 'FINISH_WORKOUT') {
       const session = workouts.find(s => s.id === payload.sessionId);
       if (session) {
@@ -430,6 +430,7 @@ export function dispatch(type, payload = {}) {
           });
         }
         const density = durationMin ? sessionVolume / durationMin : null;
+        const currentTimestamp = lastEntry?.timestamp ?? Date.now();
 
         for (const inst of allExercises) {
           if (inst.invariant) continue;
@@ -437,18 +438,34 @@ export function dispatch(type, payload = {}) {
           const ex   = EXERCISE_INDEX[instanceId] ?? inst;
           const sets = lastEntry?.exercises[instanceId] || [];
           const prev = newProgState[instanceId] || {};
+
+          // Compute hours elapsed since last session for this exercise
+          const prevTimestamp = prev.lastSessionTimestamp ?? null;
+          const hoursElapsed = prevTimestamp
+            ? Math.max(0, (currentTimestamp - prevTimestamp) / 3_600_000)
+            : 24;  // bootstrapped prior — not neutral, see progression.js docs
+
+          // Center-of-range rep anchor for working target
+          const targetReps = (ex.reps?.min && ex.reps?.max)
+            ? (ex.reps.min + ex.reps.max) / 2
+            : ex.reps?.min ?? ex.reps?.max ?? ex.reps ?? 8;
+
           const updated = updateProgressionState(prev, sets, {
             density,
             riskMultiplier: ex.riskMultiplier ?? 1.0,
-            deltaW: nextState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW
+            deltaW: nextState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
+            targetReps,
+            hoursElapsed,
           });
           newProgState[instanceId] = {
-            T:   updated.T,
-            F:   updated.F,
-            dw:  updated.dw,
-            lastSuggested:  updated.suggestedWeight,
-            lastRisk:       updated.riskScore,
-            lastSuppressed: updated.suppressed
+            T:                    updated.T,
+            F:                    updated.F,
+            dw:                   updated.dw,
+            lastSuggested:        updated.suggestedWeight,
+            lastRisk:             updated.riskScore,
+            lastSuppressed:       updated.suppressed,
+            lastSessionTimestamp: currentTimestamp,
+            lastTopWeight:        updated.topWeight ?? null,
           };
         }
 
@@ -492,6 +509,7 @@ export function rebuildAllProgressions(appState) {
       });
     }
     const density = durationMin ? sessionVolume / durationMin : null;
+    const currentTimestamp = entry.timestamp;
 
     for (const inst of allExercises) {
       if (inst.invariant) continue;
@@ -499,18 +517,34 @@ export function rebuildAllProgressions(appState) {
       const ex   = EXERCISE_INDEX[instanceId] ?? inst;
       const sets = entry.exercises[instanceId] || [];
       const prev = newProgState[instanceId] || {};
+
+      // Compute hours elapsed from consecutive history entries
+      const prevTimestamp = prev.lastSessionTimestamp ?? null;
+      const hoursElapsed = prevTimestamp
+        ? Math.max(0, (currentTimestamp - prevTimestamp) / 3_600_000)
+        : 24;  // bootstrapped prior
+
+      // Center-of-range rep anchor
+      const targetReps = (ex.reps?.min && ex.reps?.max)
+        ? (ex.reps.min + ex.reps.max) / 2
+        : ex.reps?.min ?? ex.reps?.max ?? ex.reps ?? 8;
+
       const updated = updateProgressionState(prev, sets, {
         density,
         riskMultiplier: ex.riskMultiplier ?? 1.0,
-        deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW
+        deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
+        targetReps,
+        hoursElapsed,
       });
       newProgState[instanceId] = {
-        T:   updated.T,
-        F:   updated.F,
-        dw:  updated.dw,
-        lastSuggested:  updated.suggestedWeight,
-        lastRisk:       updated.riskScore,
-        lastSuppressed: updated.suppressed
+        T:                    updated.T,
+        F:                    updated.F,
+        dw:                   updated.dw,
+        lastSuggested:        updated.suggestedWeight,
+        lastRisk:             updated.riskScore,
+        lastSuppressed:       updated.suppressed,
+        lastSessionTimestamp: currentTimestamp,
+        lastTopWeight:        updated.topWeight ?? null,
       };
     }
   }

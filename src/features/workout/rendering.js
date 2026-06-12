@@ -131,10 +131,23 @@ function updateProgressBar(appState) {
       <div class="progress-wrap">
         <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:0%"></div></div>
         <div class="progress-pct"></div>
-        <span id="eta-display" class="eta-display"></span>
-        <span id="elapsed-display" class="elapsed-display"></span>
       </div>
-      <div id="eta-departure-header" class="eta-departure-header"></div>`;
+      <div class="progress-stats" id="progress-stats">
+        <div class="progress-stat" id="stat-elapsed">
+          <span class="progress-stat-label">ELAPSED</span>
+          <span class="progress-stat-value" id="elapsed-display">—</span>
+        </div>
+        <div class="progress-stat-divider" id="stat-divider-1"></div>
+        <div class="progress-stat" id="stat-eta">
+          <span class="progress-stat-label">REMAINING</span>
+          <span class="progress-stat-value" id="eta-display">—</span>
+        </div>
+        <div class="progress-stat-divider" id="stat-divider-2"></div>
+        <div class="progress-stat" id="stat-departure">
+          <span class="progress-stat-label">EST. DONE</span>
+          <span class="progress-stat-value" id="eta-departure-header">—</span>
+        </div>
+      </div>`;
     fill = progContainer.querySelector('.progress-bar-fill');
   }
 
@@ -603,12 +616,25 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
     const prevPs = appState?.progressionState?.[instanceId] ?? {};
     const deltaW = appState?.runtimeOverrides?.[instanceId]?.deltaW ?? ex?.deltaW;
 
+    // Center-of-range rep anchor for working target
+    const targetReps = (ex?.reps?.min && ex?.reps?.max)
+      ? (ex.reps.min + ex.reps.max) / 2
+      : ex?.reps?.min ?? ex?.reps?.max ?? ex?.reps ?? 8;
+
+    // Hours since last session (from stored timestamp)
+    const prevTimestamp = prevPs.lastSessionTimestamp ?? null;
+    const hoursElapsed = prevTimestamp
+      ? Math.max(0, (Date.now() - prevTimestamp) / 3_600_000)
+      : 24;  // bootstrapped prior
+
     if (hasDoneSet) {
       // At least one set done — compute live update
       const result = updateProgressionState(prevPs, currentSets, {
         deltaW,
         riskMultiplier: ex?.riskMultiplier ?? 1.0,
-        density: null  // density unknown mid-session (no finish timestamp yet)
+        density: null,  // density unknown mid-session (no finish timestamp yet)
+        targetReps,
+        hoursElapsed,
       });
 
       if (result.suggestedWeight !== null) {
@@ -926,38 +952,45 @@ function updateETADisplay(appState) {
   const sessionDef = workouts.find(s => s.id === appState.activeSessionId);
   const eta = sessionDef ? calculateETA(appState, sessionDef) : null;
 
-  // Header display — remaining time ("~18 min")
+  const hasETA = eta && eta.completedSets > 0;
+
+  // Header stats — remaining time ("~18 min")
   const headerEl = document.getElementById('eta-display');
   if (headerEl) {
-    if (eta && eta.completedSets > 0) {
-      headerEl.textContent = `· ${eta.remainingLabel}`;
+    if (hasETA) {
+      headerEl.textContent = eta.remainingLabel;
       headerEl.classList.add('has-value');
       headerEl.classList.toggle('conf-low', eta.confidence.level === 'low');
-      headerEl.title = `Est. departure: ${eta.departureLabel} · Confidence: ${eta.confidence.level}`;
     } else {
-      headerEl.textContent = '';
+      headerEl.textContent = '—';
       headerEl.classList.remove('has-value', 'conf-low');
-      headerEl.title = '';
     }
   }
 
-  // Departure display below progress bar ("Est. departure: 4:25 PM")
+  // Departure time in header stats
   const departureHeaderEl = document.getElementById('eta-departure-header');
   if (departureHeaderEl) {
-    if (eta && eta.completedSets > 0) {
-      departureHeaderEl.textContent = `Est. departure: ${eta.departureLabel}`;
+    if (hasETA) {
+      departureHeaderEl.textContent = eta.departureLabel;
       departureHeaderEl.classList.add('has-value');
       departureHeaderEl.classList.toggle('conf-low', eta.confidence.level === 'low');
     } else {
-      departureHeaderEl.textContent = '';
+      departureHeaderEl.textContent = '—';
       departureHeaderEl.classList.remove('has-value', 'conf-low');
     }
+  }
+
+  // Show/hide stats row and dividers based on session state
+  const statsRow = document.getElementById('progress-stats');
+  if (statsRow) {
+    const hasSession = !!appState.sessionStarted;
+    statsRow.classList.toggle('has-session', hasSession);
   }
 
   // Departure display in the completion banner
   const departureEl = document.getElementById('eta-departure');
   if (departureEl) {
-    if (eta && eta.completedSets > 0) {
+    if (hasETA) {
       departureEl.textContent = `Est. departure: ${eta.departureLabel}`;
       departureEl.classList.add('has-value');
     } else {
@@ -1002,7 +1035,7 @@ function updateElapsedDisplay(appState) {
     el.textContent = formatElapsed(elapsed);
     el.classList.add('has-value');
   } else {
-    el.textContent = '';
+    el.textContent = '—';
     el.classList.remove('has-value');
   }
 }

@@ -1,20 +1,27 @@
 // ==========================================
 // ─── ETA ESTIMATOR ───
 // ==========================================
-// Pure function: calculates estimated gym departure time from current state.
+// Estimates gym departure time from current session state.
 //
-// Core model: wall-clock interval forecasting at the block level.
+// Architecture: deterministic workload model (blocks × sets) with
+// stochastic execution cost (wall-clock intervals between completions).
+// Sets are fixed tasks; time is the uncertain cost.
 //
-// completedAt timestamps on each set give us observed intervals — which include
-// rest, plate changes, wandering, everything.  That is exactly what ETA wants:
-// total wall-clock time, not isolated lifting speed.
+// Pipeline:
+//   1. Inter-completion intervals → EWMA (recency-weighted, outlier-clipped)
+//   2. Per-block remaining = remaining_sets × interval_estimate
+//   3. Cascade: block-local EWMA → session EWMA → prescription prior
+//   4. Historical blend (pace-relative, early-session only)
+//   5. Cardio overhead (additive, post-blend)
+//   6. Confidence from forecast interval width
 //
-// Supersets are modeled via block-level schedule simulation, not per-exercise
-// extrapolation.  The natural unit is one "round" of a block (one set of each
-// exercise + rest), because that is how the user actually moves through the gym.
-//
-// Smoothing uses EWMA with outlier clipping to handle abnormal gaps (phone
-// check, bathroom, re-racking) without corrupting the estimate.
+// Known limitations:
+//   - EWMA assumes local stationarity; regime shifts (block transitions,
+//     exercise type changes) cause transient estimation error.
+//   - Per-set interval homogeneity within a block.  Heavy sets late in a
+//     5×5 take longer than early sets.  The model uses one average.
+//   - Historical blend uses a session-level pace scalar, not per-block
+//     pace factors, because per-block historical data isn't available.
 // ==========================================
 
 import { EXERCISE_INDEX } from '../state/store.js';
@@ -47,10 +54,11 @@ function computeEWMA(intervals) {
   for (let i = 1; i < intervals.length; i++) {
     let x = intervals[i];
 
-    // Outlier clipping: if this interval is absurdly large relative to
-    // the current estimate, clip it down.  This handles bathroom breaks,
-    // phone calls, and other noise without corrupting the forecast.
-    const upperBound = Math.max(ewma * OUTLIER_MULTIPLIER, MAX_INTERVAL_MS);
+    // Outlier clipping: bound by whichever is tighter — the adaptive
+    // multiplier (3× current EWMA) or the hard ceiling (10 min).
+    // Math.min ensures the adaptive threshold actually fires in the
+    // normal operating range (EWMA 30s–3min → clip at 90s–9min).
+    const upperBound = Math.min(ewma * OUTLIER_MULTIPLIER, MAX_INTERVAL_MS);
     if (x > upperBound) x = ewma; // replace with current estimate
     if (x < MIN_INTERVAL_MS) x = ewma; // too fast — likely misfire
 
@@ -133,10 +141,12 @@ function blockSetCounts(block, exercises) {
 /**
  * Estimate remaining time for a single block using schedule simulation.
  *
- * If the block has enough observed intervals (≥2 timestamps), we use EWMA
- * of the observed wall-clock intervals between completions within this block.
+ * If the block has enough observed intervals (≥3 completions → ≥2 EWMA
+ * updates from seed), we use the block-local EWMA.  This threshold trades
+ * responsiveness for stability — at ≥2 (one update from seed), the block
+ * estimate is still dominated by the seed value.
  *
- * If not, we fall back to prescribed rest + a working-time prior.
+ * If not, we fall back to session-wide EWMA or prescribed rest.
  *
  * @param {object} block        — block definition
  * @param {object} exercises    — state.exercises
@@ -156,7 +166,7 @@ function estimateBlockRemaining(block, exercises, sessionEWMA) {
   // Choose the best available interval estimate
   let intervalEstimate;
 
-  if (blockEWMA.count >= 2) {
+  if (blockEWMA.count >= 3) {
     // Block has enough signal — use its own pace
     intervalEstimate = blockEWMA.ewma;
   } else if (sessionEWMA.count >= 2) {
@@ -169,7 +179,7 @@ function estimateBlockRemaining(block, exercises, sessionEWMA) {
 
   return {
     remainingMs: remaining * intervalEstimate,
-    ewma: blockEWMA.count >= 2 ? blockEWMA : sessionEWMA
+    ewma: blockEWMA.count >= 3 ? blockEWMA : sessionEWMA
   };
 }
 
@@ -227,57 +237,49 @@ function historicalSessionDuration(appState, sessionId) {
 // ── Confidence scoring ───────────────────────────────────────────────────────
 
 /**
- * Compute confidence in the ETA estimate.
+ * Compute confidence in the ETA estimate from forecast interval width.
  *
- * Signals used (not just percent complete):
- *   1. Number of observed intervals (primary — more data = more signal)
- *   2. Variance of recent intervals (high variance = low confidence)
- *   3. Fraction of remaining work with observed pace data
- *   4. Current pace vs historical pace delta
+ * Confidence reflects how wide the prediction interval is relative to the
+ * point estimate.  "High" means ±15% or less.  This mechanically connects
+ * confidence to the estimator — unlike additive feature scoring, the
+ * confidence output is derived from the same variance that drives the
+ * point estimate.
  *
- * @param {object}      sessionEWMA   — { ewma, variance, count }
- * @param {number}      completedSets — total completed across session
- * @param {number}      totalSets     — total sets in session
- * @param {number|null} historicalDuration — avg historical session duration in ms
- * @param {number}      elapsedMs     — time since session start
+ * Limitation: EWMA variance is locally meaningful but not stationary.
+ * Confidence can be artificially high right before a regime shift (block
+ * transition, exercise type change, weight jump).  This is inherent to
+ * any EWMA-based uncertainty on a non-stationary process.
+ *
+ * @param {object} sessionEWMA      — { ewma, variance, count }
+ * @param {number} totalRemainingMs — point estimate of remaining time
+ * @param {number} completedSets    — total completed across session
+ * @param {number} totalSets        — total sets in session
  * @returns {{ level: 'low'|'med'|'high', reason: string }}
  */
-function computeConfidence(sessionEWMA, completedSets, totalSets, historicalDuration, elapsedMs) {
-  // Signal 1: observation count (0–1 scale, saturates at ~8 intervals)
-  const observationScore = Math.min(1, sessionEWMA.count / 8);
+function computeConfidence(sessionEWMA, totalRemainingMs, completedSets, totalSets) {
+  if (totalRemainingMs <= 0 || totalSets === 0) {
+    return { level: 'low', reason: 'No estimate available' };
+  }
 
-  // Signal 2: coefficient of variation (std / mean) — lower = more consistent
-  let cvScore = 1; // assume good if no variance data
-  if (sessionEWMA.ewma > 0 && sessionEWMA.count >= 3) {
+  let relativeUncertainty;
+
+  if (sessionEWMA.count >= 4 && sessionEWMA.ewma > 0) {
+    // Variance-based: CV × √(remaining sets) gives interval half-width
+    // as a fraction of the point estimate.  More remaining work → wider.
+    // Requires count ≥ 4 (three EWMA updates) for variance to begin converging.
     const cv = Math.sqrt(sessionEWMA.variance) / sessionEWMA.ewma;
-    // cv < 0.2 is very consistent → score 1.0
-    // cv > 0.8 is chaotic → score ~0.2
-    cvScore = Math.max(0.2, 1 - cv);
+    const remainingSets = totalSets - completedSets;
+    relativeUncertainty = cv * Math.sqrt(remainingSets);
+  } else {
+    // Sparse data: high base uncertainty, decaying with observations
+    relativeUncertainty = 1.0 - (sessionEWMA.count * 0.15);
   }
 
-  // Signal 3: how much of the session has observed pace data
-  const coverageScore = totalSets > 0 ? completedSets / totalSets : 0;
+  relativeUncertainty = Math.max(0.05, Math.min(1.5, relativeUncertainty));
 
-  // Signal 4: current pace vs historical pace (if available)
-  let historyScore = 0.5; // neutral if no history
-  if (historicalDuration && elapsedMs > 0 && completedSets > 0) {
-    const currentPace = elapsedMs / completedSets;
-    const historicalPace = historicalDuration / totalSets;
-    const ratio = currentPace / historicalPace;
-    // ratio near 1.0 = good; > 1.5 or < 0.5 = something is off
-    historyScore = Math.max(0, 1 - Math.abs(ratio - 1));
-  }
-
-  // Weighted blend
-  const score =
-    observationScore * 0.40 +
-    cvScore          * 0.25 +
-    coverageScore    * 0.20 +
-    historyScore     * 0.15;
-
-  if (score >= 0.6) return { level: 'high', reason: 'Strong signal from observed intervals' };
-  if (score >= 0.35) return { level: 'med', reason: 'Moderate signal — estimate may drift' };
-  return { level: 'low', reason: 'Limited data — using prescribed rest as fallback' };
+  if (relativeUncertainty <= 0.15) return { level: 'high', reason: 'Narrow prediction interval' };
+  if (relativeUncertainty <= 0.40) return { level: 'med',  reason: 'Moderate prediction interval' };
+  return { level: 'low', reason: 'Wide prediction interval — estimate may drift' };
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────
@@ -300,11 +302,12 @@ export function calculateETA(appState, sessionDef) {
   const elapsedMs = now - appState.sessionStarted;
 
   // ── Gather session-wide intervals for fallback EWMA ────────────────────
+  // Only inter-completion intervals.  Session start is NOT injected — the
+  // gap between session start and first set completion is setup latency
+  // (equipment loading, changing, socializing), not a work interval.
+  // Including it would anchor the EWMA at a systematically inflated value.
   const sessionTs = getSessionTimestamps(sessionDef, appState.exercises);
-  // Include session start as the first "timestamp" — the interval from start
-  // to first completion is meaningful signal.
-  const allTs = [appState.sessionStarted, ...sessionTs];
-  const sessionIntervals = timestampsToIntervals(allTs);
+  const sessionIntervals = timestampsToIntervals(sessionTs);
   const sessionEWMA = computeEWMA(sessionIntervals);
 
   // ── Aggregate remaining time across all blocks ─────────────────────────
@@ -321,29 +324,41 @@ export function calculateETA(appState, sessionDef) {
     totalRemainingMs += remainingMs;
   }
 
-  // If nothing is completed yet, and we have no historical data,
-  // we can still show a rough estimate from prescribed rests.
-  // But only if the session has actually started.
+  // ── Historical blending (pace-relative) ────────────────────────────────
+  // Early in the session, blend toward historical average — but scaled by
+  // the observed pace ratio so fast/slow days adjust toward actual pace
+  // instead of pulling unconditionally toward the historical mean.
+  //
+  // paceRatio is a session-level scalar.  Per-block pace factors would be
+  // more accurate but require per-block historical data we don't have.
+  // Clamped to [0.5, 2.0] to prevent extreme single-set outliers from
+  // dominating.
+  const historicalDuration = historicalSessionDuration(appState, sessionDef.id);
 
-  // ── Cardio overhead ────────────────────────────────────────────────────
+  if (historicalDuration && completedSets > 0 && completedSets < 6) {
+    const alpha = Math.min(1, completedSets / 6);
+
+    const currentPace = elapsedMs / completedSets;
+    const historicalPace = historicalDuration / totalSets;
+    const paceRatio = Math.max(0.5, Math.min(2.0, currentPace / historicalPace));
+
+    const rawHistoricalRemaining = Math.max(0, historicalDuration - elapsedMs);
+    const historicalRemaining = rawHistoricalRemaining * paceRatio;
+
+    totalRemainingMs = alpha * totalRemainingMs + (1 - alpha) * historicalRemaining;
+  } else if (historicalDuration && completedSets === 0) {
+    // No sets completed — pure historical prior (no pace data for ratio)
+    totalRemainingMs = Math.max(0, historicalDuration - elapsedMs);
+  }
+
+  // ── Cardio overhead (post-blend — avoids double-counting with history) ─
   const cardio = appState.cardio || {};
   if (!cardio.warmupDone)   totalRemainingMs += CARDIO_DURATION_MS;
   if (!cardio.finisherDone) totalRemainingMs += CARDIO_DURATION_MS;
 
-  // ── Historical blending ────────────────────────────────────────────────
-  // Early in the session, blend toward historical average.
-  // As more sets complete, trust observed pace more.
-  const historicalDuration = historicalSessionDuration(appState, sessionDef.id);
-
-  if (historicalDuration && completedSets < 6) {
-    const alpha = Math.min(1, completedSets / 6);
-    const historicalRemaining = Math.max(0, historicalDuration - elapsedMs);
-    totalRemainingMs = alpha * totalRemainingMs + (1 - alpha) * historicalRemaining;
-  }
-
-  // ── Confidence ─────────────────────────────────────────────────────────
+  // ── Confidence (from forecast interval width) ──────────────────────────
   const confidence = computeConfidence(
-    sessionEWMA, completedSets, totalSets, historicalDuration, elapsedMs
+    sessionEWMA, totalRemainingMs, completedSets, totalSets
   );
 
   // ── Format output ──────────────────────────────────────────────────────
