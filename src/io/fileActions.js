@@ -1,6 +1,6 @@
-import { workouts, state } from '../core/workouts.js';
-import { dispatch } from '../core/reducer.js';
-import { formatReps, formatWeight } from './rendering.js';
+import { workouts, state } from '../core/state/store.js';
+import { dispatch } from '../core/logic/reducer.js';
+import { formatReps, formatWeight } from '../features/workout/rendering.js';
 
 export function exportData() {
   try {

@@ -10,9 +10,9 @@
  * ─────────────────────────────────────────────────────────
  */
 
-import { setupWorkoutEvents }  from './workoutEvents.js';
-import { setupExerciseEvents } from './exerciseEvents.js';
-import { setupTemplateEvents } from './templateEvents.js';
+import { setupWorkoutEvents }  from '../features/workout/events.js';
+import { setupExerciseEvents } from '../features/exercise/events.js';
+import { setupTemplateEvents } from '../features/template-editor/events.js';
 
 export function setupEvents() {
   setupWorkoutEvents();

@@ -1,5 +1,5 @@
-import { state } from '../core/workouts.js';
-import { dispatch } from '../core/reducer.js';
+import { state } from '../../core/state/store.js';
+import { dispatch } from '../../core/logic/reducer.js';
 
 let draftSessions = [];
 let draftSessionsPerWeek = 3;

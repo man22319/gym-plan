@@ -1,4 +1,4 @@
-import { workouts, EXERCISE_INDEX, EX_SESSION_INDEX } from './workouts.js';
+import { workouts, EXERCISE_INDEX, EX_SESSION_INDEX } from '../state/store.js';
 
 export const query = {
   // ── History Access ─────────────────────────────────────────────────────────

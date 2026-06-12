@@ -1,9 +1,9 @@
-import { workouts, EXERCISE_INDEX, state } from '../core/workouts.js';
-import { query } from '../core/queries.js';
-import { dispatch, registerStartWorkoutModal } from '../core/reducer.js';
-import { makeSet } from '../store/state.js';
-import { lowerBound, resolveWeight } from '../core/helpers.js';
-import { formatDate, formatTime } from './rendering.js';
+import { workouts, EXERCISE_INDEX, state } from '../../core/state/store.js';
+import { query } from '../../core/logic/queries.js';
+import { dispatch, registerStartWorkoutModal } from '../../core/logic/reducer.js';
+import { makeSet } from '../../core/state/state.js';
+import { lowerBound, resolveWeight } from '../../core/utils/helpers.js';
+import { formatDate, formatTime } from '../workout/rendering.js';
 
 
 export let activeHistoryModal = null;

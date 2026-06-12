@@ -1,5 +1,5 @@
-import { STORAGE_KEY, STATE_VERSION, makeSet, createDefaultState } from '../store/state.js';
-import { defaultWorkoutsData, workouts, state, setState } from './workouts.js';
+import { STORAGE_KEY, STATE_VERSION, makeSet, createDefaultState } from './state.js';
+import { defaultWorkoutsData, workouts, state, setState } from './store.js';
 
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
 let writeCount = 0;

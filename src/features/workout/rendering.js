@@ -1,6 +1,6 @@
-import { workouts, programDefaults } from '../core/workouts.js';
-import { query } from '../core/queries.js';
-import { getEffectiveExercise } from '../core/helpers.js';
+import { workouts, programDefaults } from '../../core/state/store.js';
+import { query } from '../../core/logic/queries.js';
+import { getEffectiveExercise } from '../../core/utils/helpers.js';
 
 
 

@@ -1,4 +1,4 @@
-import { onTimerUpdate } from '../core/restTimer.js';
+import { onTimerUpdate } from '../../core/utils/restTimer.js';
 
 export function initTimerUI() {
   onTimerUpdate((event, data) => {

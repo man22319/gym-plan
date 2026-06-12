@@ -4,7 +4,7 @@
 // Entry point. No business logic here — only wires up modules and starts the app.
 
 import { initWorkouts, loadState, state, setState, onRender, onSessionComplete, rebuildAllProgressions } from './core/engine.js';
-import { render, setupEvents, openSessionSummaryModal } from './components/ui.js';
+import { render, setupEvents, openSessionSummaryModal } from './io/uiBarrel.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {

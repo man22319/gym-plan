@@ -1,4 +1,4 @@
-import { EXERCISE_INDEX, state } from './workouts.js';
+import { EXERCISE_INDEX, state } from '../state/store.js';
 
 export function lowerBound(obj) {
   if (!obj || typeof obj !== 'object') return null;

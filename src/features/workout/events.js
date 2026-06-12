@@ -9,9 +9,9 @@
  * ─────────────────────────────────────────────────────────
  */
 
-import { dispatch } from '../core/reducer.js';
-import { skipRestTimer } from '../core/restTimer.js';
-import { openLogModal } from './modals.js';
+import { dispatch } from '../../core/logic/reducer.js';
+import { skipRestTimer } from '../../core/utils/restTimer.js';
+import { openLogModal } from '../modals/index.js';
 
 const pressTimers = new Map();
 

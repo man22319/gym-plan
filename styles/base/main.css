@@ -3,8 +3,8 @@
    Imports all modules in dependency order.
 ══════════════════════════════════════════ */
 @import "./variables.css";
-@import "./layout.css";
-@import "./exercises.css";
-@import "./modals.css";
-@import "./summary.css";
-@import "./cardio.css";
+@import "../components/layout.css";
+@import "../components/exercises.css";
+@import "../components/modals.css";
+@import "../components/summary.css";
+@import "../components/cardio.css";

@@ -9,8 +9,8 @@
  * ─────────────────────────────────────────────────────────
  */
 
-import { openTemplateEditor } from './templateEditor.js';
-import { importData, exportData, copyWorkout } from './fileActions.js';
+import { openTemplateEditor } from './editor.js';
+import { importData, exportData, copyWorkout } from '../../io/fileActions.js';
 
 export function setupTemplateEvents() {
   document.addEventListener('click', e => {

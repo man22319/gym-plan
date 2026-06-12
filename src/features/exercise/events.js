@@ -9,11 +9,11 @@
  * ─────────────────────────────────────────────────────────
  */
 
-import { state } from '../core/workouts.js';
-import { dispatch } from '../core/reducer.js';
-import { skipRestTimer, extendRestTimer } from '../core/restTimer.js';
-import { editingExId, setEditingExId, render } from './rendering.js';
-import { openHistoryModal } from './modals.js';
+import { state } from '../../core/state/store.js';
+import { dispatch } from '../../core/logic/reducer.js';
+import { skipRestTimer, extendRestTimer } from '../../core/utils/restTimer.js';
+import { editingExId, setEditingExId, render } from '../workout/rendering.js';
+import { openHistoryModal } from '../modals/index.js';
 
 export function setupExerciseEvents() {
   document.addEventListener('click', e => {

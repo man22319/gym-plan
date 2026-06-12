@@ -1,9 +1,9 @@
-import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, EQUIPMENT_DELTA_W_DEFAULTS } from '../store/state.js';
-import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from './workouts.js';
+import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, EQUIPMENT_DELTA_W_DEFAULTS } from '../state/state.js';
+import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
-import { resolveWeight, resolveReps } from './helpers.js';
-import { startRestTimer } from './restTimer.js';
-import { persist, normalize, sanitizeSessions } from './persistence.js';
+import { resolveWeight, resolveReps } from '../utils/helpers.js';
+import { startRestTimer } from '../utils/restTimer.js';
+import { persist, normalize, sanitizeSessions } from '../state/persistence.js';
 import { updateProgressionState } from './progression.js';
 
 export const ALLOWED_ACTIONS = {

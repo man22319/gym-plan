@@ -1,4 +1,4 @@
-import { REST_DURATION, MAX_REST_DURATION } from '../store/state.js';
+import { REST_DURATION, MAX_REST_DURATION } from '../state/state.js';
 
 export let restTimerId = null;
 let restRemaining = 0;
