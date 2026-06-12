@@ -11,10 +11,14 @@
   --silver: #d1d1d6;
   --muted: #8e8e93;
   --dim: #48484a;
-  --red: rgba(255, 59, 48, 0.2);
+  --red: rgba(200, 60, 50, 0.18);
   --green: rgba(255, 255, 255, 0.15);
   --timer-active: #ffffff;
   --blue: #ffffff;
+  /* Completion accent — low-sat silver-white, not vivid green */
+  --done: rgba(220, 225, 220, 0.9);
+  --done-bg: rgba(255, 255, 255, 0.06);
+  --done-border: rgba(255, 255, 255, 0.2);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

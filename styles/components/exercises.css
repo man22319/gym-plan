@@ -62,10 +62,10 @@
 
 .exercise-card.completed { opacity: 0.32; }
 
-/* Card in a completed (finished this week) session — full opacity, green left accent */
+/* Card in a completed (finished this week) session — full opacity, subtle silver left accent */
 .exercise-card.session-done-card {
   opacity: 1;
-  border-left: 2px solid rgba(100, 210, 130, 0.3);
+  border-left: 2px solid rgba(255, 255, 255, 0.15);
 }
 .exercise-header {
   display: flex;
@@ -166,9 +166,9 @@
 .ex-logged-badge {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.5rem;
-  color: #64d282;
-  background: rgba(100, 210, 130, 0.1);
-  border: 1px solid rgba(100, 210, 130, 0.3);
+  color: var(--silver);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   padding: 3px 7px;
   border-radius: 4px;
   letter-spacing: 1px;
@@ -209,10 +209,10 @@
   letter-spacing: 0.5px;
   font-weight: 500;
 }
-.ex-advice.prog-increase .advice-text { color: #66bb6a; }
+.ex-advice.prog-increase .advice-text { color: var(--silver); }
 .ex-advice.prog-maintain .advice-text { color: var(--muted); }
-.ex-advice.prog-reduce  .advice-text { color: #ef5350; }
-.ex-advice.prog-watch   .advice-text { color: #fdd835; }
+.ex-advice.prog-reduce  .advice-text { color: rgba(200, 80, 70, 0.85); }
+.ex-advice.prog-watch   .advice-text { color: rgba(190, 175, 150, 0.9); }
 
 
 
@@ -385,46 +385,41 @@
   color: var(--white);
   font-weight: 600;
 }
-/* Session-start suggestion (before any sets) */
+/* Session-start suggestion (before any sets) — muted cool-white */
 .prog-chip-preview {
-  border-color: rgba(100, 180, 255, 0.2);
-  background: rgba(100, 180, 255, 0.05);
-  color: rgba(100, 180, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
 }
-.prog-chip-preview strong { color: rgba(140, 200, 255, 1); }
+.prog-chip-preview strong { color: var(--silver); }
 
-/* Review mode (finished session) */
+/* Review mode (finished session) — white/silver, not vivid green */
 .prog-chip-review {
-  border-color: rgba(100, 210, 130, 0.25);
-  background: rgba(100, 210, 130, 0.06);
-  color: rgba(100, 210, 130, 0.8);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--silver);
 }
-.prog-chip-review strong { color: #64d282; }
+.prog-chip-review strong { color: var(--white); }
 
-/* Fatigue warning (amber) */
+/* Fatigue warning — desaturated warm-grey, not amber */
 .prog-chip-warn {
-  border-color: rgba(255, 183, 77, 0.3);
-  background: rgba(255, 183, 77, 0.07);
-  color: rgba(255, 183, 77, 0.9);
+  border-color: rgba(200, 180, 140, 0.25);
+  background: rgba(200, 180, 140, 0.05);
+  color: rgba(200, 185, 160, 0.85);
 }
 
-/* Risk warning (red) */
+/* Risk warning — muted desaturated crimson, no glow animation */
 .prog-chip-danger {
-  border-color: rgba(255, 80, 60, 0.35);
-  background: rgba(255, 80, 60, 0.08);
-  color: rgba(255, 100, 80, 0.9);
-  animation: pulseRisk 2.5s ease-in-out infinite;
-}
-@keyframes pulseRisk {
-  0%, 100% { box-shadow: none; }
-  50% { box-shadow: 0 0 6px rgba(255, 80, 60, 0.3); }
+  border-color: rgba(180, 60, 50, 0.4);
+  background: rgba(160, 40, 35, 0.08);
+  color: rgba(210, 100, 90, 0.9);
 }
 
-/* Suppressed progression */
+/* Suppressed progression — dim, not amber */
 .prog-chip-suppressed {
-  border-color: rgba(255, 183, 77, 0.2);
-  background: rgba(255, 183, 77, 0.04);
-  color: rgba(255, 183, 77, 0.6);
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--dim);
   letter-spacing: 1.5px;
 }
 
@@ -444,20 +439,20 @@
   /* Slightly inset — reads as a sub-label inside the chip */
   background: rgba(0, 0, 0, 0.25);
 }
-/* LOW — amber: model hasn't seen enough sessions yet */
+/* LOW — dim: model hasn't seen enough sessions yet */
 .prog-conf-low  {
-  color: rgba(255, 183, 77, 0.9);
-  border: 1px solid rgba(255, 183, 77, 0.3);
+  color: rgba(180, 170, 155, 0.85);
+  border: 1px solid rgba(180, 170, 155, 0.25);
 }
-/* MED — white/muted: reasonable but still converging */
+/* MED — muted: reasonable but still converging */
 .prog-conf-med  {
   color: var(--muted);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
-/* HIGH — green: EMA well-converged, high-signal recommendation */
+/* HIGH — silver-white: EMA well-converged, high-signal recommendation */
 .prog-conf-high {
-  color: rgba(100, 210, 130, 0.9);
-  border: 1px solid rgba(100, 210, 130, 0.3);
+  color: var(--silver);
+  border: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 
@@ -477,19 +472,19 @@
   line-height: 1;
   white-space: nowrap;
 }
-.dot-feedback-on-target { color: rgba(100, 210, 130, 0.85); }
-.dot-feedback-light     { color: rgba(100, 180, 255, 0.8);  }
-.dot-feedback-heavy     { color: rgba(255, 183, 77, 0.85);  }
-.dot-feedback-failed    { color: rgba(255, 80, 60, 0.8);    }
+.dot-feedback-on-target { color: var(--silver); }
+.dot-feedback-light     { color: rgba(200, 200, 200, 0.6);  }
+.dot-feedback-heavy     { color: rgba(190, 170, 145, 0.8);  }
+.dot-feedback-failed    { color: rgba(200, 80, 70, 0.75);   }
 
-/* Subtle tint on the dot itself to reinforce feedback */
+/* Subtle border tint on the dot itself to reinforce feedback */
 .set-dot.dot-light  {
-  border-color: rgba(100, 180, 255, 0.4);
-  box-shadow: 0 0 8px rgba(100, 180, 255, 0.15), inset 0 -2px 4px rgba(0,0,0,0.1);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 -2px 4px rgba(0,0,0,0.1);
 }
 .set-dot.dot-heavy  {
-  border-color: rgba(255, 183, 77, 0.5);
-  box-shadow: 0 0 8px rgba(255, 183, 77, 0.15), inset 0 -2px 4px rgba(0,0,0,0.1);
+  border-color: rgba(190, 170, 145, 0.35);
+  box-shadow: inset 0 -2px 4px rgba(0,0,0,0.1);
 }
 
 
@@ -607,10 +602,10 @@
   transform: none;
 }
 .set-dot.dot-completed-session.done {
-  background: rgba(100, 210, 130, 0.15);
-  border-color: rgba(100, 210, 130, 0.4);
-  color: #64d282;
-  box-shadow: 0 0 0 1px rgba(100, 210, 130, 0.2), inset 0 1px 3px rgba(0,0,0,0.4);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--silver);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
 }
 .set-dot.dot-completed-session.failed {
   opacity: 0.7;

@@ -420,7 +420,7 @@ header {
 }
 .tab.tab-finished.active {
   color: var(--muted);
-  border-bottom-color: rgba(100, 210, 130, 0.6);
+  border-bottom-color: rgba(255, 255, 255, 0.35);
 }
 /* ✓ completed badge on tabs */
 .completed-tab-badge {
@@ -428,9 +428,9 @@ header {
   top: 4px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(100, 210, 130, 0.18);
-  color: #64d282;
-  border: 1px solid rgba(100, 210, 130, 0.35);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--silver);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.52rem;
   font-weight: 700;
@@ -654,15 +654,15 @@ header {
   gap: 16px;
   text-align: left;
   padding: 18px 20px;
-  background: rgba(20, 40, 26, 0.65) !important;
-  border-color: rgba(100, 210, 130, 0.25) !important;
-  border-left: 3px solid rgba(100, 210, 130, 0.6) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  border-left: 3px solid rgba(255, 255, 255, 0.3) !important;
   font-size: inherit;
   letter-spacing: inherit;
 }
 .finished-banner-icon {
   font-size: 2rem;
-  color: #64d282;
+  color: var(--silver);
   line-height: 1;
   flex-shrink: 0;
   font-family: 'Barlow Condensed', sans-serif;
@@ -678,7 +678,7 @@ header {
   font-weight: 900;
   font-size: 1.3rem;
   letter-spacing: 4px;
-  color: #64d282;
+  color: var(--white);
   text-transform: uppercase;
 }
 .finished-banner small {
@@ -686,7 +686,7 @@ header {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.54rem;
   letter-spacing: 1.5px;
-  color: rgba(100, 210, 130, 0.6);
+  color: var(--muted);
   margin-top: 0;
   text-transform: uppercase;
 }
