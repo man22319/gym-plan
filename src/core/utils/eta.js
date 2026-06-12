@@ -382,6 +382,8 @@ export function calculateETA(appState, sessionDef) {
     remainingLabel,
     confidence,
     completedSets,
-    totalSets
+    totalSets,
+    lastCompletionTs: sessionTs.length > 0 ? sessionTs[sessionTs.length - 1] : null,
+    sessionIntervalMs: sessionEWMA.count >= 2 ? sessionEWMA.ewma : null,
   };
 }

@@ -946,6 +946,8 @@ export function renderCardioUpdate(appState) {
 let _cachedDepartureMs = null;
 let _cachedCompletedSets = 0;
 let _cachedConfidence = null;
+let _cachedIntervalMs = null;
+let _cachedLastCompletionTs = null;
 
 /**
  * Update the ETA display elements in the DOM.
@@ -969,32 +971,46 @@ function updateETADisplay(appState) {
       _cachedDepartureMs = eta.etaMs;
       _cachedCompletedSets = eta.completedSets;
       _cachedConfidence = eta.confidence;
+      _cachedIntervalMs = eta.sessionIntervalMs;
+      _cachedLastCompletionTs = eta.lastCompletionTs;
     }
   } else {
     _cachedDepartureMs = null;
     _cachedCompletedSets = 0;
     _cachedConfidence = null;
+    _cachedIntervalMs = null;
+    _cachedLastCompletionTs = null;
   }
 
-  // Derive live countdown from cached departure
+  // Derive live countdown from cached departure, with overshoot adjustment.
+  // If the user rests longer than the expected interval, the departure time
+  // slides forward in real-time — the countdown freezes (no progress being
+  // made) and EST. DONE drifts later, giving honest real-time feedback.
   const now = Date.now();
-  const liveRemainingMs = _cachedDepartureMs ? Math.max(0, _cachedDepartureMs - now) : 0;
-  const liveRemainingMin = Math.max(1, Math.round(liveRemainingMs / 60_000));
-  const liveRemainingLabel = liveRemainingMin < 60
-    ? `~${liveRemainingMin} min`
-    : `~${Math.floor(liveRemainingMin / 60)}h ${liveRemainingMin % 60}m`;
+
+  let overshootMs = 0;
+  if (_cachedDepartureMs && _cachedIntervalMs && _cachedLastCompletionTs) {
+    const sinceLast = now - _cachedLastCompletionTs;
+    if (sinceLast > _cachedIntervalMs) {
+      overshootMs = sinceLast - _cachedIntervalMs;
+    }
+  }
+
+  const adjustedDepartureMs = _cachedDepartureMs ? _cachedDepartureMs + overshootMs : null;
+  const liveRemainingMs = adjustedDepartureMs ? Math.max(0, adjustedDepartureMs - now) : 0;
+  const liveRemainingLabel = formatRemainingTime(liveRemainingMs);
 
   const confLevel = _cachedConfidence?.level ?? 'low';
 
-  // Departure label from cached timestamp
-  const liveDepartureLabel = _cachedDepartureMs
-    ? new Date(_cachedDepartureMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  // Departure label from adjusted timestamp
+  const liveDepartureLabel = adjustedDepartureMs
+    ? new Date(adjustedDepartureMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     : null;
 
   // Header stats — remaining time ("~18 min") — now ticks down live
   const headerEl = document.getElementById('eta-display');
   if (headerEl) {
-    if (_cachedDepartureMs) {
+    if (adjustedDepartureMs) {
       headerEl.textContent = liveRemainingLabel;
       headerEl.classList.add('has-value');
       headerEl.classList.toggle('conf-low', confLevel === 'low');
@@ -1046,6 +1062,24 @@ function updateETADisplay(appState) {
  * @returns {string}
  */
 function formatElapsed(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = n => String(n).padStart(2, '0');
+  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+  return `${m}:${pad(s)}`;
+}
+
+/**
+ * Format remaining milliseconds as M:SS or H:MM:SS.
+ * Unlike formatElapsed, clamps to 0:00 when ms ≤ 0.
+ *
+ * @param {number} ms
+ * @returns {string}
+ */
+function formatRemainingTime(ms) {
+  if (!ms || ms <= 0) return '0:00';
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
