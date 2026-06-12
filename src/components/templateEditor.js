@@ -8,29 +8,12 @@ let expandedExerciseIds = new Set();
 let overlayEl = null;
 
 function generateId(prefix = 'id') {
-  return `${prefix}_${Math.random().toString(36).substring(2, 11)}`;
+  return `${prefix}_${crypto.randomUUID()}`;
 }
 
 // Deep clone templates and randomize IDs for duplicate copies
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
-}
-
-function cloneSessionForDuplication(session) {
-  const newSession = deepClone(session);
-  newSession.id = generateId('session');
-  newSession.dayLabel = `${newSession.dayLabel} (Copy)`;
-  
-  if (newSession.blocks) {
-    newSession.blocks.forEach(block => {
-      if (block.exercises) {
-        block.exercises.forEach(ex => {
-          ex.id = generateId('ex');
-        });
-      }
-    });
-  }
-  return newSession;
 }
 
 function cloneExerciseForDuplication(ex) {
@@ -101,7 +84,6 @@ function renderSidebar() {
         <div class="te-sidebar-tab-actions">
           <button class="te-tab-action-btn te-move-session-up" data-idx="${idx}" title="Move Up" ${idx === 0 ? 'disabled' : ''}>▲</button>
           <button class="te-tab-action-btn te-move-session-down" data-idx="${idx}" title="Move Down" ${idx === draftSessions.length - 1 ? 'disabled' : ''}>▼</button>
-          <button class="te-tab-action-btn te-duplicate-session" data-idx="${idx}" title="Duplicate">⧉</button>
           <button class="te-tab-action-btn te-delete-session" data-idx="${idx}" title="Delete">🗑</button>
         </div>
       </div>
@@ -473,20 +455,6 @@ function setupEditorEvents() {
         const temp = draftSessions[idx];
         draftSessions[idx] = draftSessions[idx + 1];
         draftSessions[idx + 1] = temp;
-        renderContents();
-      }
-      return;
-    }
-
-    // Duplicate Session
-    const duplicateSessionBtn = e.target.closest('.te-duplicate-session');
-    if (duplicateSessionBtn) {
-      const idx = parseInt(duplicateSessionBtn.dataset.idx, 10);
-      const session = draftSessions[idx];
-      if (session) {
-        const cloned = cloneSessionForDuplication(session);
-        draftSessions.splice(idx + 1, 0, cloned);
-        selectedSessionId = cloned.id;
         renderContents();
       }
       return;

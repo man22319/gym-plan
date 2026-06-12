@@ -4,4 +4,3 @@ export { lowerBound, getEffectiveExercise, resolveWeight, resolveReps } from './
 export { ALLOWED_ACTIONS, validateAction, cycleStatus, reducer, onRender, onSessionComplete, dispatch, rebuildAllProgressions } from './reducer.js';
 export { restTimerId, startRestTimer, startRestTimerLoop, extendRestTimer, getRestState, skipRestTimer, onTimerUpdate } from './restTimer.js';
 export { persist, loadState, normalize, validate } from './persistence.js';
-export { detectPlateaus, calcE1RM, bestMetricFromSets, getSuggestedIntervention } from './analytics/plateaus.js';

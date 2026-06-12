@@ -1,7 +1,6 @@
 import { workouts } from '../core/workouts.js';
 import { query } from '../core/queries.js';
 import { getEffectiveExercise } from '../core/helpers.js';
-import { detectPlateaus } from '../core/analytics/plateaus.js';
 
 
 
@@ -255,8 +254,6 @@ export function buildCard(ex, appState, readOnly = false) {
   const editBtnHtml = readOnly ? '' : `<button class="ex-edit-btn" data-ex-id="${ex.id}" aria-label="Edit targets" title="Edit targets">✎</button>`;
   const editPanelHtml = (editingExId === ex.id && !readOnly) ? buildEditPanel(ex, appState) : '';
 
-  const plateauBannerHtml = buildPlateauBanner(appState, ex.id);
-
   return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${ex.id}">
     <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${displayName}" tabindex="0" ${readOnly ? 'style="cursor: default;"' : ''}>
       <div class="ex-letter">${ex.letter || ''}</div>
@@ -278,7 +275,6 @@ export function buildCard(ex, appState, readOnly = false) {
     </div>
     ${editPanelHtml}
     ${buildNotesRow(ex, appState)}
-    ${plateauBannerHtml}
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
     <div class="set-row">
@@ -338,88 +334,16 @@ export function buildNotesRow(ex, appState) {
   const effEx = getEffectiveExercise(appState, ex.id);
   const hasNotes = effEx?.notes && effEx.notes.trim();
 
-  const notesHtml = hasNotes
-    ? `<span class="ex-notes">${effEx.notes}</span>`
-    : '';
-
-  const rec = query.progressionRecommendation(appState, ex.id);
-  let adviceHtml = '';
-  if (rec) {
-    const cls = rec.action === 'increase' ? 'prog-increase'
-              : rec.action === 'reduce'   ? 'prog-reduce'
-              : rec.action === 'watch'    ? 'prog-watch'
-              : 'prog-maintain';
-    adviceHtml = `<div class="ex-advice ${cls}">
-      <span class="ex-advice-label">ADVICE:</span>
-      <span class="advice-text">${rec.label}</span>
-    </div>`;
-  }
-
-  if (!hasNotes && !adviceHtml) return '';
+  if (!hasNotes) return '';
 
   return `<div class="ex-meta-row">
-    ${notesHtml}
-    ${adviceHtml}
+    <span class="ex-notes">${effEx.notes}</span>
   </div>`;
 }
 
-export function buildProgressionChip(appState, ex) {
-  const rec = query.progressionRecommendation(appState, ex.id);
-  if (!rec) return '';
 
-  const cls = rec.action === 'increase' ? 'prog-increase'
-            : rec.action === 'reduce'   ? 'prog-reduce'
-            : rec.action === 'watch'    ? 'prog-watch'
-            : 'prog-maintain';
 
-  return `<div class="progression-chip ${cls}">
-    <span class="prog-label">NEXT SESSION</span>
-    <span class="prog-text">${rec.label}</span>
-  </div>`;
-}
 
-/**
- * Builds the plateau warning banner for a single exercise card.
- * Returns an empty string if no stagnation is detected or if
- * there is insufficient history to make a determination.
- *
- * @param {object} appState
- * @param {string} exId
- * @returns {string} HTML string
- */
-export function buildPlateauBanner(appState, exId) {
-  const sessions  = appState.sessions || [];
-  const history   = appState.history  || [];
-  const activeId  = appState.activeSessionId;
-
-  if (!activeId || !history.length || !sessions.length) return '';
-
-  // detectPlateaus scans all exercises in the active session;
-  // we only care about the one matching this card's exId.
-  const plateaus = detectPlateaus(history, activeId, sessions, 3);
-  const info     = plateaus.find(p => p.exerciseId === exId);
-  if (!info) return '';
-
-  const icon        = info.currentTrend === 'down' ? '↓' : '→';
-  const trendLabel  = info.currentTrend === 'down' ? 'Declining' : 'Flat';
-  const trendCls    = info.currentTrend === 'down' ? 'plateau-down' : 'plateau-flat';
-
-  // Format the E1RM trace as a compact string, e.g. "84.3 → 83.1 → 82.5"
-  const metricsStr  = info.metrics.map(m => m.toFixed(1)).join(' → ');
-
-  return `
-    <div class="plateau-banner ${trendCls}" role="alert" aria-label="Plateau warning: ${trendLabel} trend detected">
-      <span class="plateau-icon" aria-hidden="true">${icon}</span>
-      <div class="plateau-body">
-        <div class="plateau-header">
-          <span class="plateau-label">Plateau · ${info.consecutiveSessions} sessions</span>
-          <span class="plateau-trend-badge">${trendLabel}</span>
-        </div>
-        <div class="plateau-metrics">E1RM: ${metricsStr}</div>
-        <div class="plateau-intervention">${info.suggestedIntervention}</div>
-      </div>
-    </div>`;
-}
 
 export function buildPrevRow(prevSets, currSets) {
   if (!prevSets) return '';
