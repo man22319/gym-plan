@@ -4,22 +4,43 @@
 ══════════════════════════════════════════ */
 
 html, body {
-  background: var(--bg);
+  background-color: #0c0c0e;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(20, 20, 25, 0.8) 0px, transparent 50%),
+    radial-gradient(at 50% 0%, rgba(30, 30, 35, 0.5) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(15, 15, 20, 0.8) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(10, 10, 12, 0.9) 0px, transparent 50%);
+  background-attachment: fixed;
+  background-size: cover;
   color: var(--white);
   font-family: 'Barlow', sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
   max-width: 100%;
 }
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.02;
+  z-index: 9999;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
 
 /* ── Header ── */
 header {
-  padding: 12px 14px 10px;
+  padding: 8px 14px 6px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg);
+  background: rgba(12, 12, 14, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   position: sticky;
   top: 0;
   z-index: 30;
@@ -50,8 +71,8 @@ header {
 .logo {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 900;
-  font-size: 1.55rem;
-  letter-spacing: 3px;
+  font-size: 1.35rem;
+  letter-spacing: 2px;
   color: var(--white);
   text-transform: uppercase;
 }
@@ -95,32 +116,57 @@ header {
 /* ── Header Buttons ── */
 .header-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
-#copy-btn {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.65rem;
-  padding: 8px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  transition: all 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  white-space: nowrap;
+.action-pill-group {
   display: flex;
   align-items: center;
-  gap: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 3px;
+  border-radius: 99px;
+  gap: 3px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
-#copy-btn:hover { border-color: var(--border-hi); color: var(--white); background: rgba(255,255,255,0.03); }
-#copy-btn.copied { color: var(--green); border-color: var(--green); }
+.header-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.header-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--white);
+}
+.header-btn:active {
+  transform: scale(0.9);
+}
+.header-btn.copied {
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.15);
+}
+.header-btn.dropdown-trigger {
+  width: auto;
+  height: 28px;
+  border-radius: 99px;
+  padding: 0 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
 
 /* ── Dropdowns ── */
 .dropdown {
@@ -135,14 +181,29 @@ header {
   display: none;
   position: absolute;
   right: 0;
-  background-color: var(--bg2);
+  background-color: rgba(28, 28, 30, 0.95);
   min-width: 140px;
-  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
-  border: 1px solid var(--border-hi);
+  box-shadow: 0px 8px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   top: 100%;
-  border-radius: 6px;
+  border-radius: 8px;
   z-index: 300;
   margin-top: 4px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.dropdown-subheader {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
+  text-transform: uppercase;
+  color: var(--dim);
+  padding: 8px 14px 4px;
+  letter-spacing: 0.5px;
+}
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
 }
 .dropdown:hover .dropdown-content {
   display: block;
@@ -271,9 +332,11 @@ header {
 .tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
+  background: rgba(12, 12, 14, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   position: sticky;
-  top: 57px;
+  top: 45px;
   z-index: 20;
 }
 .tab {
@@ -318,12 +381,12 @@ header {
   top: 4px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--red);
+  background: var(--white);
   color: #000;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.38rem;
-  font-weight: 600;
-  padding: 1px 4px;
+  font-weight: 700;
+  padding: 1px 5px;
   border-radius: 3px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -377,10 +440,10 @@ header {
 
 /* ── Warm-up ── */
 .warmup-bar {
-  margin: 10px 0 18px;
-  background: var(--bg3);
+  margin: 8px 0 8px;
+  background: var(--bg2);
   border: 1px solid var(--border);
-  border-left: 2px solid var(--white);
+  border-left: 2px solid var(--muted);
   padding: 14px 16px;
   border-radius: 8px;
   font-family: 'IBM Plex Mono', monospace;
@@ -400,44 +463,46 @@ header {
 .warmup-bar:active { background: rgba(255,255,255,0.04); }
 .warmup-bar strong { color: var(--white); }
 .warmup-bar.warmup-done {
-  border-left-color: var(--green, #5cff8a);
-  background: rgba(92, 255, 138, 0.04);
+  border-left-color: var(--white);
+  background: rgba(255, 255, 255, 0.05);
 }
-.warmup-checkbox {
+.warmup-checkbox, .finisher-checkbox {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border-hi, #444);
-  border-radius: 4px;
-  background-color: var(--bg2);
-  cursor: pointer;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  width: 42px;
+  height: 22px;
+  border-radius: 99px;
+  background-color: rgba(255, 255, 255, 0.06);
   position: relative;
-  transition: background-color 0.15s, border-color 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  margin: 0;
+  cursor: pointer;
   outline: none;
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  margin: 0;
   margin-left: auto;
 }
-.warmup-checkbox:checked {
-  background-color: var(--green, #5cff8a);
-  border-color: var(--green, #5cff8a);
-}
-.warmup-checkbox:checked::after {
+.warmup-checkbox::after, .finisher-checkbox::after {
   content: '';
   position: absolute;
-  left: 5px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
-  border: solid var(--bg, #0a0a0a);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--white);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.3s;
 }
+.warmup-checkbox:checked, .finisher-checkbox:checked {
+  background-color: var(--white);
+  border-color: var(--white);
+}
+.warmup-checkbox:checked::after, .finisher-checkbox:checked::after {
+  transform: translateX(20px);
+  background-color: #0c0c0e;
+}
+
 .warmup-note-hint {
   font-size: 0.48rem;
   letter-spacing: 1px;
@@ -453,29 +518,34 @@ header {
   font-size: 0.58rem;
   letter-spacing: 3px;
   color: var(--dim);
-  margin: 14px 0 8px 2px;
+  margin: 12px 0 8px;
   text-transform: uppercase;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 12px;
 }
 .session > .superset-label:first-of-type {
-  margin-top: 6px;
+  margin-top: 4px;
 }
-.superset-label::after {
+.superset-label::before, .superset-label::after {
   content: '';
   flex: 1;
   height: 1px;
   background: var(--border);
 }
 
-/* ── Complete Banner ── */
 .complete-banner {
   display: none;
   margin: 18px 0 0;
-  background: var(--bg3);
-  border: 1px solid var(--border-hi);
-  border-radius: 8px;
+  background: var(--bg2);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid transparent;
+  background-image: linear-gradient(rgba(40,40,40,0.4), rgba(40,40,40,0.4)), linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.06) 100%);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  border-radius: 12px;
   padding: 20px 16px;
   text-align: center;
   font-family: 'Barlow Condensed', sans-serif;
@@ -484,6 +554,7 @@ header {
   letter-spacing: 5px;
   color: var(--white);
   text-transform: uppercase;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 .complete-banner.visible { display: block; }
 .complete-banner small {

@@ -234,11 +234,12 @@ export function reducer(currentState, action) {
       // Update completedWorkouts to match new history length if import grew it
       const newCompleted = Math.max(currentState.completedWorkouts ?? 0, merged.length);
 
-      return {
+      const nextState = {
         ...currentState,
         history: merged,
         completedWorkouts: newCompleted
       };
+      return rebuildAllProgressions(nextState);
     }
 
     case 'START_SESSION': {
@@ -519,4 +520,67 @@ export function dispatch(type, payload = {}) {
   } catch (err) {
     console.error(`[dispatch] ${type} rejected:`, err);
   }
+}
+
+export function rebuildAllProgressions(appState) {
+  if (!appState.history || appState.history.length === 0) {
+    return appState;
+  }
+  
+  const history = [...appState.history].sort((a, b) => a.timestamp - b.timestamp);
+  let newProgState = {};
+  
+  const EXERCISE_INDEX_local = appState?.sessions
+    ? Object.fromEntries(
+        (appState.sessions || []).flatMap(s =>
+          (s.blocks || []).flatMap(b => (b.exercises || []).map(ex => [ex.id, ex]))
+        )
+      )
+    : EXERCISE_INDEX;
+    
+  for (const entry of history) {
+    const sessionId = entry.sessionId;
+    const session = (appState.sessions || []).find(s => s.id === sessionId)
+      ?? workouts.find(s => s.id === sessionId);
+    if (!session) continue;
+    
+    const allExercises = session.blocks.flatMap(b => b.exercises);
+    
+    const durationMs = entry.startTimestamp ? entry.timestamp - entry.startTimestamp : 0;
+    const durationMin = durationMs > 0 ? durationMs / 60000 : null;
+    
+    let sessionVolume = 0;
+    if (entry.exercises) {
+      Object.values(entry.exercises).forEach(sets => {
+        sets.forEach(s => {
+          if (s.s === 'done' && s.w !== null && s.r !== null) sessionVolume += s.w * s.r;
+        });
+      });
+    }
+    const density = durationMin ? sessionVolume / durationMin : null;
+    
+    for (const ex of allExercises) {
+      if (ex.invariant) continue;
+      const sets = entry.exercises[ex.id] || [];
+      const prev = newProgState[ex.id] || {};
+      const updated = updateProgressionState(prev, sets, {
+        density,
+        riskMultiplier: ex.riskMultiplier ?? 1.0,
+        deltaW: appState.exerciseOverrides?.[ex.id]?.deltaW ?? ex.deltaW
+      });
+      newProgState[ex.id] = {
+        T: updated.T,
+        F: updated.F,
+        dw: updated.dw,
+        lastSuggested: updated.suggestedWeight,
+        lastRisk: updated.riskScore,
+        lastSuppressed: updated.suppressed
+      };
+    }
+  }
+  
+  return {
+    ...appState,
+    progressionState: newProgState
+  };
 }

@@ -320,11 +320,11 @@ function renderMain() {
         </div>
         <div class="te-field" style="grid-column: span 2;">
           <label class="te-field-label" for="te-session-warmup">Warm-up Plan</label>
-          <input type="text" id="te-session-warmup" class="te-input te-session-field" data-field="warmup" value="${currentSession.warmup || ''}" placeholder="e.g. Incline treadmill · 8 min · 3.0 mph" />
+          <input type="text" id="te-session-warmup" class="te-input te-session-field" data-field="warmup" value="${currentSession.warmup || ''}" placeholder="e.g. Treadmill · 8 min · 3.0 mph" />
         </div>
         <div class="te-field" style="grid-column: span 2;">
           <label class="te-field-label" for="te-session-finisher">Finisher Plan</label>
-          <input type="text" id="te-session-finisher" class="te-input te-session-field" data-field="finisher" value="${currentSession.finisher || ''}" placeholder="e.g. Incline treadmill · 8 min" />
+          <input type="text" id="te-session-finisher" class="te-input te-session-field" data-field="finisher" value="${currentSession.finisher || ''}" placeholder="e.g. Treadmill · 8 min" />
         </div>
       </div>
     </div>
@@ -465,7 +465,7 @@ function setupEditorEvents() {
         id: newId,
         dayLabel: 'NEW',
         sessionLabel: `Session ${draftSessions.length + 1}`,
-        warmup: 'Incline treadmill · 8 min · 3.0 mph · 2%',
+        warmup: 'Treadmill · 8 min · 3.0 mph · 2%',
         finisher: 'Incline treadmill · 8 min · 3.3 mph · 2.5%',
         blocks: []
       });

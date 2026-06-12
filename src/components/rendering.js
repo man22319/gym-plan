@@ -99,6 +99,8 @@ export function render(appState) {
       </div>
     `;
   }
+  
+  initScrollObserver();
 }
 
 export function buildApp(appState) {
@@ -317,7 +319,7 @@ export function buildCardioSection(appState) {
               ${warmupDone ? 'checked' : ''}
             />
             <span>Warmup done</span>
-            <span class="cardio-check-sub">Incline treadmill · 8 min</span>
+            <span class="cardio-check-sub">Treadmill · 8 min</span>
           </label>
         </div>
         <div class="cardio-field cardio-field--check">
@@ -330,7 +332,7 @@ export function buildCardioSection(appState) {
               ${finisherDone ? 'checked' : ''}
             />
             <span>Finisher done</span>
-            <span class="cardio-check-sub">Incline treadmill · 8 min</span>
+            <span class="cardio-check-sub">Treadmill · 8 min</span>
           </label>
         </div>
         <div class="cardio-field cardio-field--notes" style="grid-column: span 2;">
@@ -350,8 +352,10 @@ export function buildCardioSection(appState) {
 }
 
 export function buildBlock(block, appState) {
-  return `<div class="superset-label">${block.label}</div>
-    ${block.exercises.map(ex => buildCard(ex, appState)).join('')}`;
+  return `<section class="superset-section" data-block-id="${block.label}">
+    <div class="superset-label">${block.label}</div>
+    ${block.exercises.map(ex => buildCard(ex, appState)).join('')}
+  </section>`;
 }
 
 export function buildCard(ex, appState) {
@@ -365,7 +369,6 @@ export function buildCard(ex, appState) {
   const isOverridden = !!appState?.exerciseOverrides?.[ex.id];
   
   const wStr      = formatWeight(effEx.load ?? effEx.weight);
-  const detail    = `${effEx.sets} × ${formatReps(effEx.reps)}${wStr ? `<br>${wStr}` : ''}`;
   const prs       = query.currentSetPRs(appState, ex.id);
   const hasPR     = prs.length > 0;
 
@@ -381,9 +384,8 @@ export function buildCard(ex, appState) {
     ? `<span class="ex-revert-link" data-ex-id="${ex.id}" role="button" aria-label="Revert exercise swap">↩ revert</span>`
     : '';
 
-  const detailHtml = isOverridden
-    ? `<div class="ex-detail overridden" title="Custom targets active">${detail} <span class="ex-override-indicator">●</span></div>`
-    : `<div class="ex-detail">${detail}</div>`;
+  const isOverriddenClass = isOverridden ? 'overridden' : '';
+  const overrideIndicator = isOverridden ? ' <span class="ex-override-indicator" title="Custom targets active">●</span>' : '';
 
   const editBtnHtml = `<button class="ex-edit-btn" data-ex-id="${ex.id}" aria-label="Edit targets" title="Edit targets">✎</button>`;
   const editPanelHtml = (editingExId === ex.id) ? buildEditPanel(ex, appState) : '';
@@ -399,13 +401,16 @@ export function buildCard(ex, appState) {
           ${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}
           ${revertHtml}
         </div>
-        ${effEx.equipmentType ? `<div class="ex-type">type: ${effEx.equipmentType}</div>` : ''}
+        <div class="ex-info-group ex-metadata-row-sub" title="Press & hold to cycle alternatives">
+          <span class="ex-metadata-sets-reps">${effEx.sets} × ${formatReps(effEx.reps)}</span>
+          ${wStr ? `<span class="ex-metadata-weight-tag ${isOverriddenClass}">${wStr}${overrideIndicator}</span>` : ''}
+          ${effEx.equipmentType ? `<span class="ex-metadata-type-badge">${effEx.equipmentType}</span>` : ''}
+        </div>
       </div>
-      <div class="ex-info-group" title="Press & hold to cycle alternatives">
-        ${detailHtml}
-        <div class="ex-history-hint">TAP FOR HISTORY</div>
+      <div class="ex-header-right-actions">
+        <div class="ex-history-hint">HISTORY</div>
+        ${editBtnHtml}
       </div>
-      ${editBtnHtml}
     </div>
     ${editPanelHtml}
     ${buildNotesRow(ex, appState)}
@@ -636,4 +641,27 @@ export function buildDot(exId, idx, setObj) {
     data-ex-id="${exId}"
     data-set-idx="${idx}"
     aria-label="Set ${idx + 1}: tap to toggle, hold to log">${inner}</button>`;
+}
+
+export function initScrollObserver() {
+  if (typeof IntersectionObserver === 'undefined') return;
+  const options = {
+    root: null,
+    rootMargin: '-30% 0px -30% 0px',
+    threshold: 0.1
+  };
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-focus');
+        entry.target.classList.remove('out-of-focus');
+      } else {
+        entry.target.classList.remove('in-focus');
+        entry.target.classList.add('out-of-focus');
+      }
+    });
+  }, options);
+  document.querySelectorAll('.superset-section').forEach(sec => {
+    observer.observe(sec);
+  });
 }

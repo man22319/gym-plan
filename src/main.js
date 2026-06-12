@@ -3,7 +3,7 @@
 // ==========================================
 // Entry point. No business logic here — only wires up modules and starts the app.
 
-import { initWorkouts, loadState, state, onRender, onSessionComplete } from './core/engine.js';
+import { initWorkouts, loadState, state, setState, onRender, onSessionComplete, rebuildAllProgressions } from './core/engine.js';
 import { render, setupEvents, openSessionSummaryModal } from './components/ui.js';
 
 /**
@@ -57,6 +57,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   loadState();
+
+  if (state && state.history && state.history.length > 0) {
+    const rebuilt = rebuildAllProgressions(state);
+    setState(rebuilt);
+  }
 
   // Wire render callback — keeps engine DOM-free (no circular import).
   onRender(render);

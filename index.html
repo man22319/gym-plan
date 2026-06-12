@@ -22,29 +22,42 @@
 <div id="global-progress-bar-container"></div>
 </div>
 <div class="header-actions">
-<div style="display: flex; gap: 6px;">
-  <button id="copy-btn">Copy Workout</button>
-  <button class="reset-btn" id="recovery-btn" title="Recovery Stats">Stats</button>
-</div>
-<div style="display: flex; gap: 6px;">
-  <div class="dropdown">
-    <button class="reset-btn dropdown-trigger">Import ▾</button>
-    <div class="dropdown-content">
-      <button class="dropdown-item" id="import-template-btn">Import Template</button>
-      <button class="dropdown-item" id="import-history-btn">Import History</button>
-      <button class="dropdown-item" id="import-backup-btn">Import Backup</button>
+  <div class="action-pill-group">
+    <button id="copy-btn" class="header-btn" title="Copy Workout">
+      <svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+    </button>
+    <button id="recovery-btn" class="header-btn" title="Recovery Stats">
+      <svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"></line>
+        <line x1="12" y1="20" x2="12" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="14"></line>
+      </svg>
+    </button>
+    <div class="dropdown">
+      <button class="header-btn dropdown-trigger" title="Data Menu">
+        <span>DATA ▾</span>
+      </button>
+      <div class="dropdown-content">
+        <div class="dropdown-subheader">Import</div>
+        <button class="dropdown-item" id="import-template-btn">Import Template</button>
+        <button class="dropdown-item" id="import-history-btn">Import History</button>
+        <button class="dropdown-item" id="import-backup-btn">Import Backup</button>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-subheader">Export</div>
+        <button class="dropdown-item" id="export-template-btn">Export Template</button>
+        <button class="dropdown-item" id="export-history-btn">Export History</button>
+        <button class="dropdown-item" id="export-backup-btn">Export Backup</button>
+      </div>
     </div>
+    <button id="reset-btn" class="header-btn" title="Reset Tracker">
+      <svg class="icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+      </svg>
+    </button>
   </div>
-  <div class="dropdown">
-    <button class="reset-btn dropdown-trigger">Export ▾</button>
-    <div class="dropdown-content">
-      <button class="dropdown-item" id="export-template-btn">Export Template</button>
-      <button class="dropdown-item" id="export-history-btn">Export History</button>
-      <button class="dropdown-item" id="export-backup-btn">Export Backup</button>
-    </div>
-  </div>
-</div>
-<button class="reset-btn" id="reset-btn">Reset</button>
 </div>
 </header>
 <!-- Rest Timer -->

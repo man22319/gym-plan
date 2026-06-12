@@ -2,18 +2,19 @@
    VARIABLES — Design tokens & global reset
 ══════════════════════════════════════════ */
 :root {
-  --bg: #0a0a0a;
-  --bg2: #141414;
-  --bg3: #1e1e1e;
-  --border: #2e2e2e;
-  --border-hi: #444;
-  --white: #f4f4f4;
-  --muted: #888;
-  --dim: #555;
-  --red: #e53935;
-  --green: #43a047;
-  --timer-active: #fdd835;
-  --blue: #42a5f5;
+  --bg: #0c0c0e;
+  --bg2: rgba(40, 40, 40, 0.4);
+  --bg3: rgba(60, 60, 60, 0.25);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hi: rgba(255, 255, 255, 0.18);
+  --white: #ffffff;
+  --silver: #d1d1d6;
+  --muted: #8e8e93;
+  --dim: #48484a;
+  --red: rgba(255, 59, 48, 0.2);
+  --green: rgba(255, 255, 255, 0.15);
+  --timer-active: #ffffff;
+  --blue: #ffffff;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
