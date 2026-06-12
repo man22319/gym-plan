@@ -476,24 +476,29 @@
 /* ── Finisher ── */
 .finisher-card {
   margin: 24px 0 8px;
-  background: var(--bg3);
+  background: var(--bg2);
   border: 1px solid var(--border);
-  border-left: 2px solid var(--white);
+  border-left: 2px solid var(--muted);
   border-radius: 8px;
-  padding: 14px 18px;
+  padding: 14px 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--muted);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  overflow: visible;
 }
 .finisher-card:hover { background: rgba(255,255,255,0.02); }
 .finisher-card:active { background: rgba(255,255,255,0.04); }
 .finisher-card.finisher-done {
-  border-left-color: var(--green, #5cff8a);
-  background: rgba(92, 255, 138, 0.04);
+  border-left-color: var(--white);
+  background: rgba(255, 255, 255, 0.05);
 }
 .finisher-card-body {
   flex: 1;
