@@ -112,6 +112,7 @@ export function buildTabs(appState) {
 
   const tabs = workouts.map(session => {
     const active    = session.id === appState.activeSessionId ? 'active' : '';
+    const finished  = query.isSessionFinishedInCurrentWeek(appState, session.id);
     const ts        = query.lastDoneTimestamp(appState, session.id);
 
     let recency = '';
@@ -133,11 +134,14 @@ export function buildTabs(appState) {
       recency = 'never';
     }
 
-    const isSuggested = session.id === suggestedId;
-    const badgeHtml = isSuggested ? `<span class="suggested-badge">due</span>` : '';
+    const isSuggested = !finished && session.id === suggestedId;
+    // Completed-this-week badge takes priority over "due"
+    const badgeHtml = finished
+      ? `<span class="completed-tab-badge">✓</span>`
+      : (isSuggested ? `<span class="suggested-badge">due</span>` : '');
     const dateLabel = ts ? formatDate(ts) : 'never';
 
-    return `<div class="tab ${active}" data-session-id="${session.id}">
+    return `<div class="tab ${active} ${finished ? 'tab-finished' : ''}" data-session-id="${session.id}">
       ${badgeHtml}
       ${session.dayLabel}
       <span class="day-label">${session.sessionLabel}</span>
@@ -157,9 +161,18 @@ export function buildSession(session, appState) {
 
   let bannerHtml = '';
   if (finished) {
+    // Derive a friendly timestamp from the last history entry for this session
+    const lastEntry = query.lastSession(appState, session.id);
+    const finishedAtStr = lastEntry?.timestamp ? formatTime(lastEntry.timestamp) : null;
+    const finishedOnStr = lastEntry?.timestamp ? formatDate(lastEntry.timestamp) : null;
+    const timeLabel = (finishedAtStr && finishedOnStr) ? `${finishedOnStr} at ${finishedAtStr}` : 'this week';
     bannerHtml = `
       <div class="complete-banner visible finished-banner">
-        SESSION LOGGED<small>This workout has been saved to your history.</small>
+        <div class="finished-banner-icon">✓</div>
+        <div class="finished-banner-body">
+          <span class="finished-banner-title">SESSION COMPLETED</span>
+          <small>Logged ${timeLabel} · View only</small>
+        </div>
       </div>`;
   } else {
     bannerHtml = `
@@ -173,7 +186,7 @@ export function buildSession(session, appState) {
   const warmupText   = session.warmup   ?? appState.programDefaults?.warmup   ?? programDefaults.warmup   ?? '';
   const finisherText = session.finisher ?? appState.programDefaults?.finisher ?? programDefaults.finisher ?? '';
 
-  return `<div class="session ${active}" id="${session.id}">
+  return `<div class="session ${active} ${finished ? 'session-completed' : ''}" id="${session.id}">
     <div class="warmup-bar ${warmupDone ? 'warmup-done' : ''}">
       <div style="flex:1; min-width:0;">
         <span><strong>WARM-UP</strong> <span>· ${warmupText}</span></span>
@@ -251,15 +264,19 @@ export function buildCard(ex, appState, readOnly = false) {
     </div>`;
   }
 
-
   const isOverriddenClass = isOverridden ? 'overridden' : '';
   const overrideIndicator = isOverridden ? ' <span class="ex-override-indicator" title="Custom targets active">●</span>' : '';
 
+  // In completed sessions: show a LOGGED badge instead of the edit button; header is non-interactive
+  const loggedBadgeHtml = readOnly ? `<span class="ex-logged-badge">LOGGED</span>` : '';
   const editBtnHtml = readOnly ? '' : `<button class="ex-edit-btn" data-ex-id="${instanceId}" aria-label="Edit targets" title="Edit targets">✎</button>`;
   const editPanelHtml = (editingExId === instanceId && !readOnly) ? buildEditPanel(ex, appState) : '';
 
-  return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${instanceId}">
-    <div class="exercise-header" data-ex-id="${instanceId}" role="button" aria-label="View history for ${displayName}" tabindex="0" ${readOnly ? 'style="cursor: default;"' : ''}>
+  // In completed sessions the card should appear fully lit (not faded) since all sets are done
+  const cardClass = readOnly ? 'session-done-card' : (complete ? 'completed' : '');
+
+  return `<div class="exercise-card ${cardClass}" data-ex-id="${instanceId}">
+    <div class="exercise-header" data-ex-id="${instanceId}" role="button" aria-label="View history for ${displayName}" tabindex="0" ${readOnly ? 'style="cursor: default; pointer-events: none;"' : ''}>
       <div class="ex-letter">${ex.letter || ''}</div>
       <div class="ex-title-group">
         <div class="ex-name">
@@ -273,7 +290,8 @@ export function buildCard(ex, appState, readOnly = false) {
         </div>
       </div>
       <div class="ex-header-right-actions">
-        <div class="ex-history-hint">HISTORY</div>
+        ${loggedBadgeHtml}
+        <div class="ex-history-hint" ${readOnly ? 'style="display:none;"' : ''}>HISTORY</div>
         ${editBtnHtml}
       </div>
     </div>
@@ -412,10 +430,19 @@ export function buildDot(exId, idx, setObj, readOnly = false) {
     inner = `<span class="dot-num">${idx + 1}</span>`;
   }
 
+  if (readOnly) {
+    // Completed session: allow long-press to open log modal (view/edit from backup),
+    // but mark visually as read-only. Tap-to-toggle is blocked by the reducer guard.
+    cls += ' dot-completed-session';
+    return `<button class="${cls}"
+      data-ex-id="${exId}"
+      data-set-idx="${idx}"
+      aria-label="Set ${idx + 1}: hold to view log">${inner}</button>`;
+  }
+
   return `<button class="${cls}"
     data-ex-id="${exId}"
     data-set-idx="${idx}"
-    ${readOnly ? 'disabled style="pointer-events: none; opacity: 0.8;"' : ''}
     aria-label="Set ${idx + 1}: tap to toggle, hold to log">${inner}</button>`;
 }
 

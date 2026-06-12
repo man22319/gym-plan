@@ -370,6 +370,30 @@ header {
   position: relative;
 }
 .tab.active { color: var(--white); border-bottom-color: var(--white); }
+.tab.tab-finished {
+  color: var(--dim);
+}
+.tab.tab-finished.active {
+  color: var(--muted);
+  border-bottom-color: rgba(100, 210, 130, 0.6);
+}
+/* ✓ completed badge on tabs */
+.completed-tab-badge {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(100, 210, 130, 0.18);
+  color: #64d282;
+  border: 1px solid rgba(100, 210, 130, 0.35);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.52rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
 .tab .day-label {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.5rem;
@@ -435,7 +459,7 @@ header {
 }
 .progress-bar-fill {
   height: 100%;
-  background: var(--accent, #e53935);
+  background: var(--accent, #ffffff);
   border-radius: 2px;
   transition: width 0.4s ease;
   width: 0%;
@@ -576,6 +600,58 @@ header {
   margin-top: 6px;
   text-transform: uppercase;
 }
+
+/* ── Finished (completed-this-week) banner ── */
+.finished-banner {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  text-align: left;
+  padding: 18px 20px;
+  background: rgba(20, 40, 26, 0.65) !important;
+  border-color: rgba(100, 210, 130, 0.25) !important;
+  border-left: 3px solid rgba(100, 210, 130, 0.6) !important;
+  font-size: inherit;
+  letter-spacing: inherit;
+}
+.finished-banner-icon {
+  font-size: 2rem;
+  color: #64d282;
+  line-height: 1;
+  flex-shrink: 0;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+}
+.finished-banner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.finished-banner-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 1.3rem;
+  letter-spacing: 4px;
+  color: #64d282;
+  text-transform: uppercase;
+}
+.finished-banner small {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.54rem;
+  letter-spacing: 1.5px;
+  color: rgba(100, 210, 130, 0.6);
+  margin-top: 0;
+  text-transform: uppercase;
+}
+
+/* ── Session completed overlay tint ── */
+.session-completed .warmup-bar,
+.session-completed .finisher-card {
+  opacity: 0.6;
+}
+
 .finish-workout-btn {
   display: block;
   width: 100%;

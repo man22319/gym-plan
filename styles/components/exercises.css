@@ -61,6 +61,12 @@
 }
 
 .exercise-card.completed { opacity: 0.32; }
+
+/* Card in a completed (finished this week) session — full opacity, green left accent */
+.exercise-card.session-done-card {
+  opacity: 1;
+  border-left: 2px solid rgba(100, 210, 130, 0.3);
+}
 .exercise-header {
   display: flex;
   align-items: center;
@@ -154,6 +160,20 @@
 .exercise-header:hover .ex-history-hint {
   color: var(--muted);
   border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* LOGGED badge — shown in place of HISTORY in completed sessions */
+.ex-logged-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.5rem;
+  color: #64d282;
+  background: rgba(100, 210, 130, 0.1);
+  border: 1px solid rgba(100, 210, 130, 0.3);
+  padding: 3px 7px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  user-select: none;
 }
 
 /* ── Exercise Meta (notes + alternatives) — display only ── */
@@ -466,6 +486,25 @@
 }
 .set-dot:not(.done):not(.failed):active {
   border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Dot inside a completed (finished this week) session:
+   visible, interactive for long-press/log modal, but no tap-cycle.
+   A subtle ring differentiates it from an active-session done dot. */
+.set-dot.dot-completed-session {
+  cursor: default;
+}
+.set-dot.dot-completed-session:active {
+  transform: none;
+}
+.set-dot.dot-completed-session.done {
+  background: rgba(100, 210, 130, 0.15);
+  border-color: rgba(100, 210, 130, 0.4);
+  color: #64d282;
+  box-shadow: 0 0 0 1px rgba(100, 210, 130, 0.2), inset 0 1px 3px rgba(0,0,0,0.4);
+}
+.set-dot.dot-completed-session.failed {
+  opacity: 0.7;
 }
 
 /* ── Finisher ── */
