@@ -32,8 +32,16 @@ export function startRestTimer(duration = REST_DURATION) {
 
 export function startRestTimerLoop() {
   clearInterval(restTimerId);
+  // Track the real wall-clock start so the countdown is immune to browser
+  // throttling (tabs backgrounded, Spotify open, phone locked, etc.).
+  // We poll at 500ms so the display stays smooth even if a tick fires late.
+  const startTime      = Date.now();
+  const startRemaining = restRemaining;
+
   restTimerId = setInterval(() => {
-    restRemaining--;
+    const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+    restRemaining    = Math.max(0, startRemaining - elapsedSec);
+
     if (restRemaining <= 0) {
       clearInterval(restTimerId);
       restRemaining = 0;
@@ -41,7 +49,7 @@ export function startRestTimerLoop() {
     } else {
       notify('tick');
     }
-  }, 1000);
+  }, 500);
 }
 
 export function extendRestTimer(amount = 30) {

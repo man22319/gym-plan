@@ -44,9 +44,12 @@
 
 .log-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
   margin-bottom: 24px;
+}
+.log-field-note {
+  grid-column: 1 / -1;
 }
 .log-field { display: flex; flex-direction: column; gap: 6px; }
 .log-label {

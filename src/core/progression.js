@@ -47,9 +47,38 @@ const DEFAULTS = {
   Vnorm:       1500,   // volume normaliser (lbs, ~typical session volume per exercise)
   riskThresh:  0.65,   // risk threshold above which progression is suppressed
   defaultDw:   2.5,    // default progression step (lbs) if not yet set
+
+  // ── Risk scoring coefficients (§21.1) ───────────────────────────────────
+  // Weights for each risk factor in computeRisk().
+  // Kept here (not inside the function) so they're tunable alongside other params.
+  riskCoeffs: {
+    a: 0.30,   // weight change magnitude (Δ%)
+    b: 0.25,   // fatigue delta
+    c: 0.20,   // effort contribution (via RIR)
+    d: 0.15,   // volume density
+    e: 0.10,   // per-exercise risk multiplier
+  },
 };
 
 // ── Observation Layer ─────────────────────────────────────────────────────────
+
+/**
+ * Return the ROM quality factor for a given range-of-motion tag.
+ * A factor < 1.0 discounts the effective e1RM / volume for partial or
+ * compromised movements. All current sets are logged as 'full', so this
+ * always returns 1.0 in practice — the helper is a documented hook for
+ * when a ROM UI input is added.
+ *
+ * @param {string} [rom]  'full' | 'partial' | 'restricted' | 'cheat' | 'shortened'
+ * @returns {number}      multiplicative factor ∈ (0, 1]
+ */
+function getRomFactor(rom) {
+  if (rom === 'partial')    return 0.80;
+  if (rom === 'restricted') return 0.80;
+  if (rom === 'cheat')      return 0.85;
+  if (rom === 'shortened')  return 0.90;
+  return 1.0; // 'full' or unset
+}
 
 /**
  * Compute per-set Epley e1RM.
@@ -78,26 +107,12 @@ export function computeObservations(sets) {
   const e1rms = done.map(s => {
     const baseE1rm = epleyE1RM(s.w, s.r);
     if (baseE1rm === null) return null;
-    
-    let factor = 1.0;
-    if (s.rom === 'partial') factor = 0.80;
-    else if (s.rom === 'restricted') factor = 0.80;
-    else if (s.rom === 'cheat') factor = 0.85;
-    else if (s.rom === 'shortened') factor = 0.90;
-    
-    return baseE1rm * factor;
+    return baseE1rm * getRomFactor(s.rom);
   }).filter(e => e !== null);
 
-  const E_t   = e1rms.length ? (e1rms.reduce((a, b) => a + b, 0) / e1rms.length) : null;
+  const E_t = e1rms.length ? (e1rms.reduce((a, b) => a + b, 0) / e1rms.length) : null;
 
-  const V_t   = done.reduce((sum, s) => {
-    let factor = 1.0;
-    if (s.rom === 'partial') factor = 0.80;
-    else if (s.rom === 'restricted') factor = 0.80;
-    else if (s.rom === 'cheat') factor = 0.85;
-    else if (s.rom === 'shortened') factor = 0.90;
-    return sum + s.w * s.r * factor;
-  }, 0);
+  const V_t = done.reduce((sum, s) => sum + s.w * s.r * getRomFactor(s.rom), 0);
 
   return { E_t, V_t };
 }
@@ -196,16 +211,15 @@ export function discretize(w_t, u_t, dw) {
  * @returns {number}  Risk_t ∈ [0, ∞); values >0.65 suppress progression
  */
 export function computeRisk({ deltaPct = 0, deltaF = 0, avgRIR = null, density = null, riskMultiplier = 1.0 } = {}) {
-  const d           = density !== null ? density : 0;
-
-  const a = 0.30, b = 0.25, c = 0.20, d2 = 0.15, e = 0.10;
+  const d = density !== null ? density : 0;
+  const { a, b, c, d: dCoeff, e } = DEFAULTS.riskCoeffs;
   const effortContribution = avgRIR !== null ? c * (1 / (avgRIR + 1)) : 0;
 
   return (
     a * Math.abs(deltaPct) +
     b * Math.max(0, deltaF) +
     effortContribution +
-    d2 * d +
+    dCoeff * d +
     e * riskMultiplier
   );
 }
@@ -316,14 +330,7 @@ export function computeFatigueIndex(sets) {
   const done = (sets || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
   if (done.length < 2) return null;
 
-  const getPerf = s => {
-    let factor = 1.0;
-    if (s.rom === 'partial') factor = 0.80;
-    else if (s.rom === 'restricted') factor = 0.80;
-    else if (s.rom === 'cheat') factor = 0.85;
-    else if (s.rom === 'shortened') factor = 0.90;
-    return s.w * s.r * factor;
-  };
+  const getPerf = s => s.w * s.r * getRomFactor(s.rom);
 
   const firstPerf = getPerf(done[0]);
   const lastPerf  = getPerf(done[done.length - 1]);

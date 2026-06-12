@@ -2,7 +2,7 @@ import { workouts, EXERCISE_INDEX, state } from '../core/workouts.js';
 import { query } from '../core/queries.js';
 import { dispatch, registerStartWorkoutModal } from '../core/reducer.js';
 import { makeSet } from '../store/state.js';
-import { lowerBound } from '../core/helpers.js';
+import { lowerBound, resolveWeight } from '../core/helpers.js';
 import { formatDate, formatTime } from './rendering.js';
 
 
@@ -333,7 +333,7 @@ export function openLogModal(exId, setIdx) {
   const prefillR = setObj.r !== null ? setObj.r : '';
   const prefillN = setObj.n !== null ? setObj.n : '';
 
-  const defaultW = lowerBound(ex?.weight);
+  const defaultW = resolveWeight(null, exId);
   const defaultR = lowerBound(ex?.reps);
   const placeholderW = prevSet?.w ?? (defaultW !== null ? defaultW : '—');
   const placeholderR = prevSet?.r ?? (defaultR !== null ? defaultR : '—');
@@ -365,18 +365,18 @@ export function openLogModal(exId, setIdx) {
             <span class="log-unit">reps</span>
           </div>
         </div>
-        
+
         <div class="log-field">
           <label class="log-label" for="log-rir">RIR</label>
           <div class="log-input-wrap">
             <input class="log-input" id="log-rir" type="number"
               inputmode="numeric" min="0" max="10" step="1"
-              placeholder="unknown" value="${setObj.rir !== null ? setObj.rir : ''}"/>
+              placeholder="0-1" value="${setObj.rir !== null ? setObj.rir : ''}"/>
             <span class="log-unit">RIR</span>
           </div>
         </div>
 
-        <div class="log-field" style="grid-column: span 2;">
+        <div class="log-field log-field-note">
           <label class="log-label" for="log-note">SET NOTE</label>
           <div class="log-input-wrap">
             <input class="log-input" id="log-note" type="text"
