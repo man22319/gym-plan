@@ -939,12 +939,20 @@ export function renderCardioUpdate(appState) {
 
 // ── ETA Display ───────────────────────────────────────────────────────────────
 
+// Cache: the model recomputes totalRemainingMs from (remaining_sets × interval),
+// which is constant between set completions. To make the "~18 min" display tick
+// down in real-time while the user rests, we cache the departure timestamp when
+// a set is completed and derive the countdown from the cache on each 1s tick.
+let _cachedDepartureMs = null;
+let _cachedCompletedSets = 0;
+let _cachedConfidence = null;
+
 /**
  * Update the ETA display elements in the DOM.
  *
- * Two display locations:
- *   1. Header progress bar: "~18 min" next to the percentage
- *   2. Session area: "Est. departure: 4:25 PM" near the finish button
+ * On set completion (completedSets changes): recompute from model, cache departure.
+ * On idle ticks: derive remaining time from cached departure timestamp.
+ * This gives a live countdown that ticks down every second.
  *
  * @param {object} appState
  */
@@ -954,13 +962,42 @@ function updateETADisplay(appState) {
 
   const hasETA = eta && eta.completedSets > 0;
 
-  // Header stats — remaining time ("~18 min")
+  if (hasETA) {
+    // Refresh the cached departure timestamp when set count changes
+    // (i.e. model has new information to incorporate)
+    if (eta.completedSets !== _cachedCompletedSets) {
+      _cachedDepartureMs = eta.etaMs;
+      _cachedCompletedSets = eta.completedSets;
+      _cachedConfidence = eta.confidence;
+    }
+  } else {
+    _cachedDepartureMs = null;
+    _cachedCompletedSets = 0;
+    _cachedConfidence = null;
+  }
+
+  // Derive live countdown from cached departure
+  const now = Date.now();
+  const liveRemainingMs = _cachedDepartureMs ? Math.max(0, _cachedDepartureMs - now) : 0;
+  const liveRemainingMin = Math.max(1, Math.round(liveRemainingMs / 60_000));
+  const liveRemainingLabel = liveRemainingMin < 60
+    ? `~${liveRemainingMin} min`
+    : `~${Math.floor(liveRemainingMin / 60)}h ${liveRemainingMin % 60}m`;
+
+  const confLevel = _cachedConfidence?.level ?? 'low';
+
+  // Departure label from cached timestamp
+  const liveDepartureLabel = _cachedDepartureMs
+    ? new Date(_cachedDepartureMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : null;
+
+  // Header stats — remaining time ("~18 min") — now ticks down live
   const headerEl = document.getElementById('eta-display');
   if (headerEl) {
-    if (hasETA) {
-      headerEl.textContent = eta.remainingLabel;
+    if (_cachedDepartureMs) {
+      headerEl.textContent = liveRemainingLabel;
       headerEl.classList.add('has-value');
-      headerEl.classList.toggle('conf-low', eta.confidence.level === 'low');
+      headerEl.classList.toggle('conf-low', confLevel === 'low');
     } else {
       headerEl.textContent = '—';
       headerEl.classList.remove('has-value', 'conf-low');
@@ -970,10 +1007,10 @@ function updateETADisplay(appState) {
   // Departure time in header stats
   const departureHeaderEl = document.getElementById('eta-departure-header');
   if (departureHeaderEl) {
-    if (hasETA) {
-      departureHeaderEl.textContent = eta.departureLabel;
+    if (liveDepartureLabel) {
+      departureHeaderEl.textContent = liveDepartureLabel;
       departureHeaderEl.classList.add('has-value');
-      departureHeaderEl.classList.toggle('conf-low', eta.confidence.level === 'low');
+      departureHeaderEl.classList.toggle('conf-low', confLevel === 'low');
     } else {
       departureHeaderEl.textContent = '—';
       departureHeaderEl.classList.remove('has-value', 'conf-low');
@@ -990,8 +1027,8 @@ function updateETADisplay(appState) {
   // Departure display in the completion banner
   const departureEl = document.getElementById('eta-departure');
   if (departureEl) {
-    if (hasETA) {
-      departureEl.textContent = `Est. departure: ${eta.departureLabel}`;
+    if (liveDepartureLabel) {
+      departureEl.textContent = `Est. departure: ${liveDepartureLabel}`;
       departureEl.classList.add('has-value');
     } else {
       departureEl.textContent = '';
