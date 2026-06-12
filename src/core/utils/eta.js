@@ -34,7 +34,6 @@ const MIN_INTERVAL_MS     = 10_000; // 10s — below this is probably a misfire/
 const MAX_INTERVAL_MS     = 600_000;// 10 min — hard ceiling for any single interval
 const DEFAULT_WORKING_MS  = 30_000; // 30s default working time per set
 const DEFAULT_REST_MS     = 90_000; // 90s fallback rest
-const CARDIO_DURATION_MS  = 8 * 60_000; // 8 min warmup/finisher default
 
 // ── EWMA Engine ──────────────────────────────────────────────────────────────
 
@@ -350,11 +349,6 @@ export function calculateETA(appState, sessionDef) {
     // No sets completed — pure historical prior (no pace data for ratio)
     totalRemainingMs = Math.max(0, historicalDuration - elapsedMs);
   }
-
-  // ── Cardio overhead (post-blend — avoids double-counting with history) ─
-  const cardio = appState.cardio || {};
-  if (!cardio.warmupDone)   totalRemainingMs += CARDIO_DURATION_MS;
-  if (!cardio.finisherDone) totalRemainingMs += CARDIO_DURATION_MS;
 
   // ── Confidence (from forecast interval width) ──────────────────────────
   const confidence = computeConfidence(
