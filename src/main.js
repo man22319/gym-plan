@@ -8,7 +8,7 @@ import { render, setupEvents, openSessionSummaryModal } from './io/uiBarrel.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const res = await fetch('../data/workouts.json');
+    const res = await fetch('./data/workouts.json');
     if (!res.ok) throw new Error(`Failed to load workouts.json: ${res.status}`);
     const data = await res.json();
     // Pass the full data object: { exercises, defaults, sessions }
