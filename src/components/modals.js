@@ -1,9 +1,10 @@
 import { workouts, EXERCISE_INDEX, state } from '../core/workouts.js';
 import { query } from '../core/queries.js';
-import { dispatch } from '../core/reducer.js';
+import { dispatch, registerStartWorkoutModal } from '../core/reducer.js';
 import { makeSet } from '../store/state.js';
 import { lowerBound } from '../core/helpers.js';
-import { formatDate, formatTime, formatDuration, formatWeight, formatReps } from './rendering.js';
+import { formatDate, formatTime } from './rendering.js';
+
 
 export let activeHistoryModal = null;
 
@@ -91,8 +92,16 @@ export function openHistoryModal(exId) {
     const setCells = entry.sets.map((s, i) => {
       if (s.w === null && s.r === null) return `<span class="hist-set-empty">—</span>`;
       const cls = s.s === 'failed' ? 'hist-set-fail' : 'hist-set-done';
-      const noteIndicator = s.n ? `<span class="hist-set-note-indicator" title="${s.n.replace(/"/g, '&quot;')}">📝</span>` : '';
-      return `<span class="${cls}" style="display: inline-flex; align-items: center; gap: 2px;">${s.w ?? '?'}×${s.r ?? '?'}${noteIndicator}</span>`;
+      
+      const titleParts = [];
+      if (s.n) titleParts.push(s.n);
+      if (s.rir !== null && s.rir !== undefined) titleParts.push(`RIR: ${s.rir}`);
+      const titleAttr = titleParts.length ? ` title="${titleParts.join(' | ').replace(/"/g, '&quot;')}"` : '';
+      
+      const noteIndicator = s.n ? `<span class="hist-set-note-indicator">📝</span>` : '';
+      const rirIndicator = (s.rir !== null && s.rir !== undefined) ? `<span class="hist-set-rir-indicator" style="font-size:0.5rem; opacity:0.8; margin-left:1px;">(r${s.rir})</span>` : '';
+      
+      return `<span class="${cls}" style="display: inline-flex; align-items: center; gap: 2px;"${titleAttr}>${s.w ?? '?'}×${s.r ?? '?'}${noteIndicator}${rirIndicator}</span>`;
     }).join('');
 
     return `<tr>
@@ -113,57 +122,10 @@ export function openHistoryModal(exId) {
     prHtml = `<div class="hist-pr-section"><div class="hist-section-label">PERSONAL RECORDS</div><div class="hist-pr-list">${prItems.join('')}</div></div>`;
   }
 
-  // ── Variant-aware volume computation ───────────────────────────────────
-  // If this exercise has a variantGroup, aggregate volume across all sibling
-  // exercises in the same group so the sparkline reflects true progression
-  // even when the user switched between machine and dumbbell variants.
-  let variantNote = '';
-  let volumes = history.map(entry => {
+  const volumes = history.map(entry => {
     const doneSets = entry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
     return doneSets.reduce((sum, s) => sum + s.w * s.r, 0);
   });
-
-  if (ex.variantGroup) {
-    // Find all exercises in the same variant group
-    const allSessions = state.sessions || workouts;
-    const siblingIds = allSessions
-      .flatMap(s => s.blocks.flatMap(b => b.exercises))
-      .filter(e => e.variantGroup === ex.variantGroup && e.id !== exId)
-      .map(e => e.id);
-
-    if (siblingIds.length > 0) {
-      // Build a combined per-session-entry volume map keyed by timestamp
-      // Use the base exercise history as the timeline anchor
-      const siblingHistories = siblingIds.map(sid => query.exerciseHistory(state, sid));
-
-      // Merge: for each base history entry, check if any sibling had data on the same day
-      volumes = history.map((entry, i) => {
-        let vol = volumes[i]; // base exercise volume
-        // If base has no volume, check siblings for that date
-        if (vol === 0) {
-          const entryDate = new Date(entry.timestamp).toDateString();
-          for (const sibHist of siblingHistories) {
-            for (const sibEntry of sibHist) {
-              if (new Date(sibEntry.timestamp).toDateString() === entryDate) {
-                const sibDone = sibEntry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
-                vol += sibDone.reduce((sum, s) => sum + s.w * s.r, 0);
-              }
-            }
-          }
-        }
-        return vol;
-      });
-
-      const siblingNames = siblingIds
-        .map(sid => allSessions.flatMap(s => s.blocks.flatMap(b => b.exercises)).find(e => e.id === sid)?.name)
-        .filter(Boolean)
-        .join(', ');
-      variantNote = `<div style="padding: 0 20px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 0.48rem; color: var(--dim); letter-spacing: 0.5px;">
-        Volume includes equivalent variants: ${siblingNames}
-      </div>`;
-    }
-  }
-  // ───────────────────────────────────────────────────────────────────
   const sparklineHtml = buildSparkline(volumes);
 
   let volumeTrendHtml = '';
@@ -210,7 +172,6 @@ export function openHistoryModal(exId) {
       </div>
       ${prHtml}
       ${sparklineHtml}
-      ${variantNote}
       ${volumeTrendHtml}
       ${hasHistory ? `<div class="hist-section-label" style="padding: 0 20px 8px;">SESSION LOG</div>` : ''}
       ${tableHtml}
@@ -262,107 +223,6 @@ export function buildNotesHistory(history) {
       </div>
     </div>
   `;
-}
-
-export let activeAnalyticsSheet = null;
-
-export function openSessionAnalytics(sessionId) {
-  closeSessionAnalytics();
-
-  const session = workouts.find(s => s.id === sessionId);
-  if (!session) return;
-
-  const data = query.sessionAnalytics(state, sessionId);
-  
-  let contentHtml = '';
-  if (!data) {
-    contentHtml = `<div class="analytics-empty">No completed workouts yet for this day.<br>Complete a session to see analytics!</div>`;
-  } else {
-    const durationStr = data.durationMs ? formatDuration(data.durationMs) : '—';
-    
-    let volumeChangeHtml = '';
-    if (data.prevVolume > 0) {
-      const pctChange = (((data.volume - data.prevVolume) / data.prevVolume) * 100).toFixed(1);
-      const isUp = data.volume >= data.prevVolume;
-      const cls = isUp ? 'delta-up' : 'delta-down';
-      const sign = isUp ? '+' : '';
-      volumeChangeHtml = `<span class="analytics-delta ${cls}">${sign}${pctChange}%</span>`;
-    }
-
-    let setsChangeHtml = '';
-    if (data.prevTotalSets > 0) {
-      const diff = data.completedSets - data.prevCompletedSets;
-      const sign = diff >= 0 ? '+' : '';
-      const cls = diff >= 0 ? 'delta-up' : 'delta-down';
-      setsChangeHtml = `<span class="analytics-delta ${cls}">${sign}${diff} sets</span>`;
-    }
-
-    const prExIds = Object.keys(data.prs);
-    let prHtml = '<div class="analytics-prs-none">No PRs recorded in this session.</div>';
-    if (prExIds.length > 0) {
-      const prItems = prExIds.map(exId => {
-        const ex = EXERCISE_INDEX[exId];
-        const types = data.prs[exId].map(t => t === 'weight' ? 'Heaviest' : t === 'reps' ? 'Most Reps' : 'Best Volume').join(', ');
-        return `<div class="analytics-pr-item">🏆 <strong>${ex?.name ?? exId}</strong> — ${types}</div>`;
-      }).join('');
-      prHtml = `<div class="analytics-pr-list">${prItems}</div>`;
-    }
-
-    contentHtml = `
-      <div class="analytics-stats-grid">
-        <div class="analytics-stat">
-          <div class="analytics-stat-val">${data.volume.toLocaleString()} lbs</div>
-          <div class="analytics-stat-label">Total Volume ${volumeChangeHtml}</div>
-        </div>
-        <div class="analytics-stat">
-          <div class="analytics-stat-val">${durationStr}</div>
-          <div class="analytics-stat-label">Session Duration</div>
-        </div>
-        <div class="analytics-stat">
-          <div class="analytics-stat-val">${data.completedSets}/${data.totalSets}</div>
-          <div class="analytics-stat-label">Sets Completed ${setsChangeHtml}</div>
-        </div>
-        <div class="analytics-stat">
-          <div class="analytics-stat-val">${formatDate(data.timestamp)}</div>
-          <div class="analytics-stat-label">Last Completed</div>
-        </div>
-      </div>
-      <div class="analytics-prs-section">
-        <div class="analytics-section-title">Personal Records Set</div>
-        ${prHtml}
-      </div>
-    `;
-  }
-
-  const overlay = document.createElement('div');
-  overlay.className = 'analytics-sheet-overlay';
-  overlay.innerHTML = `
-    <div class="analytics-sheet" role="dialog" aria-modal="true" aria-label="Session Analytics">
-      <div class="analytics-header">
-        <div>
-          <div class="analytics-title">${session.dayLabel} Analytics</div>
-          <div class="analytics-subtitle">${session.sessionLabel} · Historical Trend</div>
-        </div>
-        <button class="analytics-close" id="analytics-close" aria-label="Close">✕</button>
-      </div>
-      <div class="analytics-content">
-        ${contentHtml}
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-  activeAnalyticsSheet = overlay;
-
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeSessionAnalytics(); });
-  overlay.querySelector('#analytics-close').addEventListener('click', closeSessionAnalytics);
-  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') closeSessionAnalytics(); });
-}
-
-export function closeSessionAnalytics() {
-  if (activeAnalyticsSheet) {
-    activeAnalyticsSheet.remove();
-    activeAnalyticsSheet = null;
-  }
 }
 
 export let activeSummaryModal = null;
@@ -458,86 +318,6 @@ export function closeSessionSummaryModal() {
   if (activeSummaryModal) { activeSummaryModal.remove(); activeSummaryModal = null; }
 }
 
-export let activeRecoverySheet = null;
-
-export function openRecoveryDashboard() {
-  closeRecoveryDashboard();
-
-  const data = query.recoveryDashboard(state);
-
-  const durationStr = data.avgDurationMs ? formatDuration(data.avgDurationMs) : '—';
-  
-  let lastWorkoutStr = 'never';
-  if (data.daysSinceLastWorkout !== null) {
-    if (data.daysSinceLastWorkout < 0.1) {
-      lastWorkoutStr = 'today';
-    } else if (data.daysSinceLastWorkout < 1.1) {
-      lastWorkoutStr = 'yesterday';
-    } else {
-      lastWorkoutStr = `${Math.round(data.daysSinceLastWorkout)} days ago`;
-    }
-  }
-
-  let trendHtml = '—';
-  if (data.volumeTrend !== null) {
-    const isUp = data.volumeTrend >= 0;
-    const cls = isUp ? 'delta-up' : 'delta-down';
-    const sign = isUp ? '+' : '';
-    trendHtml = `<span class="recovery-trend ${cls}">${sign}${data.volumeTrend}%</span>`;
-  }
-
-  const contentHtml = `
-    <div class="recovery-stats-grid">
-      <div class="recovery-stat">
-        <div class="recovery-stat-val">${data.workoutsLast7Days}/${data.sessionsPerWeek || 3}</div>
-        <div class="recovery-stat-label">Workouts (Last 7d)</div>
-      </div>
-      <div class="recovery-stat">
-        <div class="recovery-stat-val">${trendHtml}</div>
-        <div class="recovery-stat-label">Volume Trend (7d)</div>
-      </div>
-      <div class="recovery-stat">
-        <div class="recovery-stat-val">${durationStr}</div>
-        <div class="recovery-stat-label">Avg Duration (30d)</div>
-      </div>
-      <div class="recovery-stat">
-        <div class="recovery-stat-val" style="font-size: 1.1rem; line-height: 1.6;">${lastWorkoutStr}</div>
-        <div class="recovery-stat-label">Last Session</div>
-      </div>
-    </div>
-  `;
-
-  const overlay = document.createElement('div');
-  overlay.className = 'recovery-sheet-overlay';
-  overlay.innerHTML = `
-    <div class="recovery-sheet" role="dialog" aria-modal="true" aria-label="Recovery Dashboard">
-      <div class="recovery-header">
-        <div>
-          <div class="recovery-title">Recovery Dashboard</div>
-          <div class="recovery-subtitle">Rolling 7-Day &amp; 30-Day Training Metrics</div>
-        </div>
-        <button class="recovery-close" id="recovery-close" aria-label="Close">✕</button>
-      </div>
-      <div class="recovery-content">
-        ${contentHtml}
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
-  activeRecoverySheet = overlay;
-
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeRecoveryDashboard(); });
-  overlay.querySelector('#recovery-close').addEventListener('click', closeRecoveryDashboard);
-  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') closeRecoveryDashboard(); });
-}
-
-export function closeRecoveryDashboard() {
-  if (activeRecoverySheet) {
-    activeRecoverySheet.remove();
-    activeRecoverySheet = null;
-  }
-}
-
 export let activeModal = null;
 
 export function openLogModal(exId, setIdx) {
@@ -585,6 +365,17 @@ export function openLogModal(exId, setIdx) {
             <span class="log-unit">reps</span>
           </div>
         </div>
+        
+        <div class="log-field">
+          <label class="log-label" for="log-rir">RIR</label>
+          <div class="log-input-wrap">
+            <input class="log-input" id="log-rir" type="number"
+              inputmode="numeric" min="0" max="10" step="1"
+              placeholder="unknown" value="${setObj.rir !== null ? setObj.rir : ''}"/>
+            <span class="log-unit">RIR</span>
+          </div>
+        </div>
+
         <div class="log-field" style="grid-column: span 2;">
           <label class="log-label" for="log-note">SET NOTE</label>
           <div class="log-input-wrap">
@@ -606,6 +397,7 @@ export function openLogModal(exId, setIdx) {
   const weightInput = overlay.querySelector('#log-weight');
   const repsInput   = overlay.querySelector('#log-reps');
   const noteInput   = overlay.querySelector('#log-note');
+  const rirInput    = overlay.querySelector('#log-rir');
 
   setTimeout(() => weightInput?.focus(), 60);
 
@@ -626,9 +418,10 @@ export function openLogModal(exId, setIdx) {
     const w = weightInput.value !== '' ? parseFloat(weightInput.value) : null;
     const r = repsInput.value   !== '' ? parseInt(repsInput.value, 10) : null;
     const n = noteInput.value.trim();
+    const rir = rirInput.value !== '' ? parseInt(rirInput.value, 10) : null;
     const restoreY = activeModal?.scrollY ?? 0;
     closeLogModal();
-    dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r, note: n });
+    dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r, note: n, rir });
     requestAnimationFrame(() => window.scrollTo(0, restoreY));
   });
 
@@ -646,98 +439,44 @@ export function closeLogModal() {
   if (activeModal) { activeModal.el.remove(); activeModal = null; }
 }
 
-// ── Cardio Note Modal (warmup / finisher) ─────────────────────────────────
-// Opens a focused bottom sheet for adding/viewing notes on the warmup bar or
-// finisher card. Notes are stored in state.cardio.warmupNote / .finisherNote
-// (transient) and committed into history[].cardio on FINISH_WORKOUT.
-
-export let activeCardioNoteModal = null;
-
-export function openCardioNoteModal(type, appState) {
-  closeCardioNoteModal();
-
-  const label     = type === 'warmup' ? 'WARM-UP NOTE' : 'FINISHER NOTE';
-  const noteField = type === 'warmup' ? 'warmupNote' : 'finisherNote';
-  const currentNote = appState?.cardio?.[noteField] ?? '';
-
-  // Build note history from past sessions (all sessions, chronologically reversed)
-  const pastNotes = [...(appState.history || [])]
-    .reverse()
-    .filter(e => e.cardio?.[noteField] && e.cardio[noteField].trim())
-    .slice(0, 8)
-    .map(e => ({
-      date: formatDate(e.timestamp),
-      note: e.cardio[noteField].trim()
-    }));
-
-  const historyHtml = pastNotes.length > 0
-    ? `<div class="cardio-note-hist-section">
-        <div class="cardio-note-hist-label">NOTE HISTORY</div>
-        ${pastNotes.map(n => `
-          <div class="cardio-note-hist-item">
-            <span class="cardio-note-hist-date">${n.date}</span>
-            <span class="cardio-note-hist-text">${n.note}</span>
-          </div>`).join('')}
-      </div>`
-    : `<div class="cardio-note-hist-empty">No past notes yet.</div>`;
+export function showStartWorkoutModal(onConfirm, onCancel) {
+  if (document.querySelector('.start-modal-overlay')) return;
 
   const overlay = document.createElement('div');
-  overlay.className = 'log-modal-overlay cardio-note-overlay';
+  overlay.className = 'start-modal-overlay';
   overlay.innerHTML = `
-    <div class="log-modal cardio-note-modal" role="dialog" aria-modal="true" aria-label="${label}">
-      <div class="log-modal-title" style="font-size: 0.75rem; letter-spacing: 3px;">${label}</div>
-      <div class="log-fields">
-        <div class="log-field" style="grid-column: span 2;">
-          <label class="log-label" for="cardio-note-input">NOTE</label>
-          <div class="log-input-wrap">
-            <input class="log-input" id="cardio-note-input" type="text"
-              placeholder="e.g. 3.5 mph, felt strong, knee ok"
-              value="${currentNote.replace(/"/g, '&quot;')}"
-              style="font-size: 0.95rem; padding: 12px; font-family: inherit;"
-              autocomplete="off"
-            />
-          </div>
-        </div>
+    <div class="start-modal" role="dialog" aria-modal="true" aria-label="Start workout?">
+      <div class="start-modal-title">Start workout?</div>
+      <div class="start-modal-text">This will begin tracking your session.</div>
+      <div class="start-modal-actions">
+        <button class="start-modal-btn start-modal-btn-confirm" id="start-confirm">Start</button>
+        <button class="start-modal-btn start-modal-btn-cancel" id="start-cancel">Cancel</button>
       </div>
-      ${historyHtml}
-      <div class="log-modal-actions">
-        <button class="log-btn log-btn-cancel" id="cardio-note-cancel">Cancel</button>
-        <button class="log-btn log-btn-save" id="cardio-note-save">Save Note</button>
-      </div>
-    </div>`;
+    </div>
+  `;
 
   document.body.appendChild(overlay);
-  activeCardioNoteModal = overlay;
 
-  const noteInput = overlay.querySelector('#cardio-note-input');
-  setTimeout(() => noteInput?.focus(), 60);
+  const doConfirm = () => {
+    overlay.remove();
+    onConfirm?.();
+  };
 
-  const doClose = () => closeCardioNoteModal();
+  const doCancel = () => {
+    overlay.remove();
+    onCancel?.();
+  };
 
-  overlay.addEventListener('click', e => { if (e.target === overlay) doClose(); });
-  overlay.querySelector('#cardio-note-cancel').addEventListener('click', doClose);
+  overlay.querySelector('#start-confirm').addEventListener('click', doConfirm);
+  overlay.querySelector('#start-cancel').addEventListener('click', doCancel);
 
-  overlay.querySelector('#cardio-note-save').addEventListener('click', () => {
-    const note = noteInput.value.trim();
-    const existing = appState?.cardio || {};
-    const cardio = {
-      warmupDone:   existing.warmupDone   ?? false,
-      finisherDone: existing.finisherDone ?? false,
-      notes:        existing.notes        ?? '',
-      warmupNote:   existing.warmupNote   ?? '',
-      finisherNote: existing.finisherNote ?? '',
-      [noteField]: note
-    };
-    dispatch('UPDATE_CARDIO', { cardio });
-    doClose();
-  });
-
-  overlay.addEventListener('keydown', e => {
-    if (e.key === 'Enter') overlay.querySelector('#cardio-note-save').click();
-    if (e.key === 'Escape') doClose();
-  });
+  const escHandler = e => {
+    if (e.key === 'Escape') {
+      document.removeEventListener('keydown', escHandler);
+      doCancel();
+    }
+  };
+  document.addEventListener('keydown', escHandler);
 }
 
-export function closeCardioNoteModal() {
-  if (activeCardioNoteModal) { activeCardioNoteModal.remove(); activeCardioNoteModal = null; }
-}
+registerStartWorkoutModal(showStartWorkoutModal);

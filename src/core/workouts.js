@@ -7,9 +7,6 @@ export let EX_SESSION_INDEX = {};
 
 export let state = null;
 
-/** Historical session count loaded from workouts.json metadata. */
-export let completedSessionsBase = 0;
-
 export function rebuildIndexes(data) {
   workouts = data || [];
   EXERCISE_INDEX = Object.fromEntries(
@@ -27,8 +24,7 @@ export function setState(val) {
   }
 }
 
-export function initWorkouts(data, sessionBase = 0) {
+export function initWorkouts(data) {
   defaultWorkouts = data || [];
-  completedSessionsBase = sessionBase;
   rebuildIndexes(data);
 }

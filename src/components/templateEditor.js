@@ -147,46 +147,29 @@ function renderMain() {
 
       // Reps configuration inputs
       let repsHtml = '';
-      if (ex.reps && 'fixed' in ex.reps) {
-        repsHtml = `
-          <div class="te-subfield">
-            <label class="te-field-label">Reps</label>
-            <input type="number" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps.fixed" value="${ex.reps.fixed}" />
-          </div>
-        `;
-      } else {
-        const minR = ex.reps?.min ?? 8;
-        const maxR = ex.reps?.max ?? 12;
-        repsHtml = `
-          <div class="te-subfield">
-            <label class="te-field-label">Min Reps</label>
-            <input type="number" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps.min" value="${minR}" />
-          </div>
-          <div class="te-subfield">
-            <label class="te-field-label">Max Reps</label>
-            <input type="number" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps.max" value="${maxR}" />
-          </div>
-        `;
-      }
+      const minR = ex.reps?.min ?? 8;
+      const maxR = ex.reps?.max ?? 12;
+      repsHtml = `
+        <div class="te-subfield">
+          <label class="te-field-label">Min Reps</label>
+          <input type="number" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps.min" value="${minR}" />
+        </div>
+        <div class="te-subfield">
+          <label class="te-field-label">Max Reps</label>
+          <input type="number" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps.max" value="${maxR}" />
+        </div>
+      `;
 
       // Weight configuration inputs
       let weightHtml = '';
       const isWeightNone = !ex.weight;
-      const isWeightFixed = ex.weight && 'value' in ex.weight;
-      const isWeightRange = ex.weight && !('value' in ex.weight);
+      const isWeightRange = !!ex.weight;
 
       if (isWeightNone) {
         weightHtml = `<span class="te-weight-notes-label">Bodyweight / No prescheduled weight</span>`;
-      } else if (isWeightFixed) {
-        weightHtml = `
-          <div class="te-subfield">
-            <label class="te-field-label">Weight</label>
-            <input type="number" step="any" class="te-input te-ex-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="weight.value" value="${ex.weight.value}" />
-          </div>
-        `;
       } else {
-        const minW = ex.weight?.min ?? 0;
-        const maxW = ex.weight?.max ?? 0;
+        const minW = ex.weight?.min ?? ex.weight?.value ?? 0;
+        const maxW = ex.weight?.max ?? ex.weight?.value ?? 0;
         weightHtml = `
           <div class="te-subfield">
             <label class="te-field-label">Min Weight</label>
@@ -231,22 +214,16 @@ function renderMain() {
               </div>
               
               <div class="te-field">
-                <label class="te-field-label">Reps Mode</label>
-                <select class="te-select te-reps-mode-select" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}">
-                  <option value="range" ${ex.reps && 'min' in ex.reps ? 'selected' : ''}>Rep Range (Min-Max)</option>
-                  <option value="fixed" ${ex.reps && 'fixed' in ex.reps ? 'selected' : ''}>Fixed Reps</option>
-                </select>
-              </div>
-
-              <div class="te-field-group">
-                ${repsHtml}
+                <label class="te-field-label">Reps (Min / Max)</label>
+                <div class="te-field-group">
+                  ${repsHtml}
+                </div>
               </div>
 
               <div class="te-field">
                 <label class="te-field-label">Weight Mode</label>
                 <select class="te-select te-weight-mode-select" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}">
                   <option value="none" ${isWeightNone ? 'selected' : ''}>None (Bodyweight / Custom)</option>
-                  <option value="fixed" ${isWeightFixed ? 'selected' : ''}>Fixed Weight</option>
                   <option value="range" ${isWeightRange ? 'selected' : ''}>Weight Range</option>
                 </select>
               </div>
@@ -594,7 +571,7 @@ function setupEditorEvents() {
           name: 'New Exercise',
           sets: 3,
           reps: { min: 8, max: 12 },
-          weight: { value: 60, unit: 'lbs' },
+          weight: { min: 50, max: 70, unit: 'lbs' },
           rest_between_sets: 90,
           rest_between_exercises: 60,
           notes: '',
@@ -728,13 +705,7 @@ function setupEditorEvents() {
       const exIdx = parseInt(e.target.dataset.exIdx, 10);
       const ex = currentSession.blocks[blockIdx]?.exercises[exIdx];
       if (!ex) return;
-
-      const mode = e.target.value;
-      if (mode === 'fixed') {
-        ex.reps = { fixed: 8 };
-      } else {
-        ex.reps = { min: 8, max: 12 };
-      }
+      ex.reps = { min: 8, max: 12 };
       renderContents();
       return;
     }
@@ -748,8 +719,6 @@ function setupEditorEvents() {
       const mode = e.target.value;
       if (mode === 'none') {
         ex.weight = null;
-      } else if (mode === 'fixed') {
-        ex.weight = { value: 60, unit: 'lbs' };
       } else {
         ex.weight = { min: 50, max: 70, unit: 'lbs' };
       }

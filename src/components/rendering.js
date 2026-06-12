@@ -1,6 +1,6 @@
-import { workouts, completedSessionsBase } from '../core/workouts.js';
+import { workouts } from '../core/workouts.js';
 import { query } from '../core/queries.js';
-import { getEffectiveExercise, getDisplayName } from '../core/helpers.js';
+import { getEffectiveExercise } from '../core/helpers.js';
 import { detectPlateaus } from '../core/analytics/plateaus.js';
 
 
@@ -10,46 +10,18 @@ export function setEditingExId(val) { editingExId = val; }
 
 export function formatReps(reps) {
   if (!reps || typeof reps !== 'object') return '—';
-  
-  // Format B (user overrides): { fixed: X } or { min: X, max: Y }
-  if ('fixed' in reps) return String(reps.fixed);
-  if ('min' in reps && 'max' in reps) {
-    if (reps.min === reps.max) return String(reps.min);
-    return `${reps.min}–${reps.max}`;
-  }
-  
-  // Format A (workouts.json library format: has a nested .range object)
-  if (reps.range && typeof reps.range === 'object') {
-    const min = reps.range.min;
-    const max = reps.range.max;
-    if (min === max) return String(min);
-    return `${min}–${max}`;
-  }
-  
-  if ('value' in reps) return String(reps.value);
-  return '—';
+  if (reps.min === reps.max) return String(reps.min);
+  return `${reps.min}–${reps.max}`;
 }
 
 export function formatWeight(weight) {
   if (!weight || typeof weight !== 'object') return '';
-  
-  // Format B (user overrides) or legacy simple format: { value, unit } or { min, max, unit }
+  const unit = weight.unit || '';
   if ('min' in weight && 'max' in weight) {
-    const unit = weight.unit || '';
     if (weight.min === weight.max) return `${weight.min} ${unit}`.trim();
     return `${weight.min}–${weight.max} ${unit}`.trim();
   }
-  
-  // Format A (workouts.json library format: has a nested .range object)
-  if (weight.range && typeof weight.range === 'object') {
-    const min = weight.range.min;
-    const max = weight.range.max;
-    const unit = weight.unit || 'lbs';
-    if (min === max) return `${min} ${unit}`;
-    return `${min}–${max} ${unit}`;
-  }
-  
-  if ('value' in weight) return `${weight.value} ${weight.unit || ''}`.trim();
+  if ('value' in weight) return `${weight.value} ${unit}`.trim();
   return '';
 }
 
@@ -78,9 +50,22 @@ export function getTrainingWeekAndSession(appState) {
   return query.weekAndSession(appState);
 }
 
+let lastRenderedSessionId = null;
+
 export function render(appState) {
   const el = document.getElementById('app');
-  if (el) el.innerHTML = buildApp(appState);
+  if (!el) return;
+
+  const sessionIdChanged = lastRenderedSessionId !== appState.activeSessionId;
+  lastRenderedSessionId = appState.activeSessionId;
+
+  if (sessionIdChanged) {
+    el.classList.add('animate-entrance');
+  } else {
+    el.classList.remove('animate-entrance');
+  }
+
+  el.innerHTML = buildApp(appState);
 
   const { week, session } = getTrainingWeekAndSession(appState);
   const weekSessionEl = document.getElementById('week-session-display');
@@ -104,72 +89,8 @@ export function render(appState) {
 }
 
 export function buildApp(appState) {
-  return buildFatigueBanner(appState) +
-    buildTabs(appState) +
-    workouts.map(s => buildSession(s, appState)).join('') +
-    buildDeloadStrip(appState);
-}
-
-/**
- * Renders the global fatigue warning banner if state.fatigueStatus.level === 'warning'.
- * Displays a compact, non-intrusive amber toast above the session tabs.
- * Each indicator bullet is listed inline.
- *
- * @param {object} appState
- * @returns {string} HTML string
- */
-export function buildFatigueBanner(appState) {
-  const fs = appState?.fatigueStatus;
-  if (!fs || fs.level !== 'warning' || !fs.indicators?.length || fs.dismissed) return '';
-
-  const bullets = fs.indicators
-    .map(i => `<li class="fatigue-indicator">${i}</li>`)
-    .join('');
-
-  return `
-    <div class="fatigue-banner" role="alert" aria-label="Fatigue warning" id="fatigue-banner">
-      <div class="fatigue-banner-inner">
-        <span class="fatigue-icon" aria-hidden="true">!</span>
-        <div class="fatigue-body">
-          <div class="fatigue-title">Recovery Focus Recommended</div>
-          <ul class="fatigue-indicators">${bullets}</ul>
-        </div>
-        <button class="fatigue-dismiss" id="fatigue-dismiss" aria-label="Dismiss fatigue warning" title="Dismiss">✕</button>
-      </div>
-    </div>`;
-}
-
-/**
- * Renders a persistent deload mode strip just above the session tabs.
- * Always visible — shows current state and lets the user toggle deload on/off.
- *
- * @param {object} appState
- * @returns {string} HTML string
- */
-export function buildDeloadStrip(appState) {
-  const active = appState?.isDeloadActive === true;
-  const cls    = active ? 'deload-strip deload-strip--on' : 'deload-strip';
-  const label  = active ? 'Deload Active' : 'Deload Mode';
-  const desc   = active
-    ? 'Fatigue warnings suppressed · workouts flagged as planned recovery'
-    : 'Toggle to suppress fatigue warnings during a planned deload week';
-
-  return `
-    <div class="${cls}">
-      <div class="deload-strip-left">
-        <span class="deload-strip-icon" aria-hidden="true">${active ? '⬤' : '◯'}</span>
-        <div class="deload-strip-text">
-          <span class="deload-strip-label">${label}</span>
-          <span class="deload-strip-desc">${desc}</span>
-        </div>
-      </div>
-      <button
-        id="deload-toggle-btn"
-        class="deload-toggle-btn ${active ? 'on' : ''}"
-        aria-pressed="${active}"
-        aria-label="${active ? 'Deactivate deload mode' : 'Activate deload mode'}"
-      >${active ? 'ON' : 'OFF'}</button>
-    </div>`;
+  return buildTabs(appState) +
+    workouts.map(s => buildSession(s, appState)).join('');
 }
 
 export function getSuggestedSessionId(appState) {
@@ -229,30 +150,30 @@ export function buildTabs(appState) {
 
 export function buildSession(session, appState) {
   const active    = session.id === appState.activeSessionId ? 'active' : '';
-  const complete  = query.isSessionComplete(appState, session.id);
+  const finished  = query.isSessionFinishedInCurrentWeek(appState, session.id);
+  const complete  = query.isSessionComplete(appState, session.id) && !finished && appState.sessionStarted !== null;
   const c = appState?.cardio || {};
   const warmupDone   = c.warmupDone   === true;
   const finisherDone = c.finisherDone === true;
 
-  // Cardio notes for warmup and finisher from history (most recent entry for this session)
-  const lastEntry = query.lastSession(appState, session.id);
-  const lastCardio = lastEntry?.cardio || {};
-  const lastWarmupNote   = lastCardio.warmupNote   || '';
-  const lastFinisherNote = lastCardio.finisherNote || '';
-
-  const warmupNoteHint = lastWarmupNote
-    ? `<span class="warmup-note-hint">📝 ${lastWarmupNote.slice(0, 40)}${lastWarmupNote.length > 40 ? '…' : ''}</span>`
-    : `<span class="warmup-note-hint">TAP TO ADD NOTE</span>`;
-
-  const finisherNoteHint = lastFinisherNote
-    ? `<span class="finisher-note-hint">📝 ${lastFinisherNote.slice(0, 40)}${lastFinisherNote.length > 40 ? '…' : ''}</span>`
-    : `<span class="finisher-note-hint">TAP TO ADD NOTE</span>`;
+  let bannerHtml = '';
+  if (finished) {
+    bannerHtml = `
+      <div class="complete-banner visible finished-banner">
+        SESSION LOGGED<small>This workout has been saved to your history.</small>
+      </div>`;
+  } else {
+    bannerHtml = `
+      <div class="complete-banner ${complete ? 'visible' : ''}">
+        SESSION COMPLETE<small>Rest up. You earned it.</small>
+        <button class="finish-workout-btn" data-session-id="${session.id}">Finish Workout</button>
+      </div>`;
+  }
 
   return `<div class="session ${active}" id="${session.id}">
-    <div class="warmup-bar ${warmupDone ? 'warmup-done' : ''}" data-cardio-type="warmup" role="button" aria-label="Warm-up: tap to add note" tabindex="0">
+    <div class="warmup-bar ${warmupDone ? 'warmup-done' : ''}">
       <div style="flex:1; min-width:0;">
         <span><strong>WARM-UP</strong> <span>· ${session.warmup}</span></span>
-        ${warmupNoteHint}
       </div>
       <input
         type="checkbox"
@@ -260,15 +181,15 @@ export function buildSession(session, appState) {
         data-cardio-field="warmupDone"
         id="cardio-warmup-${session.id}"
         ${warmupDone ? 'checked' : ''}
+        ${finished ? 'disabled' : ''}
         aria-label="Warmup done"
       />
     </div>
-    ${session.blocks.map(b => buildBlock(b, appState)).join('')}
-    <div class="finisher-card ${finisherDone ? 'finisher-done' : ''}" data-cardio-type="finisher" role="button" aria-label="Finisher: tap to add note" tabindex="0">
+    ${session.blocks.map(b => buildBlock(b, appState, finished)).join('')}
+    <div class="finisher-card ${finisherDone ? 'finisher-done' : ''}">
       <div class="finisher-card-body">
         <div class="finisher-label">Finisher</div>
         <div class="finisher-text">${session.finisher}</div>
-        ${finisherNoteHint}
       </div>
       <input
         type="checkbox"
@@ -276,13 +197,11 @@ export function buildSession(session, appState) {
         data-cardio-field="finisherDone"
         id="cardio-finisher-${session.id}"
         ${finisherDone ? 'checked' : ''}
+        ${finished ? 'disabled' : ''}
         aria-label="Finisher done"
       />
     </div>
-    <div class="complete-banner ${complete ? 'visible' : ''}">
-      SESSION COMPLETE<small>Rest up. You earned it.</small>
-      <button class="finish-workout-btn" data-session-id="${session.id}">Finish Workout</button>
-    </div>
+    ${bannerHtml}
   </div>`;
 }
 
@@ -299,73 +218,22 @@ export function buildSession(session, appState) {
  * @param {object} appState
  * @returns {string} HTML string
  */
-export function buildCardioSection(appState) {
-  const c = appState?.cardio || {};
-  const warmupDone   = c.warmupDone   === true;
-  const finisherDone = c.finisherDone === true;
-  const notesVal     = c.notes ?? '';
 
-  return `
-    <div class="cardio-section" id="cardio-section">
-      <div class="cardio-section-header">CARDIO <span class="cardio-section-sub">(optional · logged on finish)</span></div>
-      <div class="cardio-fields">
-        <div class="cardio-field cardio-field--check">
-          <label class="cardio-check-label" for="cardio-warmup">
-            <input
-              type="checkbox"
-              id="cardio-warmup"
-              class="cardio-checkbox"
-              data-cardio-field="warmupDone"
-              ${warmupDone ? 'checked' : ''}
-            />
-            <span>Warmup done</span>
-            <span class="cardio-check-sub">Treadmill · 8 min</span>
-          </label>
-        </div>
-        <div class="cardio-field cardio-field--check">
-          <label class="cardio-check-label" for="cardio-finisher">
-            <input
-              type="checkbox"
-              id="cardio-finisher"
-              class="cardio-checkbox"
-              data-cardio-field="finisherDone"
-              ${finisherDone ? 'checked' : ''}
-            />
-            <span>Finisher done</span>
-            <span class="cardio-check-sub">Treadmill · 8 min</span>
-          </label>
-        </div>
-        <div class="cardio-field cardio-field--notes" style="grid-column: span 2;">
-          <label for="cardio-notes">Notes</label>
-          <input
-            type="text"
-            id="cardio-notes"
-            class="cardio-input"
-            placeholder="e.g. felt strong, 3.5 mph"
-            value="${notesVal.replace(/"/g, '&quot;')}"
-            data-cardio-field="notes"
-            autocomplete="off"
-          />
-        </div>
-      </div>
-    </div>`;
-}
 
-export function buildBlock(block, appState) {
+export function buildBlock(block, appState, readOnly = false) {
   return `<section class="superset-section" data-block-id="${block.label}">
     <div class="superset-label">${block.label}</div>
-    ${block.exercises.map(ex => buildCard(ex, appState)).join('')}
+    ${block.exercises.map(ex => buildCard(ex, appState, readOnly)).join('')}
   </section>`;
 }
 
-export function buildCard(ex, appState) {
+export function buildCard(ex, appState, readOnly = false) {
   const sets      = appState.exercises[ex.id] || [];
   const complete  = query.isExerciseComplete(appState, ex.id);
   const prevSets  = query.lastExerciseSets(appState, ex.id);
   
   const effEx     = getEffectiveExercise(appState, ex.id);
-  const displayName = getDisplayName(appState, ex.id);
-  const isSubstituted = !!appState?.exerciseSubstitutions?.[ex.id];
+  const displayName = ex.name;
   const isOverridden = !!appState?.exerciseOverrides?.[ex.id];
   
   const wStr      = formatWeight(effEx.load ?? effEx.weight);
@@ -380,28 +248,24 @@ export function buildCard(ex, appState) {
     </div>`;
   }
 
-  const revertHtml = isSubstituted
-    ? `<span class="ex-revert-link" data-ex-id="${ex.id}" role="button" aria-label="Revert exercise swap">↩ revert</span>`
-    : '';
 
   const isOverriddenClass = isOverridden ? 'overridden' : '';
   const overrideIndicator = isOverridden ? ' <span class="ex-override-indicator" title="Custom targets active">●</span>' : '';
 
-  const editBtnHtml = `<button class="ex-edit-btn" data-ex-id="${ex.id}" aria-label="Edit targets" title="Edit targets">✎</button>`;
-  const editPanelHtml = (editingExId === ex.id) ? buildEditPanel(ex, appState) : '';
+  const editBtnHtml = readOnly ? '' : `<button class="ex-edit-btn" data-ex-id="${ex.id}" aria-label="Edit targets" title="Edit targets">✎</button>`;
+  const editPanelHtml = (editingExId === ex.id && !readOnly) ? buildEditPanel(ex, appState) : '';
 
   const plateauBannerHtml = buildPlateauBanner(appState, ex.id);
 
   return `<div class="exercise-card ${complete ? 'completed' : ''}" data-ex-id="${ex.id}">
-    <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${displayName}" tabindex="0">
+    <div class="exercise-header" data-ex-id="${ex.id}" role="button" aria-label="View history for ${displayName}" tabindex="0" ${readOnly ? 'style="cursor: default;"' : ''}>
       <div class="ex-letter">${ex.letter || ''}</div>
       <div class="ex-title-group">
         <div class="ex-name">
           <span class="ex-name-text">${displayName}</span>
           ${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}
-          ${revertHtml}
         </div>
-        <div class="ex-info-group ex-metadata-row-sub" title="Press & hold to cycle alternatives">
+        <div class="ex-info-group ex-metadata-row-sub">
           <span class="ex-metadata-sets-reps">${effEx.sets} × ${formatReps(effEx.reps)}</span>
           ${wStr ? `<span class="ex-metadata-weight-tag ${isOverriddenClass}">${wStr}${overrideIndicator}</span>` : ''}
           ${effEx.equipmentType ? `<span class="ex-metadata-type-badge">${effEx.equipmentType}</span>` : ''}
@@ -418,42 +282,22 @@ export function buildCard(ex, appState) {
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
     <div class="set-row">
-      ${sets.map((s, i) => buildDot(ex.id, i, s)).join('')}
+      ${sets.map((s, i) => buildDot(ex.id, i, s, readOnly)).join('')}
     </div>
   </div>`;
 }
 
 export function buildEditPanel(ex, appState) {
   const effEx = getEffectiveExercise(appState, ex.id);
-  
+
+  const weightObj = effEx.load ?? effEx.weight;
   let weightVal = '';
-  if (effEx.weight) {
-    if ('value' in effEx.weight) {
-      weightVal = effEx.weight.value;
-    } else if ('min' in effEx.weight) {
-      weightVal = effEx.weight.min;
-    } else if (effEx.weight.range && typeof effEx.weight.range === 'object') {
-      weightVal = effEx.weight.range.min;
-    }
+  if (weightObj) {
+    weightVal = weightObj.value ?? weightObj.min ?? '';
   }
 
-  let repMin = '';
-  let repMax = '';
-  if (effEx.reps) {
-    if ('fixed' in effEx.reps) {
-      repMin = effEx.reps.fixed;
-      repMax = effEx.reps.fixed;
-    } else if ('min' in effEx.reps && 'max' in effEx.reps) {
-      repMin = effEx.reps.min;
-      repMax = effEx.reps.max;
-    } else if (effEx.reps.range && typeof effEx.reps.range === 'object') {
-      repMin = effEx.reps.range.min ?? '';
-      repMax = effEx.reps.range.max ?? '';
-    } else if ('value' in effEx.reps) {
-      repMin = effEx.reps.value;
-      repMax = effEx.reps.value;
-    }
-  }
+  const repMin = effEx.reps?.min ?? '';
+  const repMax = effEx.reps?.max ?? '';
 
   const notesVal = effEx.notes ?? '';
 
@@ -616,7 +460,7 @@ export function buildDelta(weightDelta, repsDelta) {
   return parts.length ? `<span class="delta-group">${parts.join('')}</span>` : '';
 }
 
-export function buildDot(exId, idx, setObj) {
+export function buildDot(exId, idx, setObj, readOnly = false) {
   const { s, w, r } = setObj;
   let cls = 'set-dot';
   let inner = '';
@@ -640,6 +484,7 @@ export function buildDot(exId, idx, setObj) {
   return `<button class="${cls}"
     data-ex-id="${exId}"
     data-set-idx="${idx}"
+    ${readOnly ? 'disabled style="pointer-events: none; opacity: 0.8;"' : ''}
     aria-label="Set ${idx + 1}: tap to toggle, hold to log">${inner}</button>`;
 }
 

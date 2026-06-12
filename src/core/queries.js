@@ -168,59 +168,6 @@ export const query = {
     };
   },
 
-  // ── Cardio Streak System (§9/§26) ─────────────────────────────────────────
-
-  /**
-   * Count consecutive completed sessions (from newest backwards) where
-   * cardio[field] === true. Breaks on the first miss.
-   *
-   * @param {object}  appState
-   * @param {'warmupDone'|'finisherDone'} field
-   * @returns {number}
-   */
-  cardioStreak(appState, field) {
-    const sorted = this.chronological(appState);
-    let streak = 0;
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      const cardio = sorted[i].cardio;
-      if (cardio && cardio[field] === true) {
-        streak++;
-      } else {
-        break;  // one miss breaks the streak
-      }
-    }
-    return streak;
-  },
-
-  /** Consecutive sessions with warmupDone = true */
-  warmupStreak(appState)   { return this.cardioStreak(appState, 'warmupDone');   },
-
-  /** Consecutive sessions with finisherDone = true */
-  finisherStreak(appState) { return this.cardioStreak(appState, 'finisherDone'); },
-
-  // ── Fatigue Index (§11) ───────────────────────────────────────────────────
-
-  /**
-   * Per-exercise fatigue index from the LIVE set array:
-   *   FatigueIndex = 1 − (lastSet.w×r / firstSet.w×r)
-   *
-   * Based on entry order; ignores failed sets.
-   * Returns null if fewer than 2 completed sets with data.
-   *
-   * @param {object} appState
-   * @param {string} exId
-   * @returns {number|null}
-   */
-  fatigueIndex(appState, exId) {
-    const sets = (appState.exercises[exId] || [])
-      .filter(s => s.s === 'done' && s.w !== null && s.r !== null);
-    if (sets.length < 2) return null;
-    const first = sets[0].w * sets[0].r;
-    const last  = sets[sets.length - 1].w * sets[sets.length - 1].r;
-    if (first === 0) return null;
-    return +(1 - last / first).toFixed(3);
-  },
-
   // ── Progression Recommendation (§21) ─────────────────────────────────────
 
   /**
@@ -403,100 +350,18 @@ export const query = {
     return result;
   },
 
-  sessionAnalytics(appState, sessionId) {
-    const history = this.sessionHistory(appState, sessionId, 2);
-    if (!history.length) return null;
 
-    const lastEntry = history[history.length - 1];
-    const prevEntry = history.length >= 2 ? history[history.length - 2] : null;
+  isSessionFinishedInCurrentWeek(appState, sessionId) {
+    const spw = appState.sessionsPerWeek ?? 3;
+    const n   = appState.completedWorkouts ?? 0;
+    const currentCycleCount = n % spw;
+    if (currentCycleCount === 0) return false;
 
-    let volume = 0, totalSets = 0, completedSets = 0;
-    Object.values(lastEntry.exercises).forEach(sets => {
-      totalSets += sets.length;
-      sets.forEach(s => {
-        if (s.s === 'done' || s.s === 'failed') completedSets++;
-        if (s.s === 'done' && s.w !== null && s.r !== null) volume += s.w * s.r;
-      });
-    });
-
-    let prevVolume = 0, prevTotalSets = 0, prevCompletedSets = 0;
-    if (prevEntry) {
-      Object.values(prevEntry.exercises).forEach(sets => {
-        prevTotalSets += sets.length;
-        sets.forEach(s => {
-          if (s.s === 'done' || s.s === 'failed') prevCompletedSets++;
-          if (s.s === 'done' && s.w !== null && s.r !== null) prevVolume += s.w * s.r;
-        });
-      });
-    }
-
-    const durationMs = lastEntry.startTimestamp ? lastEntry.timestamp - lastEntry.startTimestamp : null;
-    const prs        = this.sessionPRsFromEntry(appState, lastEntry);
-
-    return {
-      timestamp: lastEntry.timestamp,
-      volume, prevVolume,
-      totalSets, completedSets,
-      prevTotalSets, prevCompletedSets,
-      durationMs, prs
-    };
-  },
-
-  // ── Recovery Dashboard ────────────────────────────────────────────────────
-
-  recoveryDashboard(appState) {
-    const now             = Date.now();
-    const oneDay          = 24 * 60 * 60 * 1000;
-    const sevenDaysAgo    = now - 7 * oneDay;
-    const fourteenDaysAgo = now - 14 * oneDay;
-    const thirtyDaysAgo   = now - 30 * oneDay;
-
-    const entryVolume = entry => {
-      let vol = 0;
-      Object.values(entry.exercises || {}).forEach(sets =>
-        sets.forEach(s => { if (s.s === 'done' && s.w !== null && s.r !== null) vol += s.w * s.r; })
-      );
-      return vol;
-    };
-
-    const entryDuration = entry => {
-      if (entry.startTimestamp && entry.timestamp > entry.startTimestamp)
-        return entry.timestamp - entry.startTimestamp;
-      return null;
-    };
-
-    const history            = appState.history || [];
-    const last7DaysEntries   = history.filter(e => e.timestamp >= sevenDaysAgo);
-    const workoutsLast7Days  = last7DaysEntries.length;
-    const vol7               = last7DaysEntries.reduce((sum, e) => sum + entryVolume(e), 0);
-    const prev7DaysEntries   = history.filter(e => e.timestamp >= fourteenDaysAgo && e.timestamp < sevenDaysAgo);
-    const volPrev7           = prev7DaysEntries.reduce((sum, e) => sum + entryVolume(e), 0);
-
-    let volumeTrend = null;
-    if (volPrev7 > 0) volumeTrend = +(((vol7 - volPrev7) / volPrev7) * 100).toFixed(1);
-
-    const last30DaysEntries = history.filter(e => e.timestamp >= thirtyDaysAgo);
-    const durations         = last30DaysEntries.map(entryDuration).filter(d => d !== null);
-    const avgDurationMs     = durations.length
-      ? (durations.reduce((sum, d) => sum + d, 0) / durations.length)
-      : null;
-
-    let daysSinceLastWorkout = null;
-    if (history.length > 0) {
-      const lastTs          = Math.max(...history.map(e => e.timestamp));
-      daysSinceLastWorkout  = +((now - lastTs) / oneDay).toFixed(1);
-    }
-
-    return {
-      workoutsLast7Days,
-      volumeLast7Days:     vol7,
-      volumePrev7Days:     volPrev7,
-      volumeTrend,
-      avgDurationMs,
-      daysSinceLastWorkout,
-      sessionsPerWeek:     appState?.sessionsPerWeek ?? 3,
-      warmupStreak:        this.warmupStreak(appState),
-      finisherStreak:      this.finisherStreak(appState)
-    };
+    // Sort by timestamp before slicing so insertion order differences (post-import)
+    // do not cause the wrong entries to be selected.
+    const sorted = [...(appState.history || [])].sort((a, b) => a.timestamp - b.timestamp);
+    const recentEntries = sorted.slice(-currentCycleCount);
+    return recentEntries.some(entry => entry.sessionId === sessionId);
   }
 };
+

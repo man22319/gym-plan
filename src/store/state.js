@@ -2,11 +2,11 @@
 // ─── CONSTANTS ───
 // ==========================================
 
-export const STORAGE_KEY   = 'pf_tracker_v7';
+export const STORAGE_KEY   = 'pf_tracker_v9';
 export const REST_DURATION = 90; // seconds
 export const MAX_REST_DURATION = 300; // 5 minutes — hard cap
 export const STATE_VERSION = 9;
-export const DEV_MODE      = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
+export const DEV_MODE      = typeof window !== 'undefined' ? ['localhost', '127.0.0.1', ''].includes(window.location.hostname) : true;
 
 export const EQUIPMENT_DELTA_W_DEFAULTS = {
   machine:    5,
@@ -30,8 +30,8 @@ export const EQUIPMENT_DELTA_W_DEFAULTS = {
  * rir: Reps In Reserve  ∈ {0,1,2,…} | null (optional per §10/§20)
  * rom: full Range of Motion flag (boolean, default true per §10)
  */
-export function makeSet(s = '', w = null, r = null, n = '', rir = null, rom = true) {
-  return { s, w, r, n, rir, rom };
+export function makeSet(s = '', w = null, r = null, n = '', rir = null) {
+  return { s, w, r, n, rir, rom: 'full' };
 }
 
 /**
@@ -47,9 +47,7 @@ export function makeCardio() {
   return {
     warmupDone:   false,
     finisherDone: false,
-    notes:        '',
-    warmupNote:   '',
-    finisherNote: ''
+    notes:        ''
   };
 }
 
@@ -73,7 +71,6 @@ export function createDefaultState(workouts) {
     sessionsPerWeek:  3,
     activeSessionId:  workouts && workouts[0] ? workouts[0].id : null,
     exercises:        makeDefaultExercises(workouts),
-    exerciseSubstitutions: {},
     exerciseOverrides: {},
     history:          [],
 
@@ -84,13 +81,6 @@ export function createDefaultState(workouts) {
     completedWorkouts: 0,
 
     sessionStarted:   null,     // ms timestamp — set when first set is logged
-
-    isDeloadActive:   false,    // user-toggled: suppresses fatigue warnings
-    fatigueStatus: {            // populated by analyzeFatigueTrends() after FINISH_WORKOUT
-      level:      'normal',     // 'normal' | 'warning'
-      indicators: [],           // human-readable strings
-      timestamp:  0             // ms epoch of last analysis run
-    },
 
     cardio: null,               // transient: pending cardio for current session; committed to history on FINISH_WORKOUT
 

@@ -18,13 +18,16 @@
   overflow: hidden;
   position: relative;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.animate-entrance .exercise-card {
   animation: glassResolve 0.55s cubic-bezier(0.25, 1, 0.5, 1) both;
 }
-.exercise-card:nth-child(1) { animation-delay: 40ms; }
-.exercise-card:nth-child(2) { animation-delay: 80ms; }
-.exercise-card:nth-child(3) { animation-delay: 120ms; }
-.exercise-card:nth-child(4) { animation-delay: 160ms; }
-.exercise-card:nth-child(5) { animation-delay: 200ms; }
+.animate-entrance .exercise-card:nth-child(1) { animation-delay: 40ms; }
+.animate-entrance .exercise-card:nth-child(2) { animation-delay: 80ms; }
+.animate-entrance .exercise-card:nth-child(3) { animation-delay: 120ms; }
+.animate-entrance .exercise-card:nth-child(4) { animation-delay: 160ms; }
+.animate-entrance .exercise-card:nth-child(5) { animation-delay: 200ms; }
 
 @keyframes glassResolve {
   from {
@@ -196,23 +199,7 @@
 .ex-advice.prog-reduce  .advice-text { color: #ef5350; }
 .ex-advice.prog-watch   .advice-text { color: #fdd835; }
 
-.ex-revert-link {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.55rem;
-  color: var(--red);
-  background: none;
-  border: none;
-  cursor: pointer;
-  margin-left: 6px;
-  text-transform: lowercase;
-  opacity: 0.75;
-  transition: opacity 0.1s;
-  display: inline-block;
-  line-height: 1;
-}
-.ex-revert-link:hover {
-  opacity: 1;
-}
+
 
 .ex-edit-btn {
   background: none;

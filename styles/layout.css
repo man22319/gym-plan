@@ -192,19 +192,6 @@ header {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
-.dropdown-subheader {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.5rem;
-  text-transform: uppercase;
-  color: var(--dim);
-  padding: 8px 14px 4px;
-  letter-spacing: 0.5px;
-}
-.dropdown-divider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 4px 0;
-}
 .dropdown:hover .dropdown-content {
   display: block;
 }

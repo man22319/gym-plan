@@ -1,67 +1,26 @@
 import { workouts, state } from '../core/workouts.js';
 import { dispatch } from '../core/reducer.js';
-import { migrate, normalize, validate } from '../core/persistence.js';
 import { formatReps, formatWeight } from './rendering.js';
 
-export function exportTemplate() {
-  try {
-    const template = {
-      version: 2,
-      sessionsPerWeek: state.sessionsPerWeek ?? 3,
-      sessions: state.sessions
-    };
-    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement('a'), {
-      href: url,
-      download: `gym-template-${new Date().toISOString().slice(0,10)}.json`
-    });
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (e) { alert('Export template failed: ' + e.message); }
-}
-
-export function exportHistory() {
-  try {
-    const hist = { version: 1, history: state.history };
-    const blob = new Blob([JSON.stringify(hist, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement('a'), {
-      href: url,
-      download: `gym-history-${new Date().toISOString().slice(0,10)}.json`
-    });
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (e) { alert('Export history failed: ' + e.message); }
-}
-
-export function exportBackup() {
+export function exportData() {
   try {
     const d = new Date();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     const yy = String(d.getFullYear()).slice(-2);
-    const dateStr = `${mm}${dd}${yy}`;
-    const filename = `gym-plan-backup_${dateStr}.json`;
+    const filename = `gym-plan-backup_${mm}${dd}${yy}.json`;
 
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
-    const a    = Object.assign(document.createElement('a'), {
-      href: url,
-      download: filename
-    });
+    const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  } catch (e) { alert('Export backup failed: ' + e.message); }
+  } catch (e) { alert('Export failed: ' + e.message); }
 }
 
-export function importTemplate() {
+export function importData() {
   const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json' });
   input.onchange = e => {
     const file = e.target.files[0];
@@ -70,66 +29,13 @@ export function importTemplate() {
     reader.onload = evt => {
       try {
         const parsed = JSON.parse(evt.target.result);
-        if (parsed.history && !parsed.sessions) {
-          throw new Error('This looks like a history file, not a template.');
-        }
         if (!parsed.sessions || !Array.isArray(parsed.sessions)) {
-          throw new Error('Missing "sessions" array in template schema.');
+          throw new Error('Missing "sessions" array — not a valid backup file.');
         }
-        const sessionsPerWeek = parsed.sessionsPerWeek ?? 3;
-        dispatch('IMPORT_TEMPLATE', { sessions: parsed.sessions, sessionsPerWeek });
-      } catch (err) { alert('Import failed: ' + err.message); }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-export function importHistory() {
-  const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json' });
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-      try {
-        const parsed = JSON.parse(evt.target.result);
-        if (parsed.sessions) {
-          throw new Error('This looks like a template file, not a history file.');
+        if (!Array.isArray(parsed.history)) {
+          throw new Error('Missing "history" array — not a valid backup file.');
         }
-        if (parsed.exercises && parsed.activeSessionId) {
-          throw new Error('This looks like a full backup file, not a history file. Use "Import Backup" instead.');
-        }
-        if (!parsed.history || !Array.isArray(parsed.history)) {
-          throw new Error('Missing "history" array in history schema.');
-        }
-        dispatch('IMPORT_HISTORY', { history: parsed.history });
-      } catch (err) { alert('Import failed: ' + err.message); }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
-
-export function importBackup() {
-  const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json' });
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = evt => {
-      try {
-        const parsed = JSON.parse(evt.target.result);
-        if (parsed.sessions && !parsed.exercises) {
-          throw new Error('This looks like a template file. Use "Import Template" instead.');
-        }
-        if (parsed.history && !parsed.exercises) {
-          throw new Error('This looks like a history file. Use "Import History" instead.');
-        }
-        const migrated = migrate(parsed);
-        const normal   = normalize(migrated);
-        if (!validate(normal)) throw new Error('Schema mismatch');
-        dispatch('IMPORT_STATE', { data: normal });
+        dispatch('IMPORT_STATE', { data: parsed });
       } catch (err) { alert('Import failed: ' + err.message); }
     };
     reader.readAsText(file);
@@ -151,18 +57,8 @@ export function copyWorkout(btn) {
         lines.push(`  ${ex.letter ?? ''}  ${ex.name}`);
         lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${formatWeight(ex.load ?? ex.weight)}`);
         if (ex.notes) lines.push(`     Note: ${ex.notes}`);
-        const rawAlts = ex.alternatives;
-        let flatAlts = [];
-        if (rawAlts && typeof rawAlts === 'object' && !Array.isArray(rawAlts)) {
-          flatAlts = [
-            ...(rawAlts.same_pattern || []),
-            ...(rawAlts.regression   || []),
-            ...(rawAlts.variation    || [])
-          ];
-        } else if (Array.isArray(rawAlts)) {
-          flatAlts = rawAlts;
-        }
-        if (flatAlts.length) lines.push(`     Alt: ${flatAlts.join(', ')}`);
+        const alts = Array.isArray(ex.alternatives) ? ex.alternatives : [];
+        if (alts.length) lines.push(`     Alt: ${alts.join(', ')}`);
       });
       lines.push('');
     });

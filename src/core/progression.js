@@ -75,9 +75,29 @@ export function computeObservations(sets) {
   const done = (sets || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
   if (!done.length) return { E_t: null, V_t: 0 };
 
-  const e1rms = done.map(s => epleyE1RM(s.w, s.r)).filter(e => e !== null);
+  const e1rms = done.map(s => {
+    const baseE1rm = epleyE1RM(s.w, s.r);
+    if (baseE1rm === null) return null;
+    
+    let factor = 1.0;
+    if (s.rom === 'partial') factor = 0.80;
+    else if (s.rom === 'restricted') factor = 0.80;
+    else if (s.rom === 'cheat') factor = 0.85;
+    else if (s.rom === 'shortened') factor = 0.90;
+    
+    return baseE1rm * factor;
+  }).filter(e => e !== null);
+
   const E_t   = e1rms.length ? (e1rms.reduce((a, b) => a + b, 0) / e1rms.length) : null;
-  const V_t   = done.reduce((sum, s) => sum + s.w * s.r, 0);
+
+  const V_t   = done.reduce((sum, s) => {
+    let factor = 1.0;
+    if (s.rom === 'partial') factor = 0.80;
+    else if (s.rom === 'restricted') factor = 0.80;
+    else if (s.rom === 'cheat') factor = 0.85;
+    else if (s.rom === 'shortened') factor = 0.90;
+    return sum + s.w * s.r * factor;
+  }, 0);
 
   return { E_t, V_t };
 }
@@ -296,8 +316,17 @@ export function computeFatigueIndex(sets) {
   const done = (sets || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
   if (done.length < 2) return null;
 
-  const firstPerf = done[0].w * done[0].r;
-  const lastPerf  = done[done.length - 1].w * done[done.length - 1].r;
+  const getPerf = s => {
+    let factor = 1.0;
+    if (s.rom === 'partial') factor = 0.80;
+    else if (s.rom === 'restricted') factor = 0.80;
+    else if (s.rom === 'cheat') factor = 0.85;
+    else if (s.rom === 'shortened') factor = 0.90;
+    return s.w * s.r * factor;
+  };
+
+  const firstPerf = getPerf(done[0]);
+  const lastPerf  = getPerf(done[done.length - 1]);
 
   if (firstPerf === 0) return null;
   return +(1 - lastPerf / firstPerf).toFixed(3);

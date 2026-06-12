@@ -74,30 +74,3 @@
   touch-action: manipulation;
   cursor: pointer;
 }
-
-/* Mobile iOS Safari Optimization: Force notes input to 16px to prevent zoom */
-.cardio-input {
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--white);
-  font-size: 16px;
-  padding: 8px 10px;
-  width: 100%;
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: none;
-  box-sizing: border-box;
-}
-
-.cardio-input:focus {
-  border-color: var(--accent, #5cff8a);
-  box-shadow: 0 0 0 2px rgba(92, 255, 138, 0.15);
-}
-
-.cardio-input::placeholder {
-  color: var(--dim);
-}
