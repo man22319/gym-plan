@@ -3,7 +3,7 @@ import { query } from '../../core/logic/queries.js';
 import { dispatch, registerStartWorkoutModal } from '../../core/logic/reducer.js';
 import { makeSet } from '../../core/state/state.js';
 import { lowerBound, resolveWeight } from '../../core/utils/helpers.js';
-import { formatDate, formatTime } from '../workout/rendering.js';
+import { formatDate, formatTime, formatDuration } from '../workout/rendering.js';
 
 
 export let activeHistoryModal = null;
@@ -251,11 +251,25 @@ export function openSessionSummaryModal(entry, appState, isCycleComplete = false
   const durationMs = entry.startTimestamp ? entry.timestamp - entry.startTimestamp : null;
   const durationStr = durationMs ? formatDuration(durationMs) : null;
 
+  // Workout time: start → last set (pure training time, excludes post-workout overhead)
+  const workoutDurationMs = entry.startTimestamp && entry.lastSetTimestamp
+    ? entry.lastSetTimestamp - entry.startTimestamp
+    : null;
+  const workoutDurationStr = workoutDurationMs ? formatDuration(workoutDurationMs) : null;
+
+  // Show separate workout/session times if they differ by more than 1 minute
+  const showBothDurations = workoutDurationStr && durationStr
+    && durationMs && workoutDurationMs
+    && (durationMs - workoutDurationMs) > 60_000;
+
   const sessionPRs = query.sessionPRsFromEntry(appState, entry);
   const prExIds = Object.keys(sessionPRs);
 
   const stats = [];
-  if (durationStr) {
+  if (showBothDurations) {
+    stats.push({ label: 'Workout', value: workoutDurationStr, icon: '💪' });
+    stats.push({ label: 'Session', value: durationStr, icon: '⏱' });
+  } else if (durationStr) {
     stats.push({ label: 'Duration', value: durationStr, icon: '⏱' });
   }
   stats.push({ label: 'Total Volume', value: `${totalVolume.toLocaleString()} lbs`, icon: '📦' });
@@ -370,6 +384,17 @@ export function openLogModal(exId, setIdx) {
   const prefillRIR = setObj.rir !== null && setObj.rir !== undefined ? setObj.rir
                    : carryRIR !== null ? carryRIR : '';
 
+  // ── ROM carry-forward ─────────────────────────────────────────────
+  let carryROM = null;
+  for (let i = setIdx - 1; i >= 0; i--) {
+    const prev = sets[i];
+    if (prev && (prev.s === 'done' || prev.s === 'failed') && prev.rom) {
+      carryROM = prev.rom;
+      break;
+    }
+  }
+  const prefillROM = setObj.rom ?? carryROM ?? 'full';
+
   const placeholderW = prefillW !== '' ? prefillW : '—';
   const placeholderR = prefillR !== '' ? prefillR : '—';
 
@@ -419,6 +444,14 @@ export function openLogModal(exId, setIdx) {
               style="font-size: 0.95rem; padding: 12px; font-family: inherit;"/>
           </div>
         </div>
+        <div class="log-field log-field-rom">
+          <label class="log-label">ROM</label>
+          <div class="segmented-control segmented-control-rom" id="log-rom">
+            <button type="button" class="segment-btn${prefillROM === 'full' ? ' active' : ''}" data-rom="full">Full</button>
+            <button type="button" class="segment-btn${prefillROM === 'partial' ? ' active' : ''}" data-rom="partial">Partial</button>
+            <button type="button" class="segment-btn${prefillROM === 'none' ? ' active' : ''}" data-rom="none">None</button>
+          </div>
+        </div>
       </div>
       <div class="log-modal-actions">
         <button class="log-btn log-btn-cancel" id="log-cancel">Cancel</button>
@@ -433,6 +466,17 @@ export function openLogModal(exId, setIdx) {
   const repsInput   = overlay.querySelector('#log-reps');
   const noteInput   = overlay.querySelector('#log-note');
   const rirInput    = overlay.querySelector('#log-rir');
+  const romControl  = overlay.querySelector('#log-rom');
+
+  // ROM segmented control interaction
+  let selectedROM = prefillROM;
+  romControl.addEventListener('click', e => {
+    const btn = e.target.closest('[data-rom]');
+    if (!btn) return;
+    selectedROM = btn.dataset.rom;
+    romControl.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
 
   setTimeout(() => weightInput?.focus(), 60);
 
@@ -454,9 +498,10 @@ export function openLogModal(exId, setIdx) {
     const r = repsInput.value   !== '' ? parseInt(repsInput.value, 10) : null;
     const n = noteInput.value.trim();
     const rir = rirInput.value !== '' ? parseInt(rirInput.value, 10) : null;
+    const rom = selectedROM;
     const restoreY = activeModal?.scrollY ?? 0;
     closeLogModal();
-    dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r, note: n, rir });
+    dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r, note: n, rir, rom });
     requestAnimationFrame(() => window.scrollTo(0, restoreY));
   });
 

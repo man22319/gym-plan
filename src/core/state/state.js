@@ -5,7 +5,6 @@
 export const STORAGE_KEY   = 'pf_tracker_v9';
 export const REST_DURATION = 90; // seconds
 export const MAX_REST_DURATION = 300; // 5 minutes — hard cap
-export const STATE_VERSION = 10;
 export const DEV_MODE      = typeof window !== 'undefined' ? ['localhost', '127.0.0.1', ''].includes(window.location.hostname) : true;
 
 export const EQUIPMENT_DELTA_W_DEFAULTS = {
@@ -82,7 +81,6 @@ export function createDefaultState(workoutsData) {
   const sessions = workoutsData?.sessions ?? [];
   const library  = workoutsData?.exercises ?? {};
   return {
-    version:         STATE_VERSION,
     exerciseLibrary: library,
     programDefaults: workoutsData?.defaults  ?? {},
     sessions:        JSON.parse(JSON.stringify(sessions)),

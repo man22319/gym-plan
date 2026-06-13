@@ -5,6 +5,7 @@ import { resolveWeight, resolveReps } from '../utils/helpers.js';
 import { startRestTimer } from '../utils/restTimer.js';
 import { persist, normalize, sanitizeSessions } from '../state/persistence.js';
 import { updateProgressionState } from './progression.js';
+import { expandImport } from '../../io/compactFormat.js';
 
 export const ALLOWED_ACTIONS = {
   SET_ACTIVE_SESSION:        ['sessionId'],
@@ -70,7 +71,9 @@ export function reducer(currentState, action) {
 
     case 'SET_ACTIVE_SESSION': {
       if (currentState.activeSessionId === payload.sessionId) return currentState;
-      return { ...currentState, activeSessionId: payload.sessionId, sessionStarted: null };
+      // Preserve sessionStarted — session lifecycle is independent of tab selection.
+      // sessionStarted is cleared only by FINISH_WORKOUT or RESET_SESSION.
+      return { ...currentState, activeSessionId: payload.sessionId };
     }
 
     case 'TOGGLE_SET': {
@@ -117,7 +120,7 @@ export function reducer(currentState, action) {
         r:   resolvedReps,
         n:   resolvedNote,
         rir: resolvedRIR,
-        rom: 'full',
+        rom: payload.rom ?? 'full',
         completedAt: Date.now()
       };
       return {
@@ -200,7 +203,7 @@ export function reducer(currentState, action) {
         const raw = localStorage.getItem(key);
         if (!raw) continue;
         try {
-          const parsed = JSON.parse(raw);
+          const parsed = expandImport(JSON.parse(raw));
           if (parsed && Array.isArray(parsed.history) && Array.isArray(parsed.sessions)) {
             reloaded = parsed;
             break;
@@ -242,7 +245,7 @@ export function reducer(currentState, action) {
 
     case 'START_SESSION': {
       if (currentState.sessionStarted !== null) return currentState;
-      return { ...currentState, sessionStarted: Date.now() };
+      return { ...currentState, sessionStarted: Date.now(), cardio: currentState.cardio ?? null };
     }
 
     case 'FINISH_WORKOUT': {
@@ -252,31 +255,51 @@ export function reducer(currentState, action) {
 
       const exerciseSnapshot = {};
       const exerciseRefs     = {};
+      let lastSetTs = 0; // track the latest completedAt across all exercises
+
       session.blocks.flatMap(b => b.exercises).forEach(inst => {
         // instanceId is the key; exerciseRef recorded for cross-session queries
         const instanceId = inst.instanceId;
         const sets = currentState.exercises[instanceId] || [];
-        exerciseSnapshot[instanceId] = sets.map(s => ({
-          ...s,
-          w:   s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, instanceId) : s.w,
-          r:   s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, instanceId)   : s.r,
-          n:   s.n ?? '',
-          rir: s.rir ?? null,
-          rom: s.rom ?? 'full'
-        }));
+        exerciseSnapshot[instanceId] = sets.map(s => {
+          if (s.completedAt && s.completedAt > lastSetTs) lastSetTs = s.completedAt;
+          return {
+            ...s,
+            w:   s.s === 'done' || s.s === 'failed' ? resolveWeight(s.w, instanceId) : s.w,
+            r:   s.s === 'done' || s.s === 'failed' ? resolveReps(s.r, instanceId)   : s.r,
+            n:   s.n ?? '',
+            rir: s.rir ?? null,
+            rom: s.rom ?? 'full'
+          };
+        });
         exerciseRefs[instanceId] = inst.exerciseRef;
       });
 
       const now = Date.now();
+
+      // Derive startTimestamp robustly: persisted sessionStarted, or earliest
+      // completedAt across all exercises (handles corrupted/missing sessionStarted)
+      let startTs = currentState.sessionStarted;
+      if (!startTs) {
+        let earliest = Infinity;
+        for (const sets of Object.values(exerciseSnapshot)) {
+          for (const s of sets) {
+            if (s.completedAt && s.completedAt < earliest) earliest = s.completedAt;
+          }
+        }
+        startTs = earliest === Infinity ? null : earliest;
+      }
+
       const history = [...(currentState.history || [])];
       history.push({
-        entryId:        crypto.randomUUID(),
+        entryId:          crypto.randomUUID(),
         sessionId,
-        timestamp:      now,
-        startTimestamp: currentState.sessionStarted ?? null,
-        exercises:      exerciseSnapshot,
-        exerciseRefs,   // enables cross-session exerciseRef queries
-        cardio:         currentState.cardio ?? null
+        timestamp:        now,
+        startTimestamp:   startTs,
+        lastSetTimestamp: lastSetTs || null,  // latest completedAt for accurate workout duration
+        exercises:        exerciseSnapshot,
+        exerciseRefs,     // enables cross-session exerciseRef queries
+        cardio:           currentState.cardio ?? null
       });
       history.sort((a, b) => a.timestamp - b.timestamp);
 
@@ -284,6 +307,7 @@ export function reducer(currentState, action) {
 
       let nextState = {
         ...currentState,
+        exercises:         {},   // clear live scratch pad — data is now in history
         history,
         cardio:            null,
         sessionStarted:    null,
@@ -338,7 +362,37 @@ export function dispatch(type, payload = {}) {
 
     const isWorkoutInteraction = type === 'TOGGLE_SET' || type === 'LOG_AND_MARK_DONE' || type === 'UPDATE_CARDIO';
     if (isWorkoutInteraction && state.sessionStarted === null) {
-      if (_startWorkoutModalFn) {
+      // Auto-resume: if sets have already been completed in this session,
+      // recover sessionStarted from the earliest completedAt instead of
+      // prompting the user again. This handles corrupted/lost state.
+      const activeSession = workouts.find(s => s.id === state.activeSessionId);
+      if (activeSession) {
+        let earliestTs = Infinity;
+        for (const block of activeSession.blocks) {
+          for (const inst of block.exercises) {
+            for (const s of (state.exercises[inst.instanceId] || [])) {
+              if (s.completedAt && s.completedAt < earliestTs) earliestTs = s.completedAt;
+            }
+          }
+        }
+        if (earliestTs !== Infinity) {
+          // Silently restore session — user already has work in progress
+          const restored = { ...state, sessionStarted: earliestTs };
+          setState(restored);
+          persist();
+          // Continue with the original action — no modal needed
+        } else if (_startWorkoutModalFn) {
+          _startWorkoutModalFn(() => {
+            const withStart = reducer(state, { type: 'START_SESSION', payload: {} });
+            setState(withStart);
+            persist();
+            dispatch(type, payload);
+          }, () => {
+            _renderFn?.(state);
+          });
+          return;
+        }
+      } else if (_startWorkoutModalFn) {
         _startWorkoutModalFn(() => {
           const withStart = reducer(state, { type: 'START_SESSION', payload: {} });
           setState(withStart);

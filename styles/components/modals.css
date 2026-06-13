@@ -131,6 +131,19 @@
   padding: 6px 0 0;
 }
 
+/* ── ROM selector ── */
+.log-field-rom {
+  grid-column: 1 / -1;
+}
+.segmented-control-rom {
+  margin-top: 2px;
+}
+.segmented-control-rom .segment-btn {
+  font-size: 0.6rem;
+  padding: 7px 4px;
+  letter-spacing: 1px;
+}
+
 /* ── Delta indicators ── */
 .delta-group { display: flex; gap: 4px; align-items: center; margin-left: 2px; }
 .delta {

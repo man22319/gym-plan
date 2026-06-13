@@ -257,7 +257,7 @@ export function buildTabs(appState) {
 export function buildSession(session, appState) {
   const active = session.id === appState.activeSessionId ? 'active' : '';
   const finished = query.isSessionFinishedInCurrentWeek(appState, session.id);
-  const complete = query.isSessionComplete(appState, session.id) && !finished && appState.sessionStarted !== null;
+  const complete = query.isSessionComplete(appState, session.id) && !finished && query.activeSessionStartTime(appState) !== null;
   const c = appState?.cardio || {};
   const warmupDone = c.warmupDone === true;
   const finisherDone = c.finisherDone === true;
@@ -890,7 +890,7 @@ export function renderSetUpdate(appState, exId) {
   const isComplete = query.isSessionComplete(appState, sessionId);
   const banner = document.querySelector('.complete-banner');
   if (banner && !finished) {
-    const isStarted = appState.sessionStarted !== null;
+    const isStarted = query.activeSessionStartTime(appState) !== null;
     if (isComplete && isStarted) {
       banner.classList.add('visible');
     } else {
@@ -939,10 +939,13 @@ export function renderCardioUpdate(appState) {
 // down in real-time while the user rests, we cache the departure timestamp when
 // a set is completed and derive the countdown from the cache on each 1s tick.
 let _cachedDepartureMs = null;
+let _cachedWorkoutEtaMs = null;
 let _cachedCompletedSets = 0;
 let _cachedConfidence = null;
 let _cachedIntervalMs = null;
 let _cachedLastCompletionTs = null;
+let _cachedOverheadMs = 0;
+let _cachedSessionStart = null;
 
 /**
  * Update the ETA display elements in the DOM.
@@ -964,17 +967,23 @@ function updateETADisplay(appState) {
     // (i.e. model has new information to incorporate)
     if (eta.completedSets !== _cachedCompletedSets) {
       _cachedDepartureMs = eta.etaMs;
+      _cachedWorkoutEtaMs = eta.workoutEtaMs;
       _cachedCompletedSets = eta.completedSets;
       _cachedConfidence = eta.confidence;
       _cachedIntervalMs = eta.sessionIntervalMs;
       _cachedLastCompletionTs = eta.lastCompletionTs;
+      _cachedOverheadMs = eta.overheadMs || 0;
+      _cachedSessionStart = eta.sessionStart;
     }
   } else {
     _cachedDepartureMs = null;
+    _cachedWorkoutEtaMs = null;
     _cachedCompletedSets = 0;
     _cachedConfidence = null;
     _cachedIntervalMs = null;
     _cachedLastCompletionTs = null;
+    _cachedOverheadMs = 0;
+    _cachedSessionStart = null;
   }
 
   // Derive live countdown from cached departure, with overshoot adjustment.
@@ -984,15 +993,18 @@ function updateETADisplay(appState) {
   const now = Date.now();
 
   let overshootMs = 0;
-  if (_cachedDepartureMs && _cachedIntervalMs && _cachedLastCompletionTs) {
+  if (_cachedWorkoutEtaMs && _cachedIntervalMs && _cachedLastCompletionTs) {
     const sinceLast = now - _cachedLastCompletionTs;
     if (sinceLast > _cachedIntervalMs) {
       overshootMs = sinceLast - _cachedIntervalMs;
     }
   }
 
+  // Remaining countdown uses workout ETA (no overhead) so the countdown
+  // tracks pure workout time. Departure uses full ETA (includes overhead).
+  const adjustedWorkoutEtaMs = _cachedWorkoutEtaMs ? _cachedWorkoutEtaMs + overshootMs : null;
   const adjustedDepartureMs = _cachedDepartureMs ? _cachedDepartureMs + overshootMs : null;
-  const liveRemainingMs = adjustedDepartureMs ? Math.max(0, adjustedDepartureMs - now) : 0;
+  const liveRemainingMs = adjustedWorkoutEtaMs ? Math.max(0, adjustedWorkoutEtaMs - now) : 0;
   const liveRemainingLabel = formatRemainingTime(liveRemainingMs);
 
   const confLevel = _cachedConfidence?.level ?? 'low';
@@ -1022,16 +1034,24 @@ function updateETADisplay(appState) {
       departureHeaderEl.textContent = liveDepartureLabel;
       departureHeaderEl.classList.add('has-value');
       departureHeaderEl.classList.toggle('conf-low', confLevel === 'low');
+      // Show overhead info as tooltip
+      if (_cachedOverheadMs > 0) {
+        const overheadMin = Math.round(_cachedOverheadMs / 60_000);
+        departureHeaderEl.title = `Includes ~${overheadMin} min post-workout overhead`;
+      } else {
+        departureHeaderEl.title = '';
+      }
     } else {
       departureHeaderEl.textContent = '—';
       departureHeaderEl.classList.remove('has-value', 'conf-low');
+      departureHeaderEl.title = '';
     }
   }
 
   // Show/hide stats row and dividers based on session state
   const statsRow = document.getElementById('progress-stats');
   if (statsRow) {
-    const hasSession = !!appState.sessionStarted;
+    const hasSession = !!appState.sessionStarted || !!query.activeSessionStartTime(appState);
     statsRow.classList.toggle('has-session', hasSession);
   }
 
@@ -1096,8 +1116,11 @@ function updateElapsedDisplay(appState) {
   const el = document.getElementById('elapsed-display');
   if (!el) return;
 
-  if (appState.sessionStarted) {
-    const elapsed = Date.now() - appState.sessionStarted;
+  // Use derived session start — handles corrupted/lost sessionStarted
+  const startTime = query.activeSessionStartTime(appState);
+
+  if (startTime) {
+    const elapsed = Date.now() - startTime;
     el.textContent = formatElapsed(elapsed);
     el.classList.add('has-value');
   } else {

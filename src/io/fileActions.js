@@ -2,6 +2,7 @@ import { workouts, state, setState, defaultWorkoutsData, resolveInstance } from 
 import { dispatch } from '../core/logic/reducer.js';
 import { formatReps, formatWeight, render } from '../features/workout/rendering.js';
 import { persist, normalize, sanitizeSessions } from '../core/state/persistence.js';
+import { compactExport, expandImport } from './compactFormat.js';
 
 
 
@@ -42,7 +43,7 @@ export function exportData() {
     const yy = String(d.getFullYear()).slice(-2);
     const filename = `gym-plan-backup_${mm}${dd}${yy}.json`;
 
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(compactExport(state), null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
     document.body.appendChild(a);
@@ -62,7 +63,8 @@ export function importData() {
     const reader = new FileReader();
     reader.onload = evt => {
       try {
-        const parsed = JSON.parse(evt.target.result);
+        const raw = JSON.parse(evt.target.result);
+        const parsed = expandImport(raw);
         if (!parsed.sessions || !Array.isArray(parsed.sessions)) {
           throw new Error('Missing "sessions" array — not a valid backup file.');
         }

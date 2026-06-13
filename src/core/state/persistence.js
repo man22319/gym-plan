@@ -1,12 +1,13 @@
-import { STORAGE_KEY, STATE_VERSION, makeSet, createDefaultState } from './state.js';
+import { STORAGE_KEY, makeSet, createDefaultState } from './state.js';
 import { defaultWorkoutsData, workouts, state, setState } from './store.js';
+import { compactExport, expandImport } from '../../io/compactFormat.js';
 
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
 let writeCount = 0;
 
 export function persist() {
   try {
-    const json = JSON.stringify(state);
+    const json = JSON.stringify(compactExport(state));
     localStorage.setItem(KEYS.backup, localStorage.getItem(KEYS.primary) ?? '');
     localStorage.setItem(KEYS.primary, json);
     if (++writeCount >= 2) localStorage.setItem(KEYS.lkg, json);
@@ -20,7 +21,7 @@ export function loadState() {
     const raw = localStorage.getItem(key);
     if (!raw) continue;
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = expandImport(JSON.parse(raw));
       const normal = normalize(parsed);
       const clean  = sanitizeSessions(normal); // surgical repair — history untouched
       if (validate(clean)) {
@@ -80,10 +81,10 @@ export function normalize(appState) {
     runtimeOverrides:  appState.runtimeOverrides  ?? {},
     exerciseLibrary:   appState.exerciseLibrary   ?? {},
     programDefaults:   appState.programDefaults   ?? {},
-    cardio:            null,
+    cardio:            appState.cardio ?? null,           // preserve in-progress cardio across reloads
+    sessionStarted:    appState.sessionStarted ?? null,   // preserve active session timestamp
     completedWorkouts: appState.completedWorkouts ?? 0,
     progressionState,
-    version:           STATE_VERSION
   };
 }
 
@@ -131,8 +132,6 @@ export function sanitizeSessions(appState) {
  */
 export function validate(appState) {
   if (!appState || typeof appState !== 'object')              return false;
-  if (typeof appState.version !== 'number')                   return false;
-  if (appState.version !== STATE_VERSION)                     return false;
   if (appState.activeSessionId !== null && typeof appState.activeSessionId !== 'string') return false;
   if (!Array.isArray(appState.history))                       return false;
   if (typeof appState.exercises !== 'object')                 return false;

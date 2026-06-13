@@ -314,6 +314,53 @@ export const query = {
     const sorted = [...(appState.history || [])].sort((a, b) => a.timestamp - b.timestamp);
     const recentEntries = sorted.slice(-currentCycleCount);
     return recentEntries.some(entry => entry.sessionId === sessionId);
+  },
+
+  // ── Session Timing ─────────────────────────────────────────────────────────
+
+  /**
+   * Derive the effective session start time from either the persisted
+   * sessionStarted timestamp or the earliest completedAt across the
+   * active session's exercises.
+   *
+   * Handles:
+   *  - Normal case: sessionStarted is set → return it.
+   *  - Corrupted case: sessionStarted was lost but sets exist → derive from timestamps.
+   *  - No session: no data → null.
+   */
+  activeSessionStartTime(appState) {
+    if (appState.sessionStarted) return appState.sessionStarted;
+    // Fallback: earliest completedAt in the active session's exercises
+    const session = workouts.find(s => s.id === appState.activeSessionId);
+    if (!session) return null;
+    let earliest = Infinity;
+    for (const block of session.blocks) {
+      for (const inst of block.exercises) {
+        for (const s of (appState.exercises[inst.instanceId] || [])) {
+          if (s.completedAt && s.completedAt < earliest) earliest = s.completedAt;
+        }
+      }
+    }
+    return earliest === Infinity ? null : earliest;
+  },
+
+  /**
+   * Get the latest completedAt timestamp across all exercises in a session.
+   * Returns null if no sets have been completed.
+   */
+  lastSetTimestamp(appState, sessionId) {
+    const session = workouts.find(s => s.id === sessionId)
+      ?? (appState.sessions || []).find(s => s.id === sessionId);
+    if (!session) return null;
+    let latest = 0;
+    for (const block of session.blocks) {
+      for (const inst of block.exercises) {
+        for (const s of (appState.exercises[inst.instanceId] || [])) {
+          if (s.completedAt && s.completedAt > latest) latest = s.completedAt;
+        }
+      }
+    }
+    return latest || null;
   }
 };
 

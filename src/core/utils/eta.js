@@ -34,6 +34,7 @@ const MIN_INTERVAL_MS     = 10_000; // 10s — below this is probably a misfire/
 const MAX_INTERVAL_MS     = 600_000;// 10 min — hard ceiling for any single interval
 const DEFAULT_WORKING_MS  = 30_000; // 30s default working time per set
 const DEFAULT_REST_MS     = 90_000; // 90s fallback rest
+const DEFAULT_OVERHEAD_MS = 180_000;// 3 min — default post-workout overhead buffer
 
 // ── EWMA Engine ──────────────────────────────────────────────────────────────
 
@@ -225,12 +226,48 @@ function estimateBlockIntervalFromPrescription(block) {
 function historicalSessionDuration(appState, sessionId) {
   const durations = (appState.history || [])
     .filter(e => e.sessionId === sessionId && e.startTimestamp && e.timestamp)
-    .map(e => e.timestamp - e.startTimestamp)
+    .map(e => {
+      // Use lastSetTimestamp for workout duration if available (more accurate),
+      // otherwise fall back to finish-button timestamp
+      const endTs = e.lastSetTimestamp || e.timestamp;
+      return endTs - e.startTimestamp;
+    })
     .filter(d => d > 0);
 
   return durations.length > 0
     ? durations.reduce((sum, d) => sum + d, 0) / durations.length
     : null;
+}
+
+/**
+ * Compute average post-workout overhead from history.
+ *
+ * Overhead = gap between last set completion and finish-button press.
+ * This captures packing up, wiping equipment, delayed finish, etc.
+ *
+ * Uses exponential decay weighting — recent sessions matter more.
+ * Returns DEFAULT_OVERHEAD_MS if no historical data is available.
+ *
+ * @param {object} appState
+ * @param {string} sessionId
+ * @returns {number} — overhead in ms
+ */
+function historicalOverhead(appState, sessionId) {
+  const overheads = (appState.history || [])
+    .filter(e => e.sessionId === sessionId && e.lastSetTimestamp && e.timestamp)
+    .map(e => e.timestamp - e.lastSetTimestamp)
+    .filter(d => d > 0 && d < 30 * 60_000); // cap at 30 min — beyond this is a forgotten finish
+
+  if (overheads.length === 0) return DEFAULT_OVERHEAD_MS;
+
+  // EWMA with α=0.4 — biased toward recent overhead
+  let ewma = overheads[0];
+  for (let i = 1; i < overheads.length; i++) {
+    ewma = ewma + 0.4 * (overheads[i] - ewma);
+  }
+
+  // Clamp to [30s, 10min] — very short overheads are noise, very long are outliers
+  return Math.max(30_000, Math.min(600_000, ewma));
 }
 
 // ── Confidence scoring ───────────────────────────────────────────────────────
@@ -295,10 +332,18 @@ function computeConfidence(sessionEWMA, totalRemainingMs, completedSets, totalSe
  */
 export function calculateETA(appState, sessionDef) {
   if (!appState || !sessionDef) return null;
-  if (!appState.sessionStarted) return null;
+
+  // Use derived session start: persisted sessionStarted, or earliest completedAt
+  // This handles corrupted/lost sessionStarted gracefully
+  let sessionStart = appState.sessionStarted;
+  if (!sessionStart) {
+    const sessionTs = getSessionTimestamps(sessionDef, appState.exercises);
+    sessionStart = sessionTs.length > 0 ? sessionTs[0] : null;
+  }
+  if (!sessionStart) return null;
 
   const now = Date.now();
-  const elapsedMs = now - appState.sessionStarted;
+  const elapsedMs = now - sessionStart;
 
   // ── Gather session-wide intervals for fallback EWMA ────────────────────
   // Only inter-completion intervals.  Session start is NOT injected — the
@@ -354,17 +399,26 @@ export function calculateETA(appState, sessionDef) {
     totalRemainingMs = Math.max(0, historicalDuration - elapsedMs);
   }
 
+  // ── Post-workout overhead ──────────────────────────────────────────────
+  // Behavioral overhead: packing up, wiping equipment, conversations, etc.
+  // Added to departure estimate only (not the remaining countdown).
+  // Learned from historical gap between last set and finish-button press.
+  const overheadMs = historicalOverhead(appState, sessionDef.id);
+
   // ── Confidence (from forecast interval width) ──────────────────────────
   const confidence = computeConfidence(
     sessionEWMA, totalRemainingMs, completedSets, totalSets
   );
 
   // ── Format output ──────────────────────────────────────────────────────
-  const etaMs = now + totalRemainingMs;
+  // Departure includes overhead; remaining countdown does not.
+  const workoutEtaMs = now + totalRemainingMs;
+  const departureEtaMs = workoutEtaMs + overheadMs;
+
   const remainingMin = Math.max(1, Math.round(totalRemainingMs / 60_000));
 
-  const etaDate = new Date(etaMs);
-  const departureLabel = etaDate.toLocaleTimeString([], {
+  const departureDate = new Date(departureEtaMs);
+  const departureLabel = departureDate.toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit'
   });
@@ -374,13 +428,16 @@ export function calculateETA(appState, sessionDef) {
     : `~${Math.floor(remainingMin / 60)}h ${remainingMin % 60}m`;
 
   return {
-    etaMs,
+    etaMs: departureEtaMs,           // departure estimate (includes overhead)
+    workoutEtaMs,                     // pure workout completion estimate
+    overheadMs,                       // learned post-workout overhead
     remainingMin,
     departureLabel,
     remainingLabel,
     confidence,
     completedSets,
     totalSets,
+    sessionStart,                     // derived session start time
     lastCompletionTs: sessionTs.length > 0 ? sessionTs[sessionTs.length - 1] : null,
     sessionIntervalMs: sessionEWMA.count >= 2 ? sessionEWMA.ewma : null,
   };
