@@ -414,66 +414,60 @@
 }
 .prog-chip-preview strong { color: var(--silver); }
 
-/* Review mode (finished session) — white/silver, not vivid green */
-.prog-chip-review {
+/* ── Decision chips ── */
+
+/* Progress — subtle green accent */
+.prog-chip-progress {
+  border-color: rgba(120, 200, 120, 0.3);
+  background: rgba(120, 200, 120, 0.06);
+  color: rgba(150, 220, 150, 0.9);
+}
+.prog-chip-progress strong { color: rgba(180, 240, 180, 0.95); }
+
+/* Hold — neutral silver */
+.prog-chip-hold {
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
   color: var(--silver);
 }
-.prog-chip-review strong { color: var(--white); }
+.prog-chip-hold strong { color: var(--white); }
 
-/* Fatigue warning — desaturated warm-grey, not amber */
+/* Regress — subtle red accent */
+.prog-chip-regress {
+  border-color: rgba(200, 80, 70, 0.3);
+  background: rgba(200, 80, 70, 0.06);
+  color: rgba(210, 100, 90, 0.9);
+}
+.prog-chip-regress strong { color: rgba(230, 120, 110, 0.95); }
+
+/* ── Classification chips ── */
+
+/* Qualifying — muted green */
+.prog-chip-qualifying {
+  border-color: rgba(120, 200, 120, 0.2);
+  background: rgba(120, 200, 120, 0.04);
+  color: rgba(150, 210, 150, 0.85);
+}
+
+/* Adequate — neutral dim */
+.prog-chip-adequate {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted);
+}
+
+/* Failing — muted red */
+.prog-chip-failing {
+  border-color: rgba(200, 80, 70, 0.2);
+  background: rgba(200, 80, 70, 0.04);
+  color: rgba(210, 100, 90, 0.8);
+}
+
+/* Warning — desaturated warm-grey (rest-influenced, etc.) */
 .prog-chip-warn {
   border-color: rgba(200, 180, 140, 0.25);
   background: rgba(200, 180, 140, 0.05);
   color: rgba(200, 185, 160, 0.85);
-}
-
-/* Risk warning — muted desaturated crimson, no glow animation */
-.prog-chip-danger {
-  border-color: rgba(180, 60, 50, 0.4);
-  background: rgba(160, 40, 35, 0.08);
-  color: rgba(210, 100, 90, 0.9);
-}
-
-/* Suppressed progression — dim, not amber */
-.prog-chip-suppressed {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--dim);
-  letter-spacing: 1.5px;
-}
-
-/* ── Model confidence badge (inline inside weight suggestion chip) ── */
-.prog-conf {
-  display: inline-block;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.38rem;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  margin-left: 6px;
-  vertical-align: middle;
-  text-transform: uppercase;
-  line-height: 1.4;
-  /* Slightly inset — reads as a sub-label inside the chip */
-  background: rgba(0, 0, 0, 0.25);
-}
-/* LOW — dim: model hasn't seen enough sessions yet */
-.prog-conf-low  {
-  color: rgba(180, 170, 155, 0.85);
-  border: 1px solid rgba(180, 170, 155, 0.25);
-}
-/* MED — muted: reasonable but still converging */
-.prog-conf-med  {
-  color: var(--muted);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-/* HIGH — silver-white: EMA well-converged, high-signal recommendation */
-.prog-conf-high {
-  color: var(--silver);
-  border: 1px solid rgba(255, 255, 255, 0.22);
 }
 
 

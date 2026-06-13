@@ -1,4 +1,5 @@
 import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX, state } from '../../core/state/store.js';
+import { REST_DURATION } from '../../core/state/state.js';
 import { query } from '../../core/logic/queries.js';
 import { getEffectiveExercise } from '../../core/utils/helpers.js';
 import { updateProgressionState } from '../../core/logic/progression.js';
@@ -516,27 +517,6 @@ export function buildDelta(weightDelta, repsDelta) {
   return parts.length ? `<span class="delta-group">${parts.join('')}</span>` : '';
 }
 
-// ── Model confidence helper ───────────────────────────────────────────────────
-
-/**
- * Compute model confidence as EMA convergence fraction.
- *
- * The strength estimator T is an EMA with learning rate η = 0.2.
- * After n sessions it has absorbed (1 - (1-η)^n) of the true signal.
- * This is a principled, parameter-free confidence metric that matches
- * exactly the uncertainty in T itself.
- *
- * @param {number} n  — number of completed sessions for this exercise
- * @returns {{ pct: number, label: string, level: 'low'|'med'|'high' }}
- */
-function modelConfidence(n) {
-  const ETA = 0.2; // must match DEFAULTS.η in progression.js
-  const pct = Math.round((1 - Math.pow(1 - ETA, n)) * 100);
-  const level = pct < 40 ? 'low' : pct < 75 ? 'med' : 'high';
-  const label = level === 'high' ? 'HIGH' : level === 'med' ? 'MED' : 'LOW';
-  return { pct, label, level };
-}
-
 // ── Layer B: Live Progression Row ─────────────────────────────────────────────
 
 /**
@@ -545,12 +525,11 @@ function modelConfidence(n) {
  * Active session (readOnly = false):
  *   Calls updateProgressionState() live against current sets — pure computation,
  *   no dispatch, no persistence. Updates after every set via the normal render cycle.
+ *   Shows live session classification: ON TRACK / KEEP PUSHING / FALLING SHORT.
  *
  * Finished session (readOnly = true):
  *   Reads from committed progressionState[exId] — evaluation/review mode.
- *
- * Confidence: derived from EMA convergence (1 - (1-η)^n), shown on every
- * weight suggestion chip. Low/Med/High classification with colour coding.
+ *   Shows decision chips: PROGRESS / HOLD / REGRESS.
  *
  * Returns '' for invariant exercises or exercises with no usable data.
  */
@@ -558,133 +537,149 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
   const ex = EXERCISE_INDEX[instanceId];
   if (ex?.invariant) return '';
 
-
-  // n = number of history entries that contain data for this exercise
   const historyN = query.exerciseHistory(appState, instanceId).length;
-  const conf = modelConfidence(historyN);
-
   const chips = [];
 
   if (readOnly) {
-    // ── Layer C output: read committed progressionState ──
+    // ── Review mode: read committed progressionState ──
     const ps = appState?.progressionState?.[instanceId];
-    if (!ps || ps.T === null) return '';
+    if (!ps || ps.currentWeight === null || ps.currentWeight === undefined) return '';
 
     const suggested = ps.lastSuggested;
-    const fatigue = ps.F ?? 0;
-    const risk = ps.lastRisk ?? 0;
-    const suppressed = ps.lastSuppressed ?? false;
+    const decision = ps.lastDecision ?? 'hold';
+    const classification = ps.lastClassification;
+    const restInfluenced = ps.restInfluenced ?? false;
 
+    // Decision chip
     if (suggested !== null && suggested !== undefined) {
+      let decisionClass, decisionIcon, decisionLabel;
+      if (decision === 'progress') {
+        decisionClass = 'prog-chip-progress';
+        decisionIcon = '↑';
+        decisionLabel = `PROGRESS → ${suggested} lbs`;
+      } else if (decision === 'regress') {
+        decisionClass = 'prog-chip-regress';
+        decisionIcon = '↓';
+        decisionLabel = `REGRESS → ${suggested} lbs`;
+      } else {
+        decisionClass = 'prog-chip-hold';
+        decisionIcon = '→';
+        decisionLabel = `HOLD · ${suggested} lbs`;
+      }
+
+      const sessionLabel = `${historyN} session${historyN !== 1 ? 's' : ''}`;
       chips.push(
-        `<span class="prog-chip prog-chip-review"
-           title="Recommended weight for your next session · Model confidence: ${conf.pct}% (${historyN} session${historyN !== 1 ? 's' : ''})">
-          NEXT SESSION: <strong>${suggested} lbs</strong>
-          <span class="prog-conf prog-conf-${conf.level}">${conf.label} ${conf.pct}%</span>
+        `<span class="prog-chip ${decisionClass}"
+           title="Next session target · ${sessionLabel} of data">
+          ${decisionIcon} <strong>${decisionLabel}</strong>
         </span>`
       );
     }
 
-    if (fatigue > 0.6) {
+    // Classification chip
+    if (classification) {
+      const classMap = {
+        qualifying: { cls: 'prog-chip-qualifying', label: 'QUALIFYING ✓' },
+        adequate:   { cls: 'prog-chip-adequate',   label: 'ADEQUATE' },
+        failing:    { cls: 'prog-chip-failing',     label: 'FAILING ✗' },
+      };
+      const c = classMap[classification] ?? { cls: '', label: classification.toUpperCase() };
       chips.push(
-        `<span class="prog-chip prog-chip-warn" title="Fatigue index: ${fatigue.toFixed(2)}">
-          ⚠  FATIGUE: ${fatigue.toFixed(2)}
-        </span>`
+        `<span class="prog-chip ${c.cls}" title="Session classification: ${classification}">${c.label}</span>`
       );
     }
 
-    if (risk > 0.65) {
+    // Rest-influenced warning
+    if (restInfluenced) {
       chips.push(
-        `<span class="prog-chip prog-chip-danger" title="Risk score: ${risk.toFixed(2)}">
-          ⚠ RISK: ${risk.toFixed(2)}
-        </span>`
-      );
-    }
-
-    if (suppressed) {
-      chips.push(
-        `<span class="prog-chip prog-chip-suppressed" title="Progression held back due to risk">SUPPRESSED</span>`
+        `<span class="prog-chip prog-chip-warn" title="Extended rest detected — reps may not reflect true capacity">⏱ REST-INFLUENCED</span>`
       );
     }
 
   } else {
-    // ── Layer B: live computation during active session ──
+    // ── Active session: live computation ──
     const currentSets = appState.exercises[instanceId] || [];
     const hasDoneSet = currentSets.some(s => s.s === 'done' || s.s === 'failed');
 
-    // Retrieve stored progression state as baseline
     const prevPs = appState?.progressionState?.[instanceId] ?? {};
     const deltaW = appState?.runtimeOverrides?.[instanceId]?.deltaW ?? ex?.deltaW;
 
-    // Center-of-range rep anchor for working target
-    const targetReps = (ex?.reps?.min && ex?.reps?.max)
-      ? (ex.reps.min + ex.reps.max) / 2
-      : ex?.reps?.min ?? ex?.reps?.max ?? ex?.reps ?? 8;
+    // Rep range from exercise definition
+    const repRange = {
+      min: ex?.reps?.min ?? ex?.reps ?? 8,
+      max: ex?.reps?.max ?? ex?.reps?.min ?? ex?.reps ?? 8,
+    };
 
-    // Hours since last session (from stored timestamp)
-    const prevTimestamp = prevPs.lastSessionTimestamp ?? null;
-    const hoursElapsed = prevTimestamp
-      ? Math.max(0, (Date.now() - prevTimestamp) / 3_600_000)
-      : 24;  // bootstrapped prior
+    // Prescribed rest for rest-influence detection
+    const prescribedRestSec = ex?.restBetweenSets ?? REST_DURATION;
 
     if (hasDoneSet) {
-      // At least one set done — compute live update
+      // At least one set done — compute live classification
       const result = updateProgressionState(prevPs, currentSets, {
+        repRange,
         deltaW,
-        riskMultiplier: ex?.riskMultiplier ?? 1.0,
-        density: null,  // density unknown mid-session (no finish timestamp yet)
-        targetReps,
-        hoursElapsed,
+        prescribedRestSec,
       });
 
+      // Live classification chip
+      if (result.sessionClassification) {
+        const classMap = {
+          qualifying: { cls: 'prog-chip-qualifying', label: 'ON TRACK ✓', title: 'All working sets hitting rep ceiling' },
+          adequate:   { cls: 'prog-chip-adequate',   label: 'KEEP PUSHING', title: 'Working sets in range but not at ceiling' },
+          failing:    { cls: 'prog-chip-failing',     label: 'FALLING SHORT', title: 'Some working sets below rep minimum' },
+        };
+        const c = classMap[result.sessionClassification] ?? { cls: '', label: result.sessionClassification.toUpperCase(), title: '' };
+        chips.push(
+          `<span class="prog-chip ${c.cls}" title="${c.title}">${c.label}</span>`
+        );
+      }
+
+      // Suggested weight chip
       if (result.suggestedWeight !== null) {
-        // Live confidence uses historyN + 1 because the current session is in progress
-        const liveConf = modelConfidence(historyN + 1);
+        let decisionClass, decisionPrefix;
+        if (result.decision === 'progress') {
+          decisionClass = 'prog-chip-progress';
+          decisionPrefix = 'NEXT ↑';
+        } else if (result.decision === 'regress') {
+          decisionClass = 'prog-chip-regress';
+          decisionPrefix = 'NEXT ↓';
+        } else {
+          decisionClass = 'prog-chip-hold';
+          decisionPrefix = 'NEXT →';
+        }
         chips.push(
-          `<span class="prog-chip"
-             title="Live suggested weight from current session · Model confidence: ${liveConf.pct}% (${historyN + 1} session${historyN + 1 !== 1 ? 's' : ''})">
-            TARGET: <strong>${result.suggestedWeight} lbs</strong>
-            <span class="prog-conf prog-conf-${liveConf.level}">${liveConf.label} ${liveConf.pct}%</span>
+          `<span class="prog-chip ${decisionClass}"
+             title="Projected next-session weight based on current performance">
+            ${decisionPrefix} <strong>${result.suggestedWeight} lbs</strong>
           </span>`
         );
       }
 
-      if (result.F > 0.6) {
+      // Rest-influenced warning
+      if (result.restInfluenced) {
         chips.push(
-          `<span class="prog-chip prog-chip-warn" title="Estimated fatigue: ${result.F.toFixed(2)}">
-            ⚠  FATIGUE: ${result.F.toFixed(2)}
-          </span>`
-        );
-      }
-
-      if (result.riskScore > 0.65) {
-        chips.push(
-          `<span class="prog-chip prog-chip-danger" title="Risk score: ${result.riskScore.toFixed(2)}">
-            ⚠ RISK: ${result.riskScore.toFixed(2)}
-          </span>`
-        );
-      }
-
-      if (result.suppressed) {
-        chips.push(
-          `<span class="prog-chip prog-chip-suppressed" title="Hold steady — progression risk-gated">HOLD WEIGHT</span>`
+          `<span class="prog-chip prog-chip-warn" title="Extended rest between sets detected — reps may overstate readiness">⏱ REST-INFLUENCED</span>`
         );
       }
 
     } else if (prevPs.lastSuggested !== null && prevPs.lastSuggested !== undefined) {
-      // No sets logged yet — show last committed suggestion as a warmup target
+      // No sets logged yet — show last committed suggestion as a target
       chips.push(
         `<span class="prog-chip prog-chip-preview"
-           title="Suggested target from last session · Model confidence: ${conf.pct}% (${historyN} session${historyN !== 1 ? 's' : ''})">
+           title="Target weight from last session">
           START: <strong>${prevPs.lastSuggested} lbs</strong>
-          <span class="prog-conf prog-conf-${conf.level}">${conf.label} ${conf.pct}%</span>
         </span>`
       );
-      if (prevPs.F > 0.6) {
+
+      // Show last decision context
+      const lastDecision = prevPs.lastDecision;
+      if (lastDecision === 'progress') {
         chips.push(
-          `<span class="prog-chip prog-chip-warn" title="Carrying fatigue from last session">
-            ⚠  FATIGUE: ${(prevPs.F ?? 0).toFixed(2)}
-          </span>`
+          `<span class="prog-chip prog-chip-progress" title="Weight increased from last cycle">↑ PROGRESSED</span>`
+        );
+      } else if (lastDecision === 'regress') {
+        chips.push(
+          `<span class="prog-chip prog-chip-regress" title="Weight reduced from last cycle">↓ REGRESSED</span>`
         );
       }
     }

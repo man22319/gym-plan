@@ -72,16 +72,7 @@ export function normalize(appState) {
     )
   );
 
-  // Forward-compat: ensure progressionState entries have new fields
-  const rawProgState = appState.progressionState ?? {};
-  const progressionState = {};
-  for (const [key, ps] of Object.entries(rawProgState)) {
-    progressionState[key] = {
-      ...ps,
-      lastSessionTimestamp: ps.lastSessionTimestamp ?? null,
-      lastTopWeight:        ps.lastTopWeight ?? null,
-    };
-  }
+  const progressionState = appState.progressionState ?? {};
 
   return {
     ...appState,

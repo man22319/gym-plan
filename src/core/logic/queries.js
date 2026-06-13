@@ -190,18 +190,19 @@ export const query = {
    *
    * @param {object} appState
    * @param {string} exId
-   * @returns {{ suggestedWeight: number, suppressed: boolean, riskScore: number } | null}
+   * @returns {{ suggestedWeight: number, decision: string, classification: string } | null}
    */
   progressionSuggestion(appState, exId) {
     const ex = EXERCISE_INDEX[exId];
     if (ex?.invariant) return null;
 
     const ps = appState?.progressionState?.[exId];
-    if (!ps || ps.T === null) return null;
+    if (!ps || ps.currentWeight === null || ps.currentWeight === undefined) return null;
     return {
-      suggestedWeight: ps.lastSuggested ?? null,
-      suppressed:      ps.lastSuppressed ?? false,
-      riskScore:       ps.lastRisk       ?? 0
+      suggestedWeight:  ps.lastSuggested        ?? null,
+      decision:         ps.lastDecision          ?? 'hold',
+      classification:   ps.lastClassification    ?? null,
+      restInfluenced:   ps.restInfluenced        ?? false,
     };
   },
 

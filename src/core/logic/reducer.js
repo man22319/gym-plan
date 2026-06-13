@@ -417,19 +417,6 @@ export function dispatch(type, payload = {}) {
         const allExercises = session.blocks.flatMap(b => b.exercises);
         const newProgState = { ...(nextState.progressionState || {}) };
         const lastEntry = query.sessionHistory(nextState, payload.sessionId).slice(-1)[0];
-
-        const durationMs = (lastEntry && lastEntry.startTimestamp) ? lastEntry.timestamp - lastEntry.startTimestamp : 0;
-        const durationMin = durationMs > 0 ? durationMs / 60000 : null;
-
-        let sessionVolume = 0;
-        if (lastEntry && lastEntry.exercises) {
-          Object.values(lastEntry.exercises).forEach(sets => {
-            sets.forEach(s => {
-              if (s.s === 'done' && s.w !== null && s.r !== null) sessionVolume += s.w * s.r;
-            });
-          });
-        }
-        const density = durationMin ? sessionVolume / durationMin : null;
         const currentTimestamp = lastEntry?.timestamp ?? Date.now();
 
         for (const inst of allExercises) {
@@ -439,33 +426,31 @@ export function dispatch(type, payload = {}) {
           const sets = lastEntry?.exercises[instanceId] || [];
           const prev = newProgState[instanceId] || {};
 
-          // Compute hours elapsed since last session for this exercise
-          const prevTimestamp = prev.lastSessionTimestamp ?? null;
-          const hoursElapsed = prevTimestamp
-            ? Math.max(0, (currentTimestamp - prevTimestamp) / 3_600_000)
-            : 24;  // bootstrapped prior — not neutral, see progression.js docs
+          // Rep range from exercise definition
+          const repRange = {
+            min: ex.reps?.min ?? ex.reps ?? 8,
+            max: ex.reps?.max ?? ex.reps?.min ?? ex.reps ?? 8,
+          };
 
-          // Center-of-range rep anchor for working target
-          const targetReps = (ex.reps?.min && ex.reps?.max)
-            ? (ex.reps.min + ex.reps.max) / 2
-            : ex.reps?.min ?? ex.reps?.max ?? ex.reps ?? 8;
+          // Prescribed rest between sets (seconds) for rest-influence detection
+          const prescribedRestSec = ex.restBetweenSets ?? REST_DURATION;
 
           const updated = updateProgressionState(prev, sets, {
-            density,
-            riskMultiplier: ex.riskMultiplier ?? 1.0,
+            repRange,
             deltaW: nextState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
-            targetReps,
-            hoursElapsed,
+            prescribedRestSec,
           });
           newProgState[instanceId] = {
-            T:                    updated.T,
-            F:                    updated.F,
-            dw:                   updated.dw,
-            lastSuggested:        updated.suggestedWeight,
-            lastRisk:             updated.riskScore,
-            lastSuppressed:       updated.suppressed,
-            lastSessionTimestamp: currentTimestamp,
-            lastTopWeight:        updated.topWeight ?? null,
+            currentWeight:         updated.currentWeight,
+            consecutiveQualifying: updated.consecutiveQualifying,
+            recentOutcomes:        updated.recentOutcomes,
+            dw:                    updated.dw,
+            lastSuggested:         updated.suggestedWeight,
+            lastDecision:          updated.decision,
+            lastClassification:    updated.sessionClassification,
+            lastSessionTimestamp:  currentTimestamp,
+            lastTopWeight:         updated.topWeight ?? null,
+            restInfluenced:        updated.restInfluenced,
           };
         }
 
@@ -496,19 +481,6 @@ export function rebuildAllProgressions(appState) {
     if (!session) continue;
 
     const allExercises = session.blocks.flatMap(b => b.exercises);
-
-    const durationMs  = entry.startTimestamp ? entry.timestamp - entry.startTimestamp : 0;
-    const durationMin = durationMs > 0 ? durationMs / 60000 : null;
-
-    let sessionVolume = 0;
-    if (entry.exercises) {
-      Object.values(entry.exercises).forEach(sets => {
-        sets.forEach(s => {
-          if (s.s === 'done' && s.w !== null && s.r !== null) sessionVolume += s.w * s.r;
-        });
-      });
-    }
-    const density = durationMin ? sessionVolume / durationMin : null;
     const currentTimestamp = entry.timestamp;
 
     for (const inst of allExercises) {
@@ -518,33 +490,31 @@ export function rebuildAllProgressions(appState) {
       const sets = entry.exercises[instanceId] || [];
       const prev = newProgState[instanceId] || {};
 
-      // Compute hours elapsed from consecutive history entries
-      const prevTimestamp = prev.lastSessionTimestamp ?? null;
-      const hoursElapsed = prevTimestamp
-        ? Math.max(0, (currentTimestamp - prevTimestamp) / 3_600_000)
-        : 24;  // bootstrapped prior
+      // Rep range from exercise definition
+      const repRange = {
+        min: ex.reps?.min ?? ex.reps ?? 8,
+        max: ex.reps?.max ?? ex.reps?.min ?? ex.reps ?? 8,
+      };
 
-      // Center-of-range rep anchor
-      const targetReps = (ex.reps?.min && ex.reps?.max)
-        ? (ex.reps.min + ex.reps.max) / 2
-        : ex.reps?.min ?? ex.reps?.max ?? ex.reps ?? 8;
+      // Prescribed rest between sets (seconds)
+      const prescribedRestSec = ex.restBetweenSets ?? REST_DURATION;
 
       const updated = updateProgressionState(prev, sets, {
-        density,
-        riskMultiplier: ex.riskMultiplier ?? 1.0,
+        repRange,
         deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
-        targetReps,
-        hoursElapsed,
+        prescribedRestSec,
       });
       newProgState[instanceId] = {
-        T:                    updated.T,
-        F:                    updated.F,
-        dw:                   updated.dw,
-        lastSuggested:        updated.suggestedWeight,
-        lastRisk:             updated.riskScore,
-        lastSuppressed:       updated.suppressed,
-        lastSessionTimestamp: currentTimestamp,
-        lastTopWeight:        updated.topWeight ?? null,
+        currentWeight:         updated.currentWeight,
+        consecutiveQualifying: updated.consecutiveQualifying,
+        recentOutcomes:        updated.recentOutcomes,
+        dw:                    updated.dw,
+        lastSuggested:         updated.suggestedWeight,
+        lastDecision:          updated.decision,
+        lastClassification:    updated.sessionClassification,
+        lastSessionTimestamp:  currentTimestamp,
+        lastTopWeight:         updated.topWeight ?? null,
+        restInfluenced:        updated.restInfluenced,
       };
     }
   }
