@@ -1,5 +1,5 @@
 import { STORAGE_KEY, makeSet, createDefaultState } from './state.js';
-import { defaultWorkoutsData, workouts, state, setState } from './store.js';
+import { defaultWorkoutsData, workouts, state, setState, programDefaults as bootDefaults } from './store.js';
 import { compactExport, expandImport } from '../../io/compactFormat.js';
 
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
@@ -80,7 +80,7 @@ export function normalize(appState) {
     exercises,
     runtimeOverrides:  appState.runtimeOverrides  ?? {},
     exerciseLibrary:   appState.exerciseLibrary   ?? {},
-    programDefaults:   appState.programDefaults   ?? {},
+    programDefaults:   { ...(defaultWorkoutsData?.defaults ?? {}), ...(appState.programDefaults ?? {}) },
     cardio:            appState.cardio ?? null,           // preserve in-progress cardio across reloads
     sessionStarted:    appState.sessionStarted ?? null,   // preserve active session timestamp
     completedWorkouts: appState.completedWorkouts ?? 0,

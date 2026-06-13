@@ -240,7 +240,7 @@ export function buildTabs(appState) {
     const isSuggested = !finished && session.id === suggestedId;
     // Completed-this-week badge takes priority over "due"
     const badgeHtml = finished
-      ? `<span class="completed-tab-badge">✓</span>`
+      ? `<span class="completed-tab-badge">DONE</span>`
       : (isSuggested ? `<span class="suggested-badge">due</span>` : '');
     const dateLabel = ts ? formatDate(ts) : 'never';
 
@@ -271,7 +271,9 @@ export function buildSession(session, appState) {
     const timeLabel = (finishedAtStr && finishedOnStr) ? `${finishedOnStr} at ${finishedAtStr}` : 'this week';
     bannerHtml = `
       <div class="complete-banner visible finished-banner">
-        <div class="finished-banner-icon">✓</div>
+        <div class="finished-banner-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
         <div class="finished-banner-body">
           <span class="finished-banner-title">SESSION COMPLETED</span>
           <small>Logged ${timeLabel} · View only</small>
@@ -373,7 +375,7 @@ export function buildCard(ex, appState, readOnly = false) {
 
   // In completed sessions: show a LOGGED badge instead of the edit button; header is non-interactive
   const loggedBadgeHtml = readOnly ? `<span class="ex-logged-badge">LOGGED</span>` : '';
-  const editBtnHtml = readOnly ? '' : `<button class="ex-edit-btn" data-ex-id="${instanceId}" aria-label="Edit targets" title="Edit targets">✎</button>`;
+  const editBtnHtml = readOnly ? '' : `<button class="ex-edit-btn" data-ex-id="${instanceId}" aria-label="Edit targets" title="Edit targets"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
   const editPanelHtml = (editingExId === instanceId && !readOnly) ? buildEditPanel(ex, appState) : '';
 
   // In completed sessions the card should appear fully lit (not faded) since all sets are done
@@ -388,7 +390,7 @@ export function buildCard(ex, appState, readOnly = false) {
       <div class="ex-title-group">
         <div class="ex-name">
           <span class="ex-name-text">${displayName}</span>
-          ${hasPR ? `<span class="pr-badge" title="Personal Record!">🏆</span>` : ''}
+          ${hasPR ? `<span class="pr-badge" title="Personal Record!">PR</span>` : ''}
         </div>
         <div class="ex-info-group ex-metadata-row-sub">
           <span class="ex-metadata-sets-reps">${effEx?.sets ?? '?'} × ${formatReps(effEx?.reps)}</span>
@@ -491,7 +493,7 @@ export function buildPrevRow(prevSets, currSets) {
   const setChips = logged.map((s, i) => {
     const w = s.w !== null ? s.w : '—';
     const r = s.r !== null ? s.r : '—';
-    const fail = s.s === 'failed' ? ' <span class="prev-x">✗</span>' : '';
+    const fail = s.s === 'failed' ? ' <span class="prev-x">X</span>' : '';
     return `<span class="prev-set">S${i + 1} <span class="prev-nums">${w}&times;${r}</span>${fail}</span>`;
   }).join('');
 
@@ -579,9 +581,9 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
     // Classification chip
     if (classification) {
       const classMap = {
-        qualifying: { cls: 'prog-chip-qualifying', label: 'QUALIFYING ✓' },
+        qualifying: { cls: 'prog-chip-qualifying', label: 'QUALIFYING' },
         adequate:   { cls: 'prog-chip-adequate',   label: 'ADEQUATE' },
-        failing:    { cls: 'prog-chip-failing',     label: 'FAILING ✗' },
+        failing:    { cls: 'prog-chip-failing',     label: 'FAILING' },
       };
       const c = classMap[classification] ?? { cls: '', label: classification.toUpperCase() };
       chips.push(
@@ -592,7 +594,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
     // Rest-influenced warning
     if (restInfluenced) {
       chips.push(
-        `<span class="prog-chip prog-chip-warn" title="Extended rest detected — reps may not reflect true capacity">⏱ REST-INFLUENCED</span>`
+        `<span class="prog-chip prog-chip-warn" title="Extended rest detected — reps may not reflect true capacity">REST-INFLUENCED</span>`
       );
     }
 
@@ -624,7 +626,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       // Live classification chip
       if (result.sessionClassification) {
         const classMap = {
-          qualifying: { cls: 'prog-chip-qualifying', label: 'ON TRACK ✓', title: 'All working sets hitting rep ceiling' },
+          qualifying: { cls: 'prog-chip-qualifying', label: 'ON TRACK', title: 'All working sets hitting rep ceiling' },
           adequate:   { cls: 'prog-chip-adequate',   label: 'KEEP PUSHING', title: 'Working sets in range but not at ceiling' },
           failing:    { cls: 'prog-chip-failing',     label: 'FALLING SHORT', title: 'Some working sets below rep minimum' },
         };
@@ -658,7 +660,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       // Rest-influenced warning
       if (result.restInfluenced) {
         chips.push(
-          `<span class="prog-chip prog-chip-warn" title="Extended rest between sets detected — reps may overstate readiness">⏱ REST-INFLUENCED</span>`
+          `<span class="prog-chip prog-chip-warn" title="Extended rest between sets detected — reps may overstate readiness">REST-INFLUENCED</span>`
         );
       }
 

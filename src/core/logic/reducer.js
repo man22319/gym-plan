@@ -184,11 +184,16 @@ export function reducer(currentState, action) {
     }
 
     case 'IMPORT_STATE': {
-      const count = (payload.data.history || []).length;
+      const imported = sanitizeSessions(normalize({
+        ...payload.data,
+        sessionsPerWeek: payload.data.sessionsPerWeek ?? 3,
+        activeSessionId: payload.data.activeSessionId ?? payload.data.sessions?.[0]?.id ?? null,
+      }));
+      const count = (imported.history || []).length;
       const msg = `Import complete — ${count} session record${count !== 1 ? 's' : ''} loaded.`;
       console.log(msg);
       alert(msg);
-      return rebuildAllProgressions(payload.data);
+      return rebuildAllProgressions(imported);
     }
 
     case 'RELOAD_IMPORTED_DATA': {

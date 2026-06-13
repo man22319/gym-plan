@@ -98,7 +98,7 @@ export function openHistoryModal(exId) {
       if (s.rir !== null && s.rir !== undefined) titleParts.push(`RIR: ${s.rir}`);
       const titleAttr = titleParts.length ? ` title="${titleParts.join(' | ').replace(/"/g, '&quot;')}"` : '';
       
-      const noteIndicator = s.n ? `<span class="hist-set-note-indicator">📝</span>` : '';
+      const noteIndicator = s.n ? `<span class="hist-set-note-indicator" title="Has note">*</span>` : '';
       const rirIndicator = (s.rir !== null && s.rir !== undefined) ? `<span class="hist-set-rir-indicator" style="font-size:0.5rem; opacity:0.8; margin-left:1px;">(r${s.rir})</span>` : '';
       
       return `<span class="${cls}" style="display: inline-flex; align-items: center; gap: 2px;"${titleAttr}>${s.w ?? '?'}×${s.r ?? '?'}${noteIndicator}${rirIndicator}</span>`;
@@ -116,7 +116,7 @@ export function openHistoryModal(exId) {
   let prHtml = '';
   if (pr.heaviestSet || pr.highestVolume) {
     const prItems = [];
-    if (pr.heaviestSet) prItems.push(`<div class="pr-item"><span class="pr-icon">🏆</span><div><div class="pr-item-label">Heaviest Set</div><div class="pr-item-val">${pr.heaviestSet.w} lbs × ${pr.heaviestSet.r} reps <span class="pr-item-date">${formatDate(pr.heaviestSet.date)}</span></div></div></div>`);
+    if (pr.heaviestSet) prItems.push(`<div class="pr-item"><span class="pr-icon">PR</span><div><div class="pr-item-label">Heaviest Set</div><div class="pr-item-val">${pr.heaviestSet.w} lbs × ${pr.heaviestSet.r} reps <span class="pr-item-date">${formatDate(pr.heaviestSet.date)}</span></div></div></div>`);
     if (pr.highestVolume) prItems.push(`<div class="pr-item"><span class="pr-icon">∑</span><div><div class="pr-item-label">Best Volume</div><div class="pr-item-val">${pr.highestVolume.volume.toLocaleString()} lbs <span class="pr-item-date">${formatDate(pr.highestVolume.date)}</span></div></div></div>`);
     if (pr.mostReps) prItems.push(`<div class="pr-item"><span class="pr-icon">▲</span><div><div class="pr-item-label">Most Reps</div><div class="pr-item-val">${pr.mostReps.r} reps @ ${pr.mostReps.w} lbs <span class="pr-item-date">${formatDate(pr.mostReps.date)}</span></div></div></div>`);
     prHtml = `<div class="hist-pr-section"><div class="hist-section-label">PERSONAL RECORDS</div><div class="hist-pr-list">${prItems.join('')}</div></div>`;
@@ -168,7 +168,7 @@ export function openHistoryModal(exId) {
           <div class="hist-title">${ex.name}</div>
           <div class="hist-subtitle">${ex.sets} × ${formatReps(ex.reps)}${ex.weight ? ' · ' + formatWeight(ex.weight) : ''}</div>
         </div>
-        <button class="hist-close" id="hist-close" aria-label="Close">✕</button>
+        <button class="hist-close" id="hist-close" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       ${prHtml}
       ${sparklineHtml}
@@ -267,15 +267,15 @@ export function openSessionSummaryModal(entry, appState, isCycleComplete = false
 
   const stats = [];
   if (showBothDurations) {
-    stats.push({ label: 'Workout', value: workoutDurationStr, icon: '💪' });
-    stats.push({ label: 'Session', value: durationStr, icon: '⏱' });
+    stats.push({ label: 'Workout', value: workoutDurationStr, icon: '' });
+    stats.push({ label: 'Session', value: durationStr, icon: '' });
   } else if (durationStr) {
-    stats.push({ label: 'Duration', value: durationStr, icon: '⏱' });
+    stats.push({ label: 'Duration', value: durationStr, icon: '' });
   }
-  stats.push({ label: 'Total Volume', value: `${totalVolume.toLocaleString()} lbs`, icon: '📦' });
-  stats.push({ label: 'Exercises', value: `${completedEx}/${allEx.length}`, icon: '✓' });
+  stats.push({ label: 'Total Volume', value: `${totalVolume.toLocaleString()} lbs`, icon: '' });
+  stats.push({ label: 'Exercises', value: `${completedEx}/${allEx.length}`, icon: '' });
   if (failedSets > 0) {
-    stats.push({ label: 'Failed Sets', value: String(failedSets), icon: '✗', warn: true });
+    stats.push({ label: 'Failed Sets', value: String(failedSets), icon: '', warn: true });
   }
 
   const statsHtml = stats.map(s =>
@@ -291,7 +291,7 @@ export function openSessionSummaryModal(entry, appState, isCycleComplete = false
     const prItems = prExIds.map(exId => {
       const ex = EXERCISE_INDEX[exId];
       const types = sessionPRs[exId].map(t => t === 'weight' ? 'Heaviest' : t === 'reps' ? 'Most Reps' : 'Best Volume').join(', ');
-      return `<div class="summary-pr-item">🏆 <strong>${ex?.name ?? exId}</strong> — ${types}</div>`;
+      return `<div class="summary-pr-item">PR: <strong>${ex?.name ?? exId}</strong> — ${types}</div>`;
     }).join('');
     prHtml = `<div class="summary-pr-section">
       <div class="summary-section-label">PERSONAL RECORDS SET</div>
@@ -309,7 +309,7 @@ export function openSessionSummaryModal(entry, appState, isCycleComplete = false
 
   const cycleCompleteHtml = isCycleComplete ? `
     <div class="summary-cycle-banner">
-      <div class="summary-cycle-icon">🏆</div>
+      <div class="summary-cycle-icon">CYCLE</div>
       <div class="summary-cycle-body">
         <div class="summary-cycle-title">WEEKLY CYCLE COMPLETE</div>
         <div class="summary-cycle-sub">All sessions done · Next cycle ready</div>
