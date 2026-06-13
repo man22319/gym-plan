@@ -411,9 +411,9 @@ export function buildCard(ex, appState, readOnly = false) {
     ${progressionRowHtml}
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
-    <div class="set-row">
+    ${readOnly ? '' : `<div class="set-row">
       ${sets.map((s, i) => buildDot(instanceId, i, s, readOnly, effEx)).join('')}
-    </div>
+    </div>`}
   </div>`;
 }
 

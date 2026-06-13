@@ -3,7 +3,7 @@ import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWor
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from '../utils/helpers.js';
 import { startRestTimer } from '../utils/restTimer.js';
-import { persist, normalize, sanitizeSessions } from '../state/persistence.js';
+import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
 import { updateProgressionState } from './progression.js';
 import { expandImport } from '../../io/compactFormat.js';
 
@@ -436,13 +436,20 @@ export function dispatch(type, payload = {}) {
       _renderFn?.(state);
     }
 
-    // Import: render is done above; now show confirmation alert (non-blocking to the render)
+    // Import: persist the imported state, then reload from storage (identical to
+    // page refresh) so all caches, indexes, and session arrays are rebuilt cleanly.
     if (type === 'IMPORT_STATE') {
       const count = (nextState.history || []).length;
-      // Use setTimeout so the render paints before the blocking alert appears
-      setTimeout(() => {
-        alert(`Import complete — ${count} session record${count !== 1 ? 's' : ''} loaded.`);
-      }, 50);
+      // loadState() re-reads from localStorage and calls setState + rebuildIndexes,
+      // matching the exact boot path. This fixes stale DUE/DONE labels.
+      loadState();
+      _renderFn?.(state);
+      // Double-rAF ensures the browser has painted the new DOM before the blocking alert
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          alert(`Import complete — ${count} session record${count !== 1 ? 's' : ''} loaded.`);
+        });
+      });
     }
 
     if (isDoneTransition) {
