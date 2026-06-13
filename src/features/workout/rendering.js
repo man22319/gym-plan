@@ -1,4 +1,4 @@
-import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX, state } from '../../core/state/store.js';
+import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX, state, defaultWorkoutsData } from '../../core/state/store.js';
 import { REST_DURATION } from '../../core/state/state.js';
 import { query } from '../../core/logic/queries.js';
 import { getEffectiveExercise } from '../../core/utils/helpers.js';
@@ -285,12 +285,14 @@ export function buildSession(session, appState) {
         SESSION COMPLETE<small>Rest up. You earned it.</small>
         <div class="eta-departure" id="eta-departure"></div>
         <button class="finish-workout-btn" data-session-id="${session.id}">Finish Workout</button>
+        <button class="export-inline-btn" id="export-inline-btn">Export Data</button>
       </div>`;
   }
 
-  // warmup and finisher: read from session first, fall back to programDefaults
-  const warmupText = session.warmup ?? appState.programDefaults?.warmup ?? programDefaults.warmup ?? '';
-  const finisherText = session.finisher ?? appState.programDefaults?.finisher ?? programDefaults.finisher ?? '';
+  // warmup and finisher: always from workouts.json (never changes)
+  const bootDefaults = defaultWorkoutsData?.defaults ?? {};
+  const warmupText = bootDefaults.warmup ?? '';
+  const finisherText = bootDefaults.finisher ?? '';
 
   return `<div class="session ${active} ${finished ? 'session-completed' : ''}" id="${session.id}">
     <div class="warmup-bar ${warmupDone ? 'warmup-done' : ''}">
@@ -494,7 +496,8 @@ export function buildPrevRow(prevSets, currSets) {
     const w = s.w !== null ? s.w : '—';
     const r = s.r !== null ? s.r : '—';
     const fail = s.s === 'failed' ? ' <span class="prev-x">X</span>' : '';
-    return `<span class="prev-set">S${i + 1} <span class="prev-nums">${w}&times;${r}</span>${fail}</span>`;
+    const rir = (s.rir !== null && s.rir !== undefined) ? `<span class="prev-rir">(r${s.rir})</span>` : '';
+    return `<span class="prev-set">S${i + 1} <span class="prev-nums">${w}&times;${r}</span>${rir}${fail}</span>`;
   }).join('');
 
   const deltaHtml = buildDelta(weightDelta, repsDelta);
@@ -730,17 +733,28 @@ export function buildDot(exId, idx, setObj, readOnly = false, effEx = null) {
   // Layer A: set-level feedback (active sessions only) — label removed; dot colour conveys state
   const feedback = (!readOnly && effEx) ? getSetFeedback(setObj, effEx) : '';
 
+  // Build RIR/ROM metadata line for logged sets
+  const rirVal = setObj.rir;
+  const romVal = setObj.rom;
+  let metaHtml = '';
+  if (readOnly && hasData && (s === 'done' || s === 'failed')) {
+    const parts = [];
+    if (rirVal !== null && rirVal !== undefined) parts.push(`r${rirVal}`);
+    if (romVal && romVal !== 'full') parts.push(romVal);
+    if (parts.length) metaHtml = `<span class="dot-meta">${parts.join(' ')}</span>`;
+  }
+
   if (s === 'done') {
     cls += ' done';
     if (feedback === 'light') cls += ' dot-light';
     if (feedback === 'heavy') cls += ' dot-heavy';
     inner = hasData
-      ? `<span class="dot-data"><span class="dot-w">${w ?? '?'}</span><span class="dot-x">×</span><span class="dot-r">${r ?? '?'}</span></span>`
+      ? `<span class="dot-data"><span class="dot-w">${w ?? '?'}</span><span class="dot-x">×</span><span class="dot-r">${r ?? '?'}</span></span>${metaHtml}`
       : '&#10003;';
   } else if (s === 'failed') {
     cls += ' failed';
     inner = hasData
-      ? `<span class="dot-data"><span class="dot-w">${w ?? '?'}</span><span class="dot-x">×</span><span class="dot-r">${r ?? '?'}</span></span>`
+      ? `<span class="dot-data"><span class="dot-w">${w ?? '?'}</span><span class="dot-x">×</span><span class="dot-r">${r ?? '?'}</span></span>${metaHtml}`
       : '&#10005;';
   } else {
     inner = `<span class="dot-num">${idx + 1}</span>`;

@@ -873,6 +873,51 @@ header {
   transform: scale(0.98);
 }
 
+.export-inline-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  background: transparent;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 1.5px;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.export-inline-btn:hover {
+  color: var(--white);
+  border-color: var(--white);
+}
+.export-inline-btn:active {
+  transform: scale(0.98);
+}
+
+/* RIR/ROM metadata on completed session dots */
+.dot-meta {
+  display: block;
+  font-size: 0.45rem;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+  margin-top: 1px;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* RIR in LAST row */
+.prev-rir {
+  font-size: 0.5rem;
+  opacity: 0.7;
+  margin-left: 2px;
+}
+
 /* ── Desktop layout — center the app like a phone ── */
 @media (min-width: 600px) {
   body {

@@ -12,7 +12,7 @@
 import { dispatch } from '../../core/logic/reducer.js';
 import { skipRestTimer } from '../../core/utils/restTimer.js';
 import { showConfirmModal } from '../modals/index.js';
-import { reloadWorkoutSchema } from '../../io/fileActions.js';
+import { reloadWorkoutSchema, exportData } from '../../io/fileActions.js';
 import { setupPressInteraction } from './pressInteraction.js';
 
 // Press-and-hold interaction is handled entirely by pressInteraction.js.
@@ -66,6 +66,12 @@ export function setupWorkoutEvents() {
       return;
     }
 
+    // ── Export data (inline button) ──────────────────────
+    if (e.target.closest('.export-inline-btn')) {
+      exportData();
+      return;
+    }
+
     // ── Reset Session ───────────────────────────────────
     if (e.target.closest('#reset-session-btn')) {
       closeResetDropdown();
@@ -105,7 +111,7 @@ export function setupWorkoutEvents() {
     if (e.target.closest('#factory-reset-btn')) {
       closeResetDropdown();
       showConfirmModal(
-        '⚠ Factory Reset',
+        'Factory Reset',
         '<strong>This will permanently wipe all workout history, progression data, and session logs.</strong><br><br>The app will return to a fresh install state. This cannot be undone.',
         () => {
           skipRestTimer();

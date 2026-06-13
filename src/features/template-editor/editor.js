@@ -38,7 +38,7 @@ export function openTemplateEditor() {
     <div class="template-editor-modal" role="dialog" aria-modal="true" aria-label="Template Editor">
       <div class="te-header">
         <div class="te-header-title">Template Editor</div>
-        <button class="te-close-btn" id="te-close-btn" aria-label="Close">✕</button>
+        <button class="te-close-btn" id="te-close-btn" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="te-body">
         <div class="te-sidebar" id="te-sidebar"></div>
@@ -84,7 +84,7 @@ function renderSidebar() {
         <div class="te-sidebar-tab-actions">
           <button class="te-tab-action-btn te-move-session-up" data-idx="${idx}" title="Move Up" ${idx === 0 ? 'disabled' : ''}>▲</button>
           <button class="te-tab-action-btn te-move-session-down" data-idx="${idx}" title="Move Down" ${idx === draftSessions.length - 1 ? 'disabled' : ''}>▼</button>
-          <button class="te-tab-action-btn te-delete-session" data-idx="${idx}" title="Delete">🗑</button>
+          <button class="te-tab-action-btn te-delete-session" data-idx="${idx}" title="Delete"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
         </div>
       </div>
     `;
@@ -113,7 +113,7 @@ function renderMain() {
   if (!currentSession) {
     main.innerHTML = `
       <div class="te-main-empty">
-        <div class="te-main-empty-icon">🏋️‍♂️</div>
+        <div class="te-main-empty-icon">No Session Selected</div>
         <div class="te-main-empty-text">Select a workout session from the sidebar or click "+ Add" to create a new one.</div>
       </div>
     `;
@@ -178,7 +178,7 @@ function renderMain() {
               <button class="te-ex-action-btn te-move-ex-up" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" title="Move Up" ${exIdx === 0 ? 'disabled' : ''}>▲</button>
               <button class="te-ex-action-btn te-move-ex-down" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" title="Move Down" ${exIdx === block.exercises.length - 1 ? 'disabled' : ''}>▼</button>
               <button class="te-ex-action-btn te-duplicate-ex" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" title="Duplicate">⧉</button>
-              <button class="te-ex-action-btn te-delete-ex" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" title="Delete">🗑</button>
+              <button class="te-ex-action-btn te-delete-ex" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" title="Delete"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
             </div>
           </div>
           <div class="te-ex-body ${bodyClass}">
@@ -252,7 +252,7 @@ function renderMain() {
           <div class="te-block-actions">
             <button class="te-block-action-btn te-move-block-up" data-block-idx="${blockIdx}" title="Move Up" ${blockIdx === 0 ? 'disabled' : ''}>▲</button>
             <button class="te-block-action-btn te-move-block-down" data-block-idx="${blockIdx}" title="Move Down" ${blockIdx === currentSession.blocks.length - 1 ? 'disabled' : ''}>▼</button>
-            <button class="te-block-action-btn te-delete-block" data-block-idx="${blockIdx}" title="Delete">🗑</button>
+            <button class="te-block-action-btn te-delete-block" data-block-idx="${blockIdx}" title="Delete"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
         </div>
         <div class="te-block-exercises">

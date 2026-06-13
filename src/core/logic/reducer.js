@@ -189,10 +189,6 @@ export function reducer(currentState, action) {
         sessionsPerWeek: payload.data.sessionsPerWeek ?? 3,
         activeSessionId: payload.data.activeSessionId ?? payload.data.sessions?.[0]?.id ?? null,
       }));
-      const count = (imported.history || []).length;
-      const msg = `Import complete — ${count} session record${count !== 1 ? 's' : ''} loaded.`;
-      console.log(msg);
-      alert(msg);
       return rebuildAllProgressions(imported);
     }
 
@@ -438,6 +434,15 @@ export function dispatch(type, payload = {}) {
       _cardioRenderFn(state);
     } else {
       _renderFn?.(state);
+    }
+
+    // Import: render is done above; now show confirmation alert (non-blocking to the render)
+    if (type === 'IMPORT_STATE') {
+      const count = (nextState.history || []).length;
+      // Use setTimeout so the render paints before the blocking alert appears
+      setTimeout(() => {
+        alert(`Import complete — ${count} session record${count !== 1 ? 's' : ''} loaded.`);
+      }, 50);
     }
 
     if (isDoneTransition) {
