@@ -334,8 +334,12 @@ export function calculateETA(appState, sessionDef) {
   // dominating.
   const historicalDuration = historicalSessionDuration(appState, sessionDef.id);
 
-  if (historicalDuration && completedSets > 0 && completedSets < 6) {
-    const alpha = Math.min(1, completedSets / 6);
+  // Blend window: smaller of 6 sets or 20% of session, so short sessions
+  // hand off quickly and long sessions don't cut over too early.
+  const blendWindow = Math.min(6, Math.ceil(totalSets * 0.2));
+
+  if (historicalDuration && completedSets > 0 && completedSets < blendWindow) {
+    const alpha = Math.min(1, completedSets / blendWindow);
 
     const currentPace = elapsedMs / completedSets;
     const historicalPace = historicalDuration / totalSets;
