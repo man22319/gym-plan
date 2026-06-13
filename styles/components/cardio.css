@@ -21,7 +21,7 @@
 
 .cardio-note-hist-label {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.45rem;
+  font-size: 0.55rem;
   letter-spacing: 2px;
   color: var(--dim);
   text-transform: uppercase;
@@ -42,7 +42,7 @@
 
 .cardio-note-hist-date {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.45rem;
+  font-size: 0.55rem;
   letter-spacing: 1px;
   color: var(--dim);
   text-transform: uppercase;
@@ -57,7 +57,7 @@
 
 .cardio-note-hist-empty {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.5rem;
+  font-size: 0.6875rem;
   color: var(--dim);
   text-align: center;
   padding: 12px 0;

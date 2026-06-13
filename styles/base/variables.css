@@ -16,8 +16,8 @@
     inset 1px 0 0.5px rgba(255, 255, 255, 0.05),
     inset -1px 0 0.5px rgba(255, 255, 255, 0.05),
     0 20px 40px rgba(0, 0, 0, 0.6);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-hi: rgba(255, 255, 255, 0.18);
+  --border: rgba(255, 255, 255, 0.10);
+  --border-hi: rgba(255, 255, 255, 0.20);
   --white: #ffffff;
   --silver: #d1d1d6;
   --muted: #8e8e93;
