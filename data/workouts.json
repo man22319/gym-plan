@@ -10,14 +10,8 @@
       "name": "Seated Row Machine",
       "equipmentType": "machine",
       "sets": 4,
-      "reps": {
-        "min": 6,
-        "max": 8
-      },
-      "load": {
-        "value": 60,
-        "unit": "lbs"
-      },
+      "reps": { "min": 6, "max": 8 },
+      "load": { "value": 60, "unit": "lbs" },
       "deltaW": 10,
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
@@ -28,14 +22,8 @@
       "name": "Supported Single-Arm Row",
       "equipmentType": "dumbbell",
       "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 10
-      },
-      "load": {
-        "value": 30,
-        "unit": "lbs"
-      },
+      "reps": { "min": 8, "max": 10 },
+      "load": { "value": 30, "unit": "lbs" },
       "deltaW": 5,
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
@@ -46,15 +34,8 @@
       "name": "Dumbbell Bench Press",
       "equipmentType": "dumbbell",
       "sets": 4,
-      "reps": {
-        "min": 8,
-        "max": 8
-      },
-      "load": {
-        "min": 22.5,
-        "max": 25,
-        "unit": "lbs"
-      },
+      "reps": { "min": 8, "max": 8 },
+      "load": { "min": 25, "max": 30, "unit": "lbs" },
       "deltaW": 5,
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
@@ -65,15 +46,8 @@
       "name": "Incline Dumbbell Bench Press",
       "equipmentType": "dumbbell",
       "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 12
-      },
-      "load": {
-        "min": 22.5,
-        "max": 25,
-        "unit": "lbs"
-      },
+      "reps": { "min": 8, "max": 12 },
+      "load": { "min": 25, "max": 30, "unit": "lbs" },
       "deltaW": 5,
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
@@ -84,14 +58,8 @@
       "name": "Seated Leg Curl",
       "equipmentType": "machine",
       "sets": 3,
-      "reps": {
-        "min": 10,
-        "max": 12
-      },
-      "load": {
-        "value": 60,
-        "unit": "lbs"
-      },
+      "reps": { "min": 10, "max": 12 },
+      "load": { "value": 60, "unit": "lbs" },
       "deltaW": 10,
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
@@ -102,14 +70,8 @@
       "name": "Back Extension Machine",
       "equipmentType": "machine",
       "sets": 3,
-      "reps": {
-        "min": 10,
-        "max": 15
-      },
-      "load": {
-        "value": 140,
-        "unit": "lbs"
-      },
+      "reps": { "min": 10, "max": 15 },
+      "load": { "value": 140, "unit": "lbs" },
       "deltaW": 10,
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
@@ -120,14 +82,8 @@
       "name": "Glute Kickback Machine",
       "equipmentType": "machine",
       "sets": 4,
-      "reps": {
-        "min": 10,
-        "max": 15
-      },
-      "load": {
-        "value": 80,
-        "unit": "lbs"
-      },
+      "reps": { "min": 10, "max": 15 },
+      "load": { "value": 80, "unit": "lbs" },
       "deltaW": 10,
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
@@ -136,16 +92,10 @@
     },
     "lat_pull": {
       "name": "Lat Pulldown",
-      "equipmentType": "cable",
+      "equipmentType": "machine",
       "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 10
-      },
-      "load": {
-        "value": 70,
-        "unit": "lbs"
-      },
+      "reps": { "min": 8, "max": 10 },
+      "load": { "value": 70, "unit": "lbs" },
       "deltaW": 10,
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
@@ -156,15 +106,8 @@
       "name": "Lateral Raise",
       "equipmentType": "dumbbell",
       "sets": 3,
-      "reps": {
-        "min": 12,
-        "max": 15
-      },
-      "load": {
-        "min": 10,
-        "max": 15,
-        "unit": "lbs"
-      },
+      "reps": { "min": 12, "max": 15 },
+      "load": { "min": 10, "max": 15, "unit": "lbs" },
       "deltaW": 5,
       "manualDeltaWOverride": false,
       "restBetweenSets": 60,
@@ -175,15 +118,8 @@
       "name": "Triceps Press Machine",
       "equipmentType": "machine",
       "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 10
-      },
-      "load": {
-        "min": 70,
-        "max": 80,
-        "unit": "lbs"
-      },
+      "reps": { "min": 8, "max": 10 },
+      "load": { "min": 70, "max": 80, "unit": "lbs" },
       "deltaW": 10,
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
@@ -194,14 +130,8 @@
       "name": "Hammer Curl",
       "equipmentType": "dumbbell",
       "sets": 3,
-      "reps": {
-        "min": 10,
-        "max": 12
-      },
-      "load": {
-        "value": 15,
-        "unit": "lbs"
-      },
+      "reps": { "min": 10, "max": 12 },
+      "load": { "value": 15, "unit": "lbs" },
       "deltaW": 5,
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
@@ -212,14 +142,8 @@
       "name": "Skull Crushers",
       "equipmentType": "barbell",
       "sets": 3,
-      "reps": {
-        "min": 10,
-        "max": 12
-      },
-      "load": {
-        "value": 15,
-        "unit": "lbs"
-      },
+      "reps": { "min": 10, "max": 12 },
+      "load": { "value": 15, "unit": "lbs" },
       "deltaW": 10,
       "manualDeltaWOverride": false,
       "restBetweenSets": 75,
@@ -230,15 +154,8 @@
       "name": "Barbell Curl",
       "equipmentType": "barbell",
       "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 12
-      },
-      "load": {
-        "min": 40,
-        "max": 50,
-        "unit": "lbs"
-      },
+      "reps": { "min": 8, "max": 12 },
+      "load": { "min": 40, "max": 50, "unit": "lbs" },
       "deltaW": 10,
       "manualDeltaWOverride": false,
       "restBetweenSets": 75,
@@ -249,15 +166,8 @@
       "name": "Leg Press",
       "equipmentType": "machine",
       "sets": 4,
-      "reps": {
-        "min": 10,
-        "max": 12
-      },
-      "load": {
-        "min": 140,
-        "max": 160,
-        "unit": "lbs"
-      },
+      "reps": { "min": 10, "max": 12 },
+      "load": { "min": 140, "max": 160, "unit": "lbs" },
       "deltaW": 10,
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
@@ -268,15 +178,8 @@
       "name": "Arnold Press",
       "equipmentType": "dumbbell",
       "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 10
-      },
-      "load": {
-        "min": 25,
-        "max": 30,
-        "unit": "lbs"
-      },
+      "reps": { "min": 8, "max": 10 },
+      "load": { "min": 25, "max": 30, "unit": "lbs" },
       "deltaW": 5,
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
@@ -287,22 +190,29 @@
       "name": "Overhead Press",
       "equipmentType": "dumbbell",
       "sets": 3,
-      "reps": {
-        "min": 6,
-        "max": 8
-      },
-      "load": {
-        "min": 20,
-        "max": 25,
-        "unit": "lbs"
-      },
+      "reps": { "min": 6, "max": 8 },
+      "load": { "min": 20, "max": 25, "unit": "lbs" },
       "deltaW": 5,
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
       "notes": "Press directly overhead — slight forward lean is fine. Lock out at top."
+    },
+
+    "barbell_pullover": {
+      "name": "Barbell Pullover",
+      "equipmentType": "barbell",
+      "sets": 2,
+      "reps": { "min": 10, "max": 15 },
+      "load": { "value": 30, "unit": "lbs" },
+      "deltaW": 5,
+      "manualDeltaWOverride": false,
+      "restBetweenSets": 90,
+      "restBetweenExercises": 45,
+      "notes": "Slow eccentric, slight elbow bend locked in. Stop before shoulder instability. Lat-focused stretch, not chest swing."
     }
   },
+
   "sessions": [
     {
       "id": "session_thu",
@@ -310,73 +220,46 @@
       "sessionLabel": "Session 1",
       "blocks": [
         {
-          "label": "Superset 1 — Pull / Push",
+          "label": "Lat Width Priority",
           "exercises": [
-            {
-              "instanceId": "thu_row",
-              "exerciseRef": "row_machine",
-              "letter": "A",
-              "sets": 4,
-              "reps": {
-                "min": 6,
-                "max": 8
-              }
-            },
-            {
-              "instanceId": "thu_bench",
-              "exerciseRef": "bench_db",
-              "letter": "B",
-              "sets": 4
-            }
-          ]
-        },
-        {
-          "label": "Superset 2 — Legs",
-          "exercises": [
-            {
-              "instanceId": "thu_leg_curl",
-              "exerciseRef": "leg_curl",
-              "letter": "A",
-              "sets": 4,
-              "reps": {
-                "min": 10,
-                "max": 15
-              }
-            },
-            {
-              "instanceId": "thu_back_ext",
-              "exerciseRef": "back_ext",
-              "letter": "B"
-            }
-          ]
-        },
-        {
-          "label": "Superset 3 — Your Moves",
-          "exercises": [
-            {
-              "instanceId": "thu_glute_kickback",
-              "exerciseRef": "glute_kickback",
-              "letter": "A"
-            },
             {
               "instanceId": "thu_lat_pull",
               "exerciseRef": "lat_pull",
-              "letter": "B"
+              "letter": "A",
+              "sets": 4,
+              "reps": { "min": 8, "max": 12 }
+            },
+            {
+              "instanceId": "thu_lat_pullover",
+              "exerciseRef": "barbell_pullover",
+              "letter": "B",
+              "sets": 2
+            },
+            {
+              "instanceId": "thu_row_machine",
+              "exerciseRef": "row_machine",
+              "letter": "C",
+              "sets": 2,
+              "reps": { "min": 8, "max": 10 }
             }
           ]
         },
         {
-          "label": "Superset 4 — Shoulders / Arms",
+          "label": "Upper Chest + Side Delts",
           "exercises": [
+            {
+              "instanceId": "thu_bench_incline",
+              "exerciseRef": "bench_db_incline",
+              "letter": "A",
+              "sets": 3,
+              "reps": { "min": 8, "max": 12 }
+            },
             {
               "instanceId": "thu_lat_raise",
               "exerciseRef": "lat_raise",
-              "letter": "A"
-            },
-            {
-              "instanceId": "thu_tri_press",
-              "exerciseRef": "tri_press",
-              "letter": "B"
+              "letter": "B",
+              "sets": 4,
+              "reps": { "min": 12, "max": 20 }
             }
           ]
         }
@@ -388,56 +271,40 @@
       "sessionLabel": "Session 2",
       "blocks": [
         {
-          "label": "Superset 1 — Pull / Shoulders",
+          "label": "Back Thickness + Side Delts",
           "exercises": [
             {
               "instanceId": "sat_row",
               "exerciseRef": "row_dumbbell",
-              "letter": "A"
+              "letter": "A",
+              "sets": 3,
+              "reps": { "min": 8, "max": 12 }
             },
             {
-              "instanceId": "sat_arnold_press",
-              "exerciseRef": "arnold_press",
-              "letter": "B"
+              "instanceId": "sat_lat_raise",
+              "exerciseRef": "lat_raise",
+              "letter": "B",
+              "sets": 4,
+              "reps": { "min": 12, "max": 20 }
             }
           ]
         },
         {
-          "label": "Superset 2 — Legs",
+          "label": "Lower Maintenance",
           "exercises": [
             {
               "instanceId": "sat_leg_press",
               "exerciseRef": "leg_press",
-              "letter": "A"
+              "letter": "A",
+              "sets": 3,
+              "reps": { "min": 10, "max": 12 }
             },
             {
               "instanceId": "sat_leg_curl",
               "exerciseRef": "leg_curl",
               "letter": "B",
-              "reps": {
-                "min": 10,
-                "max": 12
-              }
-            }
-          ]
-        },
-        {
-          "label": "Superset 3 — Arms / Shoulders",
-          "exercises": [
-            {
-              "instanceId": "sat_lat_raise",
-              "exerciseRef": "lat_raise",
-              "letter": "A"
-            },
-            {
-              "instanceId": "sat_tri_press",
-              "exerciseRef": "tri_press",
-              "letter": "B"
-            },
-            {
-              "instanceId": "sat_hammer",
-              "exerciseRef": "hammer_curl",
-              "letter": "C"
+              "sets": 3,
+              "reps": { "min": 10, "max": 12 }
             }
           ]
         }
@@ -449,66 +316,46 @@
       "sessionLabel": "Session 3",
       "blocks": [
         {
-          "label": "Superset 1 — Pull / Push",
+          "label": "Lat Width Priority",
           "exercises": [
+            {
+              "instanceId": "mon_lat_pull",
+              "exerciseRef": "lat_pull",
+              "letter": "A",
+              "sets": 4,
+              "reps": { "min": 8, "max": 12 }
+            },
+            {
+              "instanceId": "mon_lat_pullover",
+              "exerciseRef": "barbell_pullover",
+              "letter": "B",
+              "sets": 2
+            },
             {
               "instanceId": "mon_row",
               "exerciseRef": "row_dumbbell",
-              "letter": "A"
+              "letter": "C",
+              "sets": 2,
+              "reps": { "min": 8, "max": 10 }
+            }
+          ]
+        },
+        {
+          "label": "Shoulder Cap + Upper Chest",
+          "exercises": [
+            {
+              "instanceId": "mon_lat_raise",
+              "exerciseRef": "lat_raise",
+              "letter": "A",
+              "sets": 4,
+              "reps": { "min": 12, "max": 20 }
             },
             {
               "instanceId": "mon_idbp",
               "exerciseRef": "bench_db_incline",
-              "letter": "B"
-            }
-          ]
-        },
-        {
-          "label": "Superset 2 — Legs",
-          "exercises": [
-            {
-              "instanceId": "mon_leg_press",
-              "exerciseRef": "leg_press",
-              "letter": "A",
-              "reps": {
-                "min": 8,
-                "max": 12
-              }
-            },
-            {
-              "instanceId": "mon_leg_curl",
-              "exerciseRef": "leg_curl",
-              "letter": "B"
-            }
-          ]
-        },
-        {
-          "label": "Superset 3 — Arms",
-          "exercises": [
-            {
-              "instanceId": "mon_skull",
-              "exerciseRef": "skull_crushers",
-              "letter": "A"
-            },
-            {
-              "instanceId": "mon_curl",
-              "exerciseRef": "barbell_curl",
-              "letter": "B"
-            }
-          ]
-        },
-        {
-          "label": "Superset 4 — Shoulders",
-          "exercises": [
-            {
-              "instanceId": "mon_ohp",
-              "exerciseRef": "ohp",
-              "letter": "A"
-            },
-            {
-              "instanceId": "mon_lat_raise",
-              "exerciseRef": "lat_raise",
-              "letter": "B"
+              "letter": "B",
+              "sets": 3,
+              "reps": { "min": 8, "max": 10 }
             }
           ]
         }

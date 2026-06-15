@@ -22,7 +22,50 @@ export function loadState() {
     if (!raw) continue;
     try {
       const parsed = expandImport(JSON.parse(raw));
-      const normal = normalize(parsed);
+
+      // ── Always overlay workouts.json as the source of truth ──────────
+      // Sessions, exerciseLibrary, and programDefaults come from the JSON
+      // file — never from persisted state. This ensures edits to
+      // workouts.json (new exercises, changed structure) take effect
+      // immediately without requiring a manual "Reload" step.
+      const freshSessions = JSON.parse(JSON.stringify(defaultWorkoutsData?.sessions ?? []));
+      const freshLibrary  = JSON.parse(JSON.stringify(defaultWorkoutsData?.exercises ?? {}));
+      const freshDefaults = JSON.parse(JSON.stringify(defaultWorkoutsData?.defaults ?? {}));
+
+      // Detect exercises whose definition changed — reset their progress.
+      const oldLib = parsed.exerciseLibrary ?? {};
+      const exercises = { ...(parsed.exercises ?? {}) };
+      for (const session of freshSessions) {
+        for (const block of session.blocks ?? []) {
+          for (const inst of block.exercises ?? []) {
+            const id  = inst.instanceId;
+            const ref = inst.exerciseRef;
+            if (!id || !ref) continue;
+            // Reset set-tracking if: exerciseRef not in old library,
+            // definition changed, or instance doesn't have tracking yet.
+            const oldDef = oldLib[ref];
+            const newDef = freshLibrary[ref];
+            if (!oldDef || !newDef || JSON.stringify(oldDef) !== JSON.stringify(newDef)) {
+              const sets = inst.sets ?? newDef?.sets ?? 3;
+              exercises[id] = Array.from({ length: sets }, () => makeSet());
+            }
+          }
+        }
+      }
+
+      const merged = {
+        ...parsed,
+        sessions:        freshSessions,
+        exerciseLibrary: freshLibrary,
+        programDefaults: freshDefaults,
+        exercises,
+        // Keep active session if it still exists, else reset to first
+        activeSessionId: freshSessions.some(s => s.id === parsed.activeSessionId)
+          ? parsed.activeSessionId
+          : (freshSessions[0]?.id ?? null),
+      };
+
+      const normal = normalize(merged);
       const clean  = sanitizeSessions(normal); // surgical repair — history untouched
       if (validate(clean)) {
         setState(clean);
