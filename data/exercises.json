@@ -5,292 +5,210 @@
     "restBetweenSets": 90,
     "restBetweenExercises": 45
   },
+
   "exercises": {
-    "row_machine": {
-      "name": "Seated Row Machine",
-      "equipmentType": "machine",
-      "sets": 4,
-      "reps": {
-        "min": 6,
-        "max": 8
-      },
-      "load": {
-        "min": 70,
-        "max": 100
-      },
-      "deltaW": 10,
-      "restBetweenSets": 120,
-      "restBetweenExercises": 60,
-      "notes": "Drive elbows back, pause 1s at peak contraction. Keep chest tall."
-    },
-    "row_dumbbell": {
-      "name": "Supported Single-Arm Row",
-      "equipmentType": "dumbbell",
-      "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 10
-      },
-      "load": {
-        "value": 30
-      },
-      "deltaW": 2.5,
-      "restBetweenSets": 120,
-      "restBetweenExercises": 60,
-      "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder."
-    },
-    "bench_db": {
-      "name": "Dumbbell Bench Press",
-      "equipmentType": "dumbbell",
-      "sets": 4,
-      "reps": {
-        "min": 8,
-        "max": 8
-      },
-      "load": {
-        "min": 25,
-        "max": 30
-      },
-      "deltaW": 2.5,
-      "restBetweenSets": 120,
-      "restBetweenExercises": 60,
-      "notes": "Lower slowly to chest, full extension at top. Feet flat on floor."
-    },
-    "bench_db_incline": {
-      "name": "Incline Dumbbell Bench Press",
-      "equipmentType": "dumbbell",
-      "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 12
-      },
-      "load": {
-        "min": 25,
-        "max": 30
-      },
-      "deltaW": 2.5,
-      "restBetweenSets": 120,
-      "restBetweenExercises": 60,
-      "notes": "30–45° incline. Lower to upper chest. Full press, slight arch."
-    },
-    "leg_curl": {
-      "name": "Seated Leg Curl",
-      "equipmentType": "machine",
-      "sets": 3,
-      "reps": {
-        "min": 10,
-        "max": 12
-      },
-      "load": {
-        "min": 60,
-        "max": 80
-      },
-      "deltaW": 10,
-      "restBetweenSets": 90,
-      "restBetweenExercises": 45,
-      "notes": "Full ROM — extend fully, curl to 90°+. Control the return."
-    },
-    "back_ext": {
-      "name": "Back Extension Machine",
-      "equipmentType": "machine",
-      "sets": 3,
-      "reps": {
-        "min": 10,
-        "max": 15
-      },
-      "load": {
-        "min": 140,
-        "max": 160
-      },
-      "deltaW": 10,
-      "restBetweenSets": 90,
-      "restBetweenExercises": 45,
-      "notes": "Controlled hip extension. Squeeze glutes at top. No hyperextending lower back."
-    },
-    "glute_kickback": {
-      "name": "Glute Kickback Machine",
-      "equipmentType": "machine",
-      "sets": 4,
-      "reps": {
-        "min": 10,
-        "max": 15
-      },
-      "load": {
-        "min": 80,
-        "max": 100
-      },
-      "deltaW": 10,
-      "restBetweenSets": 90,
-      "restBetweenExercises": 45,
-      "notes": "Drive through heel. Pause at peak squeeze. Keep hips square."
-    },
-    "lat_pull": {
-      "name": "Lat Pulldown",
-      "equipmentType": "machine",
-      "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 10
-      },
-      "load": {
-        "min": 80,
-        "max": 110
-      },
-      "deltaW": 10,
-      "restBetweenSets": 90,
-      "restBetweenExercises": 45,
-      "notes": "Pull to upper chest, not behind neck. Slight lean back, chest up."
-    },
-    "lat_raise": {
-      "name": "Lateral Raise",
-      "equipmentType": "dumbbell",
-      "sets": 3,
-      "reps": {
-        "min": 12,
-        "max": 15
-      },
-      "load": {
-        "min": 10,
-        "max": 15
-      },
-      "deltaW": 2.5,
-      "restBetweenSets": 60,
-      "restBetweenExercises": 30,
-      "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric."
-    },
-    "tri_press": {
-      "name": "Triceps Press Machine",
-      "equipmentType": "machine",
-      "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 10
-      },
-      "load": {
-        "min": 110,
-        "max": 140
-      },
-      "deltaW": 10,
-      "restBetweenSets": 90,
-      "restBetweenExercises": 45,
-      "notes": "Lock elbows in at sides. Full extension, controlled return."
-    },
-    "hammer_curl": {
-      "name": "Hammer Curl",
-      "equipmentType": "dumbbell",
-      "sets": 3,
-      "reps": {
-        "min": 10,
-        "max": 12
-      },
-      "load": {
-        "min": 15,
-        "max": 25
-      },
-      "deltaW": 2.5,
-      "restBetweenSets": 90,
-      "restBetweenExercises": 45,
-      "notes": "Neutral grip throughout. Curl to shoulder, lower with control. No swinging."
-    },
-    "skull_crushers": {
-      "name": "Skull Crushers",
-      "equipmentType": "dumbbell",
-      "sets": 3,
-      "reps": {
-        "min": 10,
-        "max": 12
-      },
-      "load": {
-        "value": 15
-      },
-      "deltaW": 2.5,
-      "restBetweenSets": 75,
-      "restBetweenExercises": 45,
-      "notes": "Keep upper arms vertical. Lower to forehead/crown, full extension up."
-    },
-    "barbell_curl": {
-      "name": "Barbell Curl",
-      "equipmentType": "barbell",
-      "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 12
-      },
-      "load": {
-        "min": 40,
-        "max": 50
-      },
-      "deltaW": 10,
-      "restBetweenSets": 75,
-      "restBetweenExercises": 45,
-      "notes": "Elbows pinned at sides. Supinate at top, full hang at bottom."
-    },
-    "leg_press": {
-      "name": "Leg Press",
-      "equipmentType": "machine",
-      "sets": 4,
-      "reps": {
-        "min": 10,
-        "max": 12
-      },
-      "load": {
-        "min": 160,
-        "max": 200
-      },
-      "deltaW": 20,
-      "restBetweenSets": 120,
-      "restBetweenExercises": 60,
-      "notes": "Standard foot placement. Knees track over toes, lower to 90°."
-    },
     "arnold_press": {
       "name": "Arnold Press",
       "equipmentType": "dumbbell",
       "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 10
-      },
-      "load": {
-        "min": 25,
-        "max": 30
-      },
+      "reps": { "min": 8, "max": 10 },
+      "load": { "min": 25, "max": 30 },
       "deltaW": 2.5,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
       "notes": "Rotate palms outward as you press. Controlled rotation both ways."
     },
+
+    "barbell_curl": {
+      "name": "Barbell Curl",
+      "equipmentType": "barbell",
+      "sets": 3,
+      "reps": { "min": 8, "max": 12 },
+      "load": { "min": 40, "max": 50 },
+      "deltaW": 10,
+      "restBetweenSets": 75,
+      "restBetweenExercises": 45,
+      "notes": "Elbows pinned at sides. Supinate at top, full hang at bottom."
+    },
+
+    "bench_db": {
+      "name": "Dumbbell Bench Press",
+      "equipmentType": "dumbbell",
+      "sets": 4,
+      "reps": { "min": 8, "max": 8 },
+      "load": { "min": 25, "max": 30 },
+      "deltaW": 2.5,
+      "restBetweenSets": 120,
+      "restBetweenExercises": 60,
+      "notes": "Lower slowly to chest, full extension at top. Feet flat on floor."
+    },
+
+    "bench_db_incline": {
+      "name": "Incline Dumbbell Bench Press",
+      "equipmentType": "dumbbell",
+      "sets": 3,
+      "reps": { "min": 8, "max": 12 },
+      "load": { "min": 25, "max": 30 },
+      "deltaW": 2.5,
+      "restBetweenSets": 120,
+      "restBetweenExercises": 60,
+      "notes": "30–45° incline. Lower to upper chest. Full press, slight arch."
+    },
+
+    "back_ext": {
+      "name": "Back Extension Machine",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": { "min": 10, "max": 15 },
+      "load": { "min": 140, "max": 160 },
+      "deltaW": 10,
+      "restBetweenSets": 90,
+      "restBetweenExercises": 45,
+      "notes": "Controlled hip extension. Squeeze glutes at top. No hyperextending lower back."
+    },
+
+    "dumbbell_pullover": {
+      "name": "Dumbbell Pullover",
+      "equipmentType": "dumbbell",
+      "sets": 2,
+      "reps": { "min": 10, "max": 15 },
+      "load": { "value": 30 },
+      "deltaW": 2.5,
+      "restBetweenSets": 90,
+      "restBetweenExercises": 45,
+      "notes": "Slow eccentric, slight elbow bend locked in. Stop before shoulder instability. Lat-focused stretch, not chest swing."
+    },
+
+    "glute_kickback": {
+      "name": "Glute Kickback Machine",
+      "equipmentType": "machine",
+      "sets": 4,
+      "reps": { "min": 10, "max": 15 },
+      "load": { "min": 80, "max": 100 },
+      "deltaW": 10,
+      "restBetweenSets": 90,
+      "restBetweenExercises": 45,
+      "notes": "Drive through heel. Pause at peak squeeze. Keep hips square."
+    },
+
+    "hammer_curl": {
+      "name": "Hammer Curl",
+      "equipmentType": "dumbbell",
+      "sets": 3,
+      "reps": { "min": 10, "max": 12 },
+      "load": { "min": 15, "max": 25 },
+      "deltaW": 2.5,
+      "restBetweenSets": 90,
+      "restBetweenExercises": 45,
+      "notes": "Neutral grip throughout. Curl to shoulder, lower with control. No swinging."
+    },
+
+    "lat_pull": {
+      "name": "Lat Pulldown",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": { "min": 8, "max": 10 },
+      "load": { "min": 80, "max": 110 },
+      "deltaW": 10,
+      "restBetweenSets": 90,
+      "restBetweenExercises": 45,
+      "notes": "Pull to upper chest, not behind neck. Slight lean back, chest up."
+    },
+
+    "lat_raise": {
+      "name": "Lateral Raise",
+      "equipmentType": "dumbbell",
+      "sets": 3,
+      "reps": { "min": 12, "max": 15 },
+      "load": { "min": 10, "max": 15 },
+      "deltaW": 2.5,
+      "restBetweenSets": 60,
+      "restBetweenExercises": 30,
+      "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric."
+    },
+
+    "leg_curl": {
+      "name": "Seated Leg Curl",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": { "min": 10, "max": 12 },
+      "load": { "min": 60, "max": 80 },
+      "deltaW": 10,
+      "restBetweenSets": 90,
+      "restBetweenExercises": 45,
+      "notes": "Full ROM — extend fully, curl to 90°+. Control the return."
+    },
+
+    "leg_press": {
+      "name": "Leg Press",
+      "equipmentType": "machine",
+      "sets": 4,
+      "reps": { "min": 10, "max": 12 },
+      "load": { "min": 160, "max": 200 },
+      "deltaW": 20,
+      "restBetweenSets": 120,
+      "restBetweenExercises": 60,
+      "notes": "Standard foot placement. Knees track over toes, lower to 90°."
+    },
+
     "ohp": {
       "name": "Overhead Press",
       "equipmentType": "dumbbell",
       "sets": 3,
-      "reps": {
-        "min": 6,
-        "max": 8
-      },
-      "load": {
-        "min": 25,
-        "max": 30
-      },
+      "reps": { "min": 6, "max": 8 },
+      "load": { "min": 25, "max": 30 },
       "deltaW": 2.5,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
       "notes": "Press directly overhead — slight forward lean is fine. Lock out at top."
     },
-    "dumbbell_pullover": {
-      "name": "dumbbell Pullover",
+
+    "row_dumbbell": {
+      "name": "Supported Single-Arm Row",
       "equipmentType": "dumbbell",
-      "sets": 2,
-      "reps": {
-        "min": 10,
-        "max": 15
-      },
-      "load": {
-        "value": 30
-      },
+      "sets": 3,
+      "reps": { "min": 8, "max": 10 },
+      "load": { "value": 30 },
       "deltaW": 2.5,
+      "restBetweenSets": 120,
+      "restBetweenExercises": 60,
+      "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder."
+    },
+
+    "row_machine": {
+      "name": "Seated Row Machine",
+      "equipmentType": "machine",
+      "sets": 4,
+      "reps": { "min": 6, "max": 8 },
+      "load": { "min": 70, "max": 100 },
+      "deltaW": 10,
+      "restBetweenSets": 120,
+      "restBetweenExercises": 60,
+      "notes": "Drive elbows back, pause 1s at peak contraction. Keep chest tall."
+    },
+
+    "skull_crushers": {
+      "name": "Skull Crushers",
+      "equipmentType": "dumbbell",
+      "sets": 3,
+      "reps": { "min": 10, "max": 12 },
+      "load": { "value": 15 },
+      "deltaW": 2.5,
+      "restBetweenSets": 75,
+      "restBetweenExercises": 45,
+      "notes": "Keep upper arms vertical. Lower to forehead/crown, full extension up."
+    },
+
+    "tri_press": {
+      "name": "Triceps Press Machine",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": { "min": 8, "max": 10 },
+      "load": { "min": 110, "max": 140 },
+      "deltaW": 10,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Slow eccentric, slight elbow bend locked in. Stop before shoulder instability. Lat-focused stretch, not chest swing."
+      "notes": "Lock elbows in at sides. Full extension, controlled return."
     }
   }
 }
