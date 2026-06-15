@@ -856,10 +856,8 @@ function setupEditorEvents() {
     }
 
     // ── Close / Cancel ─────────────────────────────────────────────────────
-    if (e.target.closest('#te-close-btn') || e.target.id === 'te-cancel-btn') {
-      if (confirm('Discard any changes made to the workout template?')) {
-        closeTemplateEditor();
-      }
+    if (e.target.closest('#te-close-btn') || e.target.closest('#te-cancel-btn')) {
+      closeTemplateEditor();
       return;
     }
 
