@@ -1,6 +1,4 @@
 *.md
 *.txt
-/ignore
 /tests
 .*
-__pycache__
