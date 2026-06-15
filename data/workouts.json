@@ -205,45 +205,16 @@
         {
           "label": "Lat Width Priority",
           "exercises": [
-            {
-              "instanceId": "thu_lat_pull",
-              "exerciseRef": "lat_pull",
-              "letter": "A",
-              "sets": 4,
-              "reps": { "min": 8, "max": 12 }
-            },
-            {
-              "instanceId": "thu_lat_pullover",
-              "exerciseRef": "dumbell_pullover",
-              "letter": "B",
-              "sets": 2
-            },
-            {
-              "instanceId": "thu_row_machine",
-              "exerciseRef": "row_machine",
-              "letter": "C",
-              "sets": 2,
-              "reps": { "min": 8, "max": 10 }
-            }
+            { "instanceId": "thu_lat_pull",     "exerciseRef": "lat_pull",          "letter": "A" },
+            { "instanceId": "thu_lat_pullover", "exerciseRef": "dumbell_pullover",  "letter": "B" },
+            { "instanceId": "thu_row_machine",  "exerciseRef": "row_machine",       "letter": "C" }
           ]
         },
         {
           "label": "Upper Chest + Side Delts",
           "exercises": [
-            {
-              "instanceId": "thu_bench_incline",
-              "exerciseRef": "bench_db_incline",
-              "letter": "A",
-              "sets": 3,
-              "reps": { "min": 8, "max": 12 }
-            },
-            {
-              "instanceId": "thu_lat_raise",
-              "exerciseRef": "lat_raise",
-              "letter": "B",
-              "sets": 4,
-              "reps": { "min": 12, "max": 20 }
-            }
+            { "instanceId": "thu_bench_incline", "exerciseRef": "bench_db_incline", "letter": "A" },
+            { "instanceId": "thu_lat_raise",     "exerciseRef": "lat_raise",        "letter": "B" }
           ]
         }
       ]
@@ -256,39 +227,15 @@
         {
           "label": "Back Thickness + Side Delts",
           "exercises": [
-            {
-              "instanceId": "sat_row",
-              "exerciseRef": "row_dumbbell",
-              "letter": "A",
-              "sets": 3,
-              "reps": { "min": 8, "max": 12 }
-            },
-            {
-              "instanceId": "sat_lat_raise",
-              "exerciseRef": "lat_raise",
-              "letter": "B",
-              "sets": 4,
-              "reps": { "min": 12, "max": 20 }
-            }
+            { "instanceId": "sat_row",       "exerciseRef": "row_dumbbell", "letter": "A" },
+            { "instanceId": "sat_lat_raise", "exerciseRef": "lat_raise",    "letter": "B" }
           ]
         },
         {
           "label": "Lower Maintenance",
           "exercises": [
-            {
-              "instanceId": "sat_leg_press",
-              "exerciseRef": "leg_press",
-              "letter": "A",
-              "sets": 3,
-              "reps": { "min": 10, "max": 12 }
-            },
-            {
-              "instanceId": "sat_leg_curl",
-              "exerciseRef": "leg_curl",
-              "letter": "B",
-              "sets": 3,
-              "reps": { "min": 10, "max": 12 }
-            }
+            { "instanceId": "sat_leg_press", "exerciseRef": "leg_press", "letter": "A" },
+            { "instanceId": "sat_leg_curl",  "exerciseRef": "leg_curl",  "letter": "B" }
           ]
         }
       ]
@@ -301,45 +248,16 @@
         {
           "label": "Lat Width Priority",
           "exercises": [
-            {
-              "instanceId": "mon_lat_pull",
-              "exerciseRef": "lat_pull",
-              "letter": "A",
-              "sets": 4,
-              "reps": { "min": 8, "max": 12 }
-            },
-            {
-              "instanceId": "mon_lat_pullover",
-              "exerciseRef": "dumbell_pullover",
-              "letter": "B",
-              "sets": 2
-            },
-            {
-              "instanceId": "mon_row",
-              "exerciseRef": "row_dumbbell",
-              "letter": "C",
-              "sets": 2,
-              "reps": { "min": 8, "max": 10 }
-            }
+            { "instanceId": "mon_lat_pull",     "exerciseRef": "lat_pull",         "letter": "A" },
+            { "instanceId": "mon_lat_pullover", "exerciseRef": "dumbell_pullover", "letter": "B" },
+            { "instanceId": "mon_row",          "exerciseRef": "row_dumbbell",     "letter": "C" }
           ]
         },
         {
           "label": "Shoulder Cap + Upper Chest",
           "exercises": [
-            {
-              "instanceId": "mon_lat_raise",
-              "exerciseRef": "lat_raise",
-              "letter": "A",
-              "sets": 4,
-              "reps": { "min": 12, "max": 20 }
-            },
-            {
-              "instanceId": "mon_idbp",
-              "exerciseRef": "bench_db_incline",
-              "letter": "B",
-              "sets": 3,
-              "reps": { "min": 8, "max": 10 }
-            }
+            { "instanceId": "mon_lat_raise", "exerciseRef": "lat_raise",        "letter": "A" },
+            { "instanceId": "mon_idbp",      "exerciseRef": "bench_db_incline", "letter": "B" }
           ]
         }
       ]
