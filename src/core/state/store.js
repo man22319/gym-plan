@@ -10,6 +10,7 @@
 // Key identity model:
 //   exerciseRef  — definition identity (key in exerciseLibrary)
 //   instanceId   — placement identity (key in all runtime state)
+//                  computed as dayLabel.toLowerCase() + '_' + exerciseRef
 //
 // Four-layer resolution (resolveInstance handles layers 1–3):
 //   programDefaults → exerciseLibrary[ref] → instance overrides → runtimeOverrides
@@ -17,7 +18,7 @@
 
 // ── Module-level caches (rebuilt from state on every setState) ──────────────
 
-export let defaultWorkoutsData = null; // full parsed workouts.json — for createDefaultState fallback
+export let defaultWorkoutsData = null; // full parsed exercises.json + sessions.json — for createDefaultState fallback
 export let workouts            = [];   // sessions array (mirrors state.sessions)
 export let exerciseLibrary     = {};   // canonical exercise definitions (mirrors state.exerciseLibrary)
 export let programDefaults     = {};   // global fallbacks (mirrors state.programDefaults)
@@ -101,16 +102,40 @@ export function setState(val) {
   }
 }
 
+// ── Instance ID hydration ────────────────────────────────────────────────────
+
+/**
+ * Compute instanceId for every exercise placement in sessions.
+ * Formula: dayLabel.toLowerCase() + '_' + exerciseRef
+ *
+ * Mutates sessions in-place so downstream code always sees instanceId.
+ *
+ * @param {Array} sessions — sessions array (from sessions.json or state)
+ */
+export function hydrateInstanceIds(sessions) {
+  for (const s of sessions) {
+    const prefix = (s.dayLabel || '').toLowerCase();
+    for (const b of s.blocks ?? []) {
+      for (const inst of b.exercises ?? []) {
+        if (!inst.instanceId && inst.exerciseRef) {
+          inst.instanceId = prefix + '_' + inst.exerciseRef;
+        }
+      }
+    }
+  }
+}
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 /**
- * Initialize workouts from the parsed workouts.json data object.
+ * Initialize workouts from the parsed exercises.json + sessions.json data.
  * Seeds module-level caches for the pre-state boot window.
  * Once loadState() runs and calls setState(), these are overwritten by state values.
  *
  * @param {object} data — { exercises: {}, defaults: {}, sessions: [] }
  */
 export function initWorkouts(data) {
+  hydrateInstanceIds(data.sessions ?? []);
   defaultWorkoutsData = data;
   exerciseLibrary = data.exercises ?? {};
   programDefaults = data.defaults  ?? {};

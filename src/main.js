@@ -8,14 +8,19 @@ import { render, renderSetUpdate, renderCardioUpdate, setupEvents, openSessionSu
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const res = await fetch('./data/workouts.json');
-    if (!res.ok) throw new Error(`Failed to load workouts.json: ${res.status}`);
-    const data = await res.json();
-    // Pass the full data object: { exercises, defaults, sessions }
+    const [exRes, sessRes] = await Promise.all([
+      fetch('./data/exercises.json'),
+      fetch('./data/sessions.json'),
+    ]);
+    if (!exRes.ok)   throw new Error(`Failed to load exercises.json: ${exRes.status}`);
+    if (!sessRes.ok) throw new Error(`Failed to load sessions.json: ${sessRes.status}`);
+    const [exData, sessData] = await Promise.all([exRes.json(), sessRes.json()]);
+    // Merge into the unified shape: { exercises, defaults, sessions }
     // initWorkouts extracts each layer and seeds the module-level caches.
+    const data = { ...exData, ...sessData };
     initWorkouts(data);
   } catch (err) {
-    console.error('[boot] Could not load workouts.json:', err);
+    console.error('[boot] Could not load data files:', err);
     return;
   }
 

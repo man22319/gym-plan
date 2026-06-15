@@ -1,4 +1,4 @@
-import { workouts, state, setState, defaultWorkoutsData, resolveInstance } from '../core/state/store.js';
+import { workouts, state, setState, defaultWorkoutsData, resolveInstance, hydrateInstanceIds } from '../core/state/store.js';
 import { dispatch } from '../core/logic/reducer.js';
 import { formatReps, formatWeight, render } from '../features/workout/rendering.js';
 import { persist, normalize, sanitizeSessions } from '../core/state/persistence.js';
@@ -9,14 +9,20 @@ import { compactExport, expandImport } from './compactFormat.js';
 // ── Reload Workout Schema ─────────────────────────────────────────────────────
 
 /**
- * Re-fetch workouts.json and apply the fresh schema to the running state.
- * History, progressionState, and all user-accumulated data are preserved.
- * Only sessions, exerciseLibrary, and programDefaults are replaced.
+ * Re-fetch exercises.json + sessions.json and apply the fresh schema to the
+ * running state. History, progressionState, and all user-accumulated data are
+ * preserved. Only sessions, exerciseLibrary, and programDefaults are replaced.
  */
 export async function reloadWorkoutSchema() {
-  const res = await fetch('./data/workouts.json');
-  if (!res.ok) throw new Error(`Failed to fetch workouts.json: ${res.status}`);
-  const data = await res.json();
+  const [exRes, sessRes] = await Promise.all([
+    fetch('./data/exercises.json'),
+    fetch('./data/sessions.json'),
+  ]);
+  if (!exRes.ok)   throw new Error(`Failed to fetch exercises.json: ${exRes.status}`);
+  if (!sessRes.ok) throw new Error(`Failed to fetch sessions.json: ${sessRes.status}`);
+  const [exData, sessData] = await Promise.all([exRes.json(), sessRes.json()]);
+  const data = { ...exData, ...sessData };
+  hydrateInstanceIds(data.sessions ?? []);
 
   const updated = sanitizeSessions(normalize({
     ...state,
@@ -80,7 +86,7 @@ export function importData() {
 }
 
 export function copyWorkout(btn) {
-  // Copy the PROGRAM TEMPLATE (workouts.json), not the live session state.
+  // Copy the PROGRAM TEMPLATE (exercises.json + sessions.json), not the live session state.
   // This gives the user the original prescribed program for easy sharing.
   const template = defaultWorkoutsData;
   if (!template) { alert('Template data not loaded.'); return; }

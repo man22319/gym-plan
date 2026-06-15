@@ -23,11 +23,11 @@ export function loadState() {
     try {
       const parsed = expandImport(JSON.parse(raw));
 
-      // ── Always overlay workouts.json as the source of truth ──────────
-      // Sessions, exerciseLibrary, and programDefaults come from the JSON
-      // file — never from persisted state. This ensures edits to
-      // workouts.json (new exercises, changed structure) take effect
-      // immediately without requiring a manual "Reload" step.
+      // ── Always overlay exercises.json + sessions.json as the source of truth
+      // Sessions, exerciseLibrary, and programDefaults come from the data
+      // files — never from persisted state. This ensures edits to
+      // exercises.json / sessions.json (new exercises, changed structure)
+      // take effect immediately without requiring a manual "Reload" step.
       const freshSessions = JSON.parse(JSON.stringify(defaultWorkoutsData?.sessions ?? []));
       const freshLibrary  = JSON.parse(JSON.stringify(defaultWorkoutsData?.exercises ?? {}));
       const freshDefaults = JSON.parse(JSON.stringify(defaultWorkoutsData?.defaults ?? {}));

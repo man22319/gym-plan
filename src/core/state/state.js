@@ -67,7 +67,7 @@ export function makeDefaultExercises(sessions, exerciseLibrary = {}) {
 /**
  * Create a clean default application state from the full workoutsData object.
  *
- * @param {object} workoutsData — full parsed workouts.json:
+ * @param {object} workoutsData — full parsed exercises.json + sessions.json:
  *   { exercises: {}, defaults: {}, sessions: [] }
  */
 export function createDefaultState(workoutsData) {

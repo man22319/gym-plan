@@ -1,7 +1,7 @@
 // ── State Format ─────────────────────────────────────────────────────────────
 // Encode/decode gym-plan state for smaller export files & localStorage.
 //
-// Omitted on export (always sourced from workouts.json at boot):
+// Omitted on export (always sourced from exercises.json + sessions.json at boot):
 //   - programDefaults
 //   - sessionsPerWeek
 //
@@ -91,7 +91,7 @@ function expandExercises(exercises) {
 export function compactExport(appState) {
   const out = { ...appState };
 
-  // Strip fields that are always sourced from workouts.json at boot
+  // Strip fields that are always sourced from exercises.json + sessions.json at boot
   delete out.programDefaults;
   delete out.sessionsPerWeek;
   // Compact live exercise tracking

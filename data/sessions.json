@@ -1,0 +1,86 @@
+{
+  "sessions": [
+    {
+      "id": "session_thu",
+      "dayLabel": "THU",
+      "sessionLabel": "Session 1",
+      "blocks": [
+        {
+          "label": "Lat Width Priority",
+          "exercises": [
+            { "exerciseRef": "lat_pull",         "letter": "A" },
+            { "exerciseRef": "dumbell_pullover", "letter": "B" },
+            { "exerciseRef": "row_machine",      "letter": "C" }
+          ]
+        },
+        {
+          "label": "Upper Chest + Side Delts",
+          "exercises": [
+            { "exerciseRef": "bench_db_incline", "letter": "A" },
+            { "exerciseRef": "lat_raise",        "letter": "B" }
+          ]
+        },
+        {
+          "label": "Arms",
+          "exercises": [
+            { "exerciseRef": "hammer_curl", "letter": "A" },
+            { "exerciseRef": "tri_press",   "letter": "B" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "session_sat",
+      "dayLabel": "SAT",
+      "sessionLabel": "Session 2",
+      "blocks": [
+        {
+          "label": "Back Thickness + Shoulders",
+          "exercises": [
+            { "exerciseRef": "row_dumbbell",  "letter": "A" },
+            { "exerciseRef": "lat_raise",     "letter": "B" },
+            { "exerciseRef": "arnold_press",  "letter": "C" }
+          ]
+        },
+        {
+          "label": "Lower Maintenance",
+          "exercises": [
+            { "exerciseRef": "leg_press", "letter": "A" },
+            { "exerciseRef": "leg_curl",  "letter": "B" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "session_mon",
+      "dayLabel": "MON",
+      "sessionLabel": "Session 3",
+      "blocks": [
+        {
+          "label": "Lat Width Priority",
+          "exercises": [
+            { "exerciseRef": "lat_pull",         "letter": "A" },
+            { "exerciseRef": "dumbell_pullover", "letter": "B" },
+            { "exerciseRef": "row_dumbbell",     "letter": "C" }
+          ]
+        },
+        {
+          "label": "Shoulder Cap + Upper Chest",
+          "exercises": [
+            { "exerciseRef": "lat_raise",        "letter": "A" },
+            { "exerciseRef": "bench_db_incline", "letter": "B" }
+          ]
+        },
+        {
+          "label": "Arms",
+          "exercises": [
+            { "exerciseRef": "barbell_curl",   "letter": "A" },
+            { "exerciseRef": "skull_crushers", "letter": "B" }
+          ]
+        }
+      ]
+    }
+  ]
+}

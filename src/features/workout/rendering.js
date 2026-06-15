@@ -307,7 +307,7 @@ export function buildSession(session, appState) {
       </div>`;
   }
 
-  // warmup and finisher: always from workouts.json (never changes)
+  // warmup and finisher: always from exercises.json defaults (never changes)
   const bootDefaults = defaultWorkoutsData?.defaults ?? {};
   const warmupText = bootDefaults.warmup ?? '';
   const finisherText = bootDefaults.finisher ?? '';
