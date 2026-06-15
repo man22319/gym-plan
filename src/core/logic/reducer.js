@@ -231,7 +231,7 @@ export function reducer(currentState, action) {
 
     case 'UPDATE_TEMPLATE': {
       const { sessions, sessionsPerWeek, exerciseLibrary: newLib } = payload;
-      const updatedLib = newLib ? JSON.parse(JSON.stringify(newLib)) : currentState.exerciseLibrary;
+      const updatedLib = newLib ? JSON.parse(JSON.stringify(newLib)) : { ...currentState.exerciseLibrary };
       const updated = sanitizeSessions(normalize({
         ...currentState,
         sessions:        JSON.parse(JSON.stringify(sessions)),

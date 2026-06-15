@@ -111,8 +111,6 @@ export function copyWorkout(btn) {
         lines.push(`  ${ex.letter ?? ''}  ${ex.name}`);
         lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${formatWeight(ex.load)}`);
         if (ex.notes) lines.push(`     Note: ${ex.notes}`);
-        const alts = Array.isArray(ex.alternatives) ? ex.alternatives : [];
-        if (alts.length) lines.push(`     Alt: ${alts.join(', ')}`);
       });
       lines.push('');
     });

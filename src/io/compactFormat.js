@@ -94,7 +94,6 @@ export function compactExport(appState) {
   // Strip fields that are always sourced from workouts.json at boot
   delete out.programDefaults;
   delete out.sessionsPerWeek;
-
   // Compact live exercise tracking
   out.exercises = compactExercises(appState.exercises ?? {});
 
@@ -120,7 +119,6 @@ export function expandImport(data) {
   // Re-inject defaults stripped on export (normalize() also handles these via ?? {})
   if (!out.programDefaults) out.programDefaults = {};
   if (typeof out.sessionsPerWeek !== 'number') out.sessionsPerWeek = 3;
-
   // Expand live exercises
   out.exercises = expandExercises(data.exercises ?? {});
 

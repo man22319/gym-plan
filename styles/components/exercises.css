@@ -197,7 +197,7 @@
   user-select: none;
 }
 
-/* ── Exercise Meta (notes + alternatives) — display only ── */
+/* ── Exercise Meta (notes) — display only ── */
 .ex-meta-row {
   padding: 0 16px 10px;
   display: flex;

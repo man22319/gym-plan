@@ -17,8 +17,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Drive elbows back, pause 1s at peak contraction. Keep chest tall.",
-      "alternatives": ["Cable Row", "Resistance Band Row", "Dumbbell Bent-Over Row"]
+      "notes": "Drive elbows back, pause 1s at peak contraction. Keep chest tall."
     },
     "row_dumbbell": {
       "name": "Supported Single-Arm Row",
@@ -30,8 +29,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder.",
-      "alternatives": ["Seated Cable Row", "Machine Row", "TRX Row"]
+      "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder."
     },
     "bench_db": {
       "name": "Dumbbell Bench Press",
@@ -43,8 +41,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Lower slowly to chest, full extension at top. Feet flat on floor.",
-      "alternatives": ["Barbell Bench Press", "Smith Machine Press", "Cable Chest Fly"]
+      "notes": "Lower slowly to chest, full extension at top. Feet flat on floor."
     },
     "bench_db_incline": {
       "name": "Incline Dumbbell Bench Press",
@@ -56,8 +53,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "30–45° incline. Lower to upper chest. Full press, slight arch.",
-      "alternatives": ["Incline Barbell Press", "Incline Cable Fly", "Smith Machine Incline"]
+      "notes": "30–45° incline. Lower to upper chest. Full press, slight arch."
     },
     "leg_curl": {
       "name": "Seated Leg Curl",
@@ -69,8 +65,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Full ROM — extend fully, curl to 90°+. Control the return.",
-      "alternatives": ["Lying Leg Curl", "Nordic Curl", "Resistance Band Curl"]
+      "notes": "Full ROM — extend fully, curl to 90°+. Control the return."
     },
     "back_ext": {
       "name": "Back Extension Machine",
@@ -82,8 +77,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Controlled hip extension. Squeeze glutes at top. No hyperextending lower back.",
-      "alternatives": ["Roman Chair Back Extension", "45° Back Extension", "Weighted Back Extension"]
+      "notes": "Controlled hip extension. Squeeze glutes at top. No hyperextending lower back."
     },
     "glute_kickback": {
       "name": "Glute Kickback Machine",
@@ -95,8 +89,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Drive through heel. Pause at peak squeeze. Keep hips square.",
-      "alternatives": ["Cable Kickback", "Hip Thrust", "Smith Machine Hip Thrust"]
+      "notes": "Drive through heel. Pause at peak squeeze. Keep hips square."
     },
     "lat_pull": {
       "name": "Lat Pulldown",
@@ -108,8 +101,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Pull to upper chest, not behind neck. Slight lean back, chest up.",
-      "alternatives": ["Assisted Pull-Up", "Cable Straight-Arm Pulldown", "Band Pulldown"]
+      "notes": "Pull to upper chest, not behind neck. Slight lean back, chest up."
     },
     "lat_raise": {
       "name": "Lateral Raise",
@@ -121,8 +113,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 60,
       "restBetweenExercises": 30,
-      "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric.",
-      "alternatives": ["Cable Lateral Raise", "Resistance Band Lateral Raise", "Machine Lateral Raise"]
+      "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric."
     },
     "tri_press": {
       "name": "Triceps Press Machine",
@@ -134,8 +125,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Lock elbows in at sides. Full extension, controlled return.",
-      "alternatives": ["Cable Pushdown", "Dip Machine", "Overhead Tricep Extension"]
+      "notes": "Lock elbows in at sides. Full extension, controlled return."
     },
     "hammer_curl": {
       "name": "Hammer Curl",
@@ -147,8 +137,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Neutral grip throughout. Curl to shoulder, lower with control. No swinging.",
-      "alternatives": ["Cable Hammer Curl", "Rope Curl", "Cross-Body Hammer Curl"]
+      "notes": "Neutral grip throughout. Curl to shoulder, lower with control. No swinging."
     },
     "skull_crushers": {
       "name": "Skull Crushers",
@@ -160,8 +149,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 75,
       "restBetweenExercises": 45,
-      "notes": "Keep upper arms vertical. Lower to forehead/crown, full extension up.",
-      "alternatives": ["Cable Overhead Extension", "Dumbbell Overhead Extension", "Tricep Kickback"]
+      "notes": "Keep upper arms vertical. Lower to forehead/crown, full extension up."
     },
     "barbell_curl": {
       "name": "Barbell Curl",
@@ -173,8 +161,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 75,
       "restBetweenExercises": 45,
-      "notes": "Elbows pinned at sides. Supinate at top, full hang at bottom.",
-      "alternatives": ["EZ-Bar Curl", "Dumbbell Curl", "Cable Curl"]
+      "notes": "Elbows pinned at sides. Supinate at top, full hang at bottom."
     },
     "leg_press": {
       "name": "Leg Press",
@@ -186,8 +173,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Standard foot placement. Knees track over toes, lower to 90°.",
-      "alternatives": ["Hack Squat", "Goblet Squat", "Smith Machine Squat"]
+      "notes": "Standard foot placement. Knees track over toes, lower to 90°."
     },
     "arnold_press": {
       "name": "Arnold Press",
@@ -199,8 +185,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Rotate palms outward as you press. Controlled rotation both ways.",
-      "alternatives": ["Dumbbell Shoulder Press", "Machine Shoulder Press", "Landmine Press"]
+      "notes": "Rotate palms outward as you press. Controlled rotation both ways."
     },
     "ohp": {
       "name": "Overhead Press",
@@ -212,8 +197,7 @@
       "manualDeltaWOverride": false,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Press directly overhead — slight forward lean is fine. Lock out at top.",
-      "alternatives": ["Seated Dumbbell Press", "Machine Shoulder Press", "Landmine Press"]
+      "notes": "Press directly overhead — slight forward lean is fine. Lock out at top."
     }
   },
 
