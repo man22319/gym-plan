@@ -1,4 +1,4 @@
-import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, EQUIPMENT_DELTA_W_DEFAULTS, STORAGE_KEY } from '../state/state.js';
+import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, STORAGE_KEY } from '../state/state.js';
 import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from '../utils/helpers.js';
@@ -145,19 +145,10 @@ export function reducer(currentState, action) {
         if (fields.notes  === null) delete merged.notes;
         else if (fields.notes  !== undefined) merged.notes  = fields.notes;
 
-        if (fields.manualDeltaWOverride !== undefined) merged.manualDeltaWOverride = fields.manualDeltaWOverride;
-        if (fields.deltaW !== undefined)               merged.deltaW               = fields.deltaW;
+        if (fields.deltaW !== undefined) merged.deltaW = fields.deltaW;
 
         if (fields.equipmentType !== undefined) {
           merged.equipmentType = fields.equipmentType;
-          const isManual = merged.manualDeltaWOverride
-            ?? EXERCISE_INDEX[exId]?.manualDeltaWOverride
-            ?? false;
-          if (!isManual) {
-            const typeDw = EQUIPMENT_DELTA_W_DEFAULTS[fields.equipmentType];
-            if (typeDw !== undefined) merged.deltaW = typeDw;
-            else console.warn(`[reducer] Unknown equipmentType '${fields.equipmentType}' for ${exId}; deltaW preserved.`);
-          }
         }
 
         if (Object.keys(merged).length === 0) {

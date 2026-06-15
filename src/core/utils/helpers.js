@@ -14,7 +14,7 @@ export function lowerBound(obj) {
  * which already has layers 1–3 merged (programDefaults + library + instance overrides).
  *
  * All fields use the same naming convention as the library:
- *   load, reps, notes, deltaW, equipmentType, manualDeltaWOverride
+ *   load, reps, notes, deltaW, equipmentType
  * The old .weight alias is removed — callers use .load.
  *
  * @param {object} appState
@@ -34,7 +34,6 @@ export function getEffectiveExercise(appState, instanceId) {
   if (override.notes !== undefined) result.notes = override.notes;
   if (override.deltaW !== undefined) result.deltaW = override.deltaW;
   if (override.equipmentType !== undefined) result.equipmentType = override.equipmentType;
-  if (override.manualDeltaWOverride !== undefined) result.manualDeltaWOverride = override.manualDeltaWOverride;
   return result;
 }
 

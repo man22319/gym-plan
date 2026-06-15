@@ -59,8 +59,8 @@ function generateId(prefix = 'id') {
 /** Format load for display */
 function formatLoad(load) {
   if (!load) return 'BW';
-  if ('value' in load) return `${load.value} ${load.unit || 'lbs'}`;
-  if ('min' in load) return `${load.min}–${load.max} ${load.unit || 'lbs'}`;
+  if ('value' in load) return `${load.value} lbs`;
+  if ('min' in load) return `${load.min}–${load.max} lbs`;
   return 'BW';
 }
 
@@ -232,10 +232,6 @@ function renderLibraryCardBody(ref, ex) {
           <label class="te-field-label">Load Value</label>
           <input type="number" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="load.value" value="${ex.load?.value ?? 0}" />
         </div>
-        <div class="te-field-sm">
-          <label class="te-field-label">Unit</label>
-          <input type="text" class="te-input te-lib-field" data-ref="${ref}" data-field="load.unit" value="${ex.load?.unit || 'lbs'}" />
-        </div>
       </div>
     `;
   } else if (loadMode === 'range') {
@@ -248,10 +244,6 @@ function renderLibraryCardBody(ref, ex) {
         <div class="te-field-sm">
           <label class="te-field-label">Load Max</label>
           <input type="number" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="load.max" value="${ex.load?.max ?? 0}" />
-        </div>
-        <div class="te-field-sm">
-          <label class="te-field-label">Unit</label>
-          <input type="text" class="te-input te-lib-field" data-ref="${ref}" data-field="load.unit" value="${ex.load?.unit || 'lbs'}" />
         </div>
       </div>
     `;
@@ -305,13 +297,6 @@ function renderLibraryCardBody(ref, ex) {
         <div class="te-field">
           <label class="te-field-label">ΔW (Progression Step)</label>
           <input type="number" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="deltaW" value="${ex.deltaW ?? 5}" />
-        </div>
-        <div class="te-field">
-          <label class="te-field-label">Manual ΔW Override</label>
-          <label class="te-toggle-wrap">
-            <input type="checkbox" class="te-checkbox te-lib-field" data-ref="${ref}" data-field="manualDeltaWOverride" ${ex.manualDeltaWOverride ? 'checked' : ''} />
-            <span class="te-toggle-label">${ex.manualDeltaWOverride ? 'Manual' : 'Auto'}</span>
-          </label>
         </div>
         <div class="te-field">
           <label class="te-field-label">Rest Between Sets (s)</label>
@@ -571,10 +556,6 @@ function renderInstanceLoadFields(inst, blockIdx, exIdx, canonicalEx) {
         <label class="te-field-label">Max</label>
         <input type="number" step="any" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="load.max" value="${instLoad?.max ?? ''}" placeholder="${canonicalLoad?.max ?? ''}" />
       </div>
-      <div class="te-field-sm">
-        <label class="te-field-label">Unit</label>
-        <input type="text" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="load.unit" value="${instLoad?.unit ?? ''}" placeholder="${canonicalLoad?.unit || 'lbs'}" />
-      </div>
     `;
   }
 
@@ -582,10 +563,6 @@ function renderInstanceLoadFields(inst, blockIdx, exIdx, canonicalEx) {
     <div class="te-field-sm">
       <label class="te-field-label">Value</label>
       <input type="number" step="any" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="load.value" value="${instLoad?.value ?? ''}" placeholder="${canonicalLoad?.value ?? ''}" />
-    </div>
-    <div class="te-field-sm">
-      <label class="te-field-label">Unit</label>
-      <input type="text" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="load.unit" value="${instLoad?.unit ?? ''}" placeholder="${canonicalLoad?.unit || 'lbs'}" />
     </div>
   `;
 }
@@ -722,11 +699,6 @@ function setupEditorEvents() {
         ex.sets = parseInt(e.target.value, 10) || 3;
       } else if (fieldPath === 'deltaW') {
         ex.deltaW = parseFloat(e.target.value) || 0;
-      } else if (fieldPath === 'manualDeltaWOverride') {
-        ex.manualDeltaWOverride = e.target.checked;
-        // Update toggle label
-        const toggleLabel = e.target.parentElement?.querySelector('.te-toggle-label');
-        if (toggleLabel) toggleLabel.textContent = e.target.checked ? 'Manual' : 'Auto';
       } else if (fieldPath === 'restBetweenSets') {
         ex.restBetweenSets = parseInt(e.target.value, 10) || 90;
       } else if (fieldPath === 'restBetweenExercises') {
@@ -740,11 +712,7 @@ function setupEditorEvents() {
       } else if (fieldPath.startsWith('load.')) {
         if (!ex.load) ex.load = {};
         const sub = fieldPath.split('.')[1];
-        if (sub === 'unit') {
-          ex.load.unit = e.target.value;
-        } else {
-          ex.load[sub] = parseFloat(e.target.value) || 0;
-        }
+        ex.load[sub] = parseFloat(e.target.value) || 0;
       }
       return;
     }
@@ -785,16 +753,10 @@ function setupEditorEvents() {
         const sub = fieldPath.split('.')[1];
         if (value === '' && inst.load) {
           delete inst.load[sub];
-          // Keep unit if other fields exist
-          const remaining = Object.keys(inst.load).filter(k => k !== 'unit');
-          if (remaining.length === 0) delete inst.load;
+          if (Object.keys(inst.load).length === 0) delete inst.load;
         } else if (value !== '') {
           if (!inst.load) inst.load = {};
-          if (sub === 'unit') {
-            inst.load.unit = value;
-          } else {
-            inst.load[sub] = parseFloat(value) || 0;
-          }
+          inst.load[sub] = parseFloat(value) || 0;
         }
       }
       return;
@@ -813,9 +775,9 @@ function setupEditorEvents() {
       if (mode === 'none') {
         delete ex.load;
       } else if (mode === 'single') {
-        ex.load = { value: 0, unit: ex.load?.unit || 'lbs' };
+        ex.load = { value: 0 };
       } else if (mode === 'range') {
-        ex.load = { min: 0, max: 0, unit: ex.load?.unit || 'lbs' };
+        ex.load = { min: 0, max: 0 };
       }
       renderBody();
       return;
@@ -830,16 +792,7 @@ function setupEditorEvents() {
       return;
     }
 
-    // Library manualDeltaWOverride checkbox
-    if (e.target.classList.contains('te-lib-field') && e.target.dataset.field === 'manualDeltaWOverride') {
-      const ref = e.target.dataset.ref;
-      if (ref && draftLibrary[ref]) {
-        draftLibrary[ref].manualDeltaWOverride = e.target.checked;
-        const toggleLabel = e.target.parentElement?.querySelector('.te-toggle-label');
-        if (toggleLabel) toggleLabel.textContent = e.target.checked ? 'Manual' : 'Auto';
-      }
-      return;
-    }
+
   });
 
   // ── Click events ────────────────────────────────────────────────────────────
@@ -899,9 +852,8 @@ function setupEditorEvents() {
         equipmentType: 'machine',
         sets: 3,
         reps: { min: 8, max: 12 },
-        load: { value: 0, unit: 'lbs' },
+        load: { value: 0 },
         deltaW: 5,
-        manualDeltaWOverride: false,
         restBetweenSets: 90,
         restBetweenExercises: 60,
         notes: '',

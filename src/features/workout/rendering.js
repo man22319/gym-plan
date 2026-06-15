@@ -19,12 +19,11 @@ export function formatReps(reps) {
 
 export function formatWeight(weight) {
   if (!weight || typeof weight !== 'object') return '';
-  const unit = weight.unit || '';
   if ('min' in weight && 'max' in weight) {
-    if (weight.min === weight.max) return `${weight.min} ${unit}`.trim();
-    return `${weight.min}–${weight.max} ${unit}`.trim();
+    if (weight.min === weight.max) return `${weight.min} lbs`;
+    return `${weight.min}–${weight.max} lbs`;
   }
-  if ('value' in weight) return `${weight.value} ${unit}`.trim();
+  if ('value' in weight) return `${weight.value} lbs`;
   return '';
 }
 
@@ -442,26 +441,44 @@ export function buildEditPanel(ex, appState) {
 
   // Use .load only — no .weight alias
   const weightObj = effEx?.load;
-  let weightVal = '';
-  if (weightObj) {
-    weightVal = weightObj.value ?? weightObj.min ?? '';
-  }
+  const isRangeLoad = weightObj && ('min' in weightObj);
 
   const repMin = effEx?.reps?.min ?? '';
   const repMax = effEx?.reps?.max ?? '';
 
   const notesVal = effEx?.notes ?? '';
 
-  return `
-    <div class="ex-edit-panel" data-ex-id="${instanceId}">
-      <div class="ex-edit-fields">
-        <div class="ex-edit-field">
-          <label for="edit-weight-${instanceId}">Target Weight</label>
-          <div class="ex-edit-input-wrap">
-            <input type="number" class="ex-edit-input" id="edit-weight-${instanceId}" step="2.5" min="0" value="${weightVal}" placeholder="Prescribed weight" />
-            <span class="ex-edit-unit">lbs</span>
-          </div>
+  // Build load input(s) based on whether the exercise uses a range or single value
+  let loadFieldsHtml;
+  if (isRangeLoad) {
+    const loadMin = weightObj.min ?? '';
+    const loadMax = weightObj.max ?? '';
+    loadFieldsHtml = `
+      <div class="ex-edit-field">
+        <label>Target Load (Min / Max)</label>
+        <div class="ex-edit-reps-wrap">
+          <input type="number" class="ex-edit-input" id="edit-weight-min-${instanceId}" step="2.5" min="0" value="${loadMin}" placeholder="Min" />
+          <span class="ex-edit-reps-dash">—</span>
+          <input type="number" class="ex-edit-input" id="edit-weight-max-${instanceId}" step="2.5" min="0" value="${loadMax}" placeholder="Max" />
+          <span class="ex-edit-unit">lbs</span>
         </div>
+      </div>`;
+  } else {
+    const weightVal = weightObj?.value ?? '';
+    loadFieldsHtml = `
+      <div class="ex-edit-field">
+        <label for="edit-weight-${instanceId}">Target Weight</label>
+        <div class="ex-edit-input-wrap">
+          <input type="number" class="ex-edit-input" id="edit-weight-${instanceId}" step="2.5" min="0" value="${weightVal}" placeholder="Prescribed weight" />
+          <span class="ex-edit-unit">lbs</span>
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="ex-edit-panel" data-ex-id="${instanceId}" data-load-mode="${isRangeLoad ? 'range' : 'single'}">
+      <div class="ex-edit-fields">
+        ${loadFieldsHtml}
         <div class="ex-edit-field">
           <label>Reps (Min / Max)</label>
           <div class="ex-edit-reps-wrap">
