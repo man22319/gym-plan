@@ -196,18 +196,37 @@ function patchTabs(appState) {
 }
 
 export function getSuggestedSessionId(appState) {
+  if (!workouts.length) return null;
+
+  // 1. Find sessions NOT finished in the current cycle
+  const unfinished = workouts.filter(
+    s => !query.isSessionFinishedInCurrentWeek(appState, s.id)
+  );
+
+  if (unfinished.length > 0) {
+    // 2. Among unfinished, pick the one with the oldest last-done timestamp
+    //    (most overdue — hasn't been trained the longest).
+    //    Sessions never done get timestamp = 0 so they surface first.
+    let best = unfinished[0];
+    let bestTs = query.lastDoneTimestamp(appState, best.id) ?? 0;
+
+    for (let i = 1; i < unfinished.length; i++) {
+      const ts = query.lastDoneTimestamp(appState, unfinished[i].id) ?? 0;
+      if (ts < bestTs) {
+        best = unfinished[i];
+        bestTs = ts;
+      }
+    }
+    return best.id;
+  }
+
+  // 3. All sessions finished this cycle — fall back to next-in-cycle
   const history = query.chronological(appState);
-  if (!history.length) {
-    return workouts[0]?.id || null;
-  }
-  const lastEntry = history[history.length - 1];
-  const lastSessionId = lastEntry.sessionId;
+  if (!history.length) return workouts[0].id;
+  const lastSessionId = history[history.length - 1].sessionId;
   const lastIndex = workouts.findIndex(s => s.id === lastSessionId);
-  if (lastIndex === -1) {
-    return workouts[0]?.id || null;
-  }
   const nextIndex = (lastIndex + 1) % workouts.length;
-  return workouts[nextIndex]?.id || null;
+  return workouts[nextIndex]?.id || workouts[0].id;
 }
 
 export function buildTabs(appState) {
