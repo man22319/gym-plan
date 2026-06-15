@@ -914,11 +914,91 @@
    MOBILE RESPONSIVE
 ══════════════════════════════════════════ */
 @media (max-width: 600px) {
+  /* ── Modal: full-screen, iOS safe area aware ── */
   .te-modal {
     width: 100vw;
     height: 100vh;
+    height: 100dvh; /* dynamic viewport height — accounts for iOS toolbar */
     border-radius: 0;
+    border: none;
   }
+  .te-overlay {
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  /* ── Header: compact ── */
+  .te-header {
+    padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+  .te-header-title {
+    font-size: 1rem;
+    letter-spacing: 2px;
+  }
+
+  /* ── Tabs: larger touch targets ── */
+  .te-tab {
+    padding: 12px 10px;
+    font-size: 0.65rem;
+  }
+
+  /* ── Footer: iOS home indicator safe ── */
+  .te-footer {
+    padding: 10px 16px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  /* ── Library panel ── */
+  .te-lib-panel {
+    padding: 10px 12px;
+  }
+  .te-lib-toolbar {
+    margin-bottom: 10px;
+  }
+  .te-lib-list {
+    gap: 3px;
+  }
+
+  /* ── Library card header: keep horizontal, tighter ── */
+  .te-lib-card-header {
+    padding: 9px 12px;
+    gap: 6px;
+    /* KEEP flex-direction: row — do NOT stack vertically */
+  }
+  .te-lib-card-header-left {
+    gap: 6px;
+    overflow: hidden;
+  }
+  .te-lib-card-name {
+    font-size: 0.8rem;
+  }
+  /* Hide ref badge on mobile — saves horizontal space */
+  .te-lib-card-header .te-ref-badge {
+    display: none;
+  }
+  .te-lib-card-header-right {
+    gap: 5px;
+  }
+  .te-lib-card-meta {
+    font-size: 0.55rem;
+  }
+  .te-lib-usage-badge {
+    font-size: 0.5rem;
+    padding: 1px 4px;
+  }
+
+  /* ── Library card body: single column ── */
+  .te-lib-card-body {
+    padding: 4px 12px 12px;
+  }
+  .te-fields-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .te-field-wide { grid-column: span 1; }
+
+  /* ── Sessions panel ── */
   .te-sessions-layout {
     flex-direction: column;
   }
@@ -927,6 +1007,7 @@
     border-right: none;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     max-height: none;
+    padding: 10px;
   }
   .te-modal.session-selected-view .te-sidebar {
     display: none;
@@ -943,10 +1024,32 @@
   .te-sidebar-tab-actions {
     opacity: 1;
   }
-  .te-fields-grid {
-    grid-template-columns: 1fr;
+  .te-main {
+    padding: 10px 12px;
   }
-  .te-field-wide { grid-column: span 1; }
-  .te-lib-card-header { flex-direction: column; align-items: flex-start; }
-  .te-lib-card-header-right { align-self: flex-end; }
+
+  /* ── Instance cards: tighter on mobile ── */
+  .te-inst-header {
+    padding: 7px 10px;
+  }
+  .te-inst-name {
+    font-size: 0.75rem;
+  }
+  .te-inst-header-left {
+    flex-wrap: nowrap;
+  }
+  .te-inst-meta {
+    font-size: 0.55rem;
+  }
+  .te-inst-body {
+    padding: 6px 10px 10px;
+  }
+
+  /* ── Picker: mobile-friendly ── */
+  .te-picker-modal {
+    width: 95%;
+    max-height: 80%;
+    border-radius: 12px;
+  }
 }
+
