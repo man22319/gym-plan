@@ -66,6 +66,17 @@
       "restBetweenExercises": 45,
       "notes": "Controlled hip extension. Squeeze glutes at top. No hyperextending lower back."
     },
+    "reverse_pd": {
+      "name": "Reverse Peck Deck",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": { "min": 12, "max": 15 },
+      "load": { "min": 140, "max": 160 },
+      "deltaW": 10,
+      "restBetweenSets": 70,
+      "restBetweenExercises": 45,
+      "notes": "Controlled hip extension. Squeeze glutes at top. No hyperextending lower back."
+    },
 
     "dumbbell_pullover": {
       "name": "Dumbbell Pullover",

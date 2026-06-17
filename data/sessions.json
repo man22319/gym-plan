@@ -69,6 +69,10 @@
             {
               "exerciseRef": "arnold_press",
               "letter": "C"
+            },
+            {
+              "exerciseRef": "reverse_pd",
+              "letter": "D"
             }
           ]
         },
@@ -82,6 +86,10 @@
             {
               "exerciseRef": "leg_curl",
               "letter": "B"
+            },
+            {
+              "exerciseRef": "back_ext",
+              "letter": "C"
             }
           ]
         }
@@ -117,8 +125,12 @@
               "letter": "A"
             },
             {
-              "exerciseRef": "bench_db_incline",
+              "exerciseRef": "reverse_pd",
               "letter": "B"
+            },
+            {
+              "exerciseRef": "bench_db_incline",
+              "letter": "C"
             }
           ]
         },
