@@ -78,18 +78,6 @@
       "notes": "Wide arc, not a pull. 2-3 sec eccentric, No swing."
     },
 
-    "dumbbell_pullover": {
-      "name": "Dumbbell Pullover",
-      "equipmentType": "dumbbell",
-      "sets": 2,
-      "reps": { "min": 10, "max": 15 },
-      "load": { "value": 30 },
-      "deltaW": 2.5,
-      "restBetweenSets": 90,
-      "restBetweenExercises": 45,
-      "notes": "Slow eccentric, slight elbow bend locked in. Stop before shoulder instability. Lat-focused stretch, not chest swing."
-    },
-
     "glute_kickback": {
       "name": "Glute Kickback Machine",
       "equipmentType": "machine",
@@ -189,7 +177,7 @@
     "row_machine": {
       "name": "Seated Row Machine",
       "equipmentType": "machine",
-      "sets": 4,
+      "sets": 6,
       "reps": { "min": 6, "max": 8 },
       "load": { "min": 70, "max": 100 },
       "deltaW": 10,

@@ -13,12 +13,8 @@
               "letter": "A"
             },
             {
-              "exerciseRef": "dumbbell_pullover",
-              "letter": "B"
-            },
-            {
               "exerciseRef": "row_machine",
-              "letter": "C"
+              "letter": "B"
             }
           ]
         },
@@ -108,12 +104,8 @@
               "letter": "A"
             },
             {
-              "exerciseRef": "dumbbell_pullover",
-              "letter": "B"
-            },
-            {
               "exerciseRef": "row_dumbbell",
-              "letter": "C"
+              "letter": "B"
             }
           ]
         },
