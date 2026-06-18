@@ -513,6 +513,7 @@ export function dispatch(type, payload = {}) {
             lastSessionTimestamp:  currentTimestamp,
             lastTopWeight:         updated.topWeight ?? null,
             restInfluenced:        updated.restInfluenced,
+            outcomeDistribution:   updated.outcomeDistribution,
           };
         }
 
@@ -577,6 +578,7 @@ export function rebuildAllProgressions(appState) {
         lastSessionTimestamp:  currentTimestamp,
         lastTopWeight:         updated.topWeight ?? null,
         restInfluenced:        updated.restInfluenced,
+        outcomeDistribution:   updated.outcomeDistribution,
       };
     }
   }

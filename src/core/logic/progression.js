@@ -1,53 +1,77 @@
 /**
  * ══════════════════════════════════════════════════════
- *  Progression Engine — Overload Model
+ *  Progression Engine — Hysteresis Controller
  *  src/core/logic/progression.js
  * ══════════════════════════════════════════════════════
  *
  * Pure functions — zero side-effects, no DOM, no imports.
  * All inputs are passed in; all outputs are plain values.
  *
- * ## What this system does
- *   Rep-range-driven overload progression. The user trains at a given
- *   working weight until they consistently reach the upper end of the
- *   target rep range with safe execution under consistent rest conditions.
- *   When that happens, increase the weight. If performance degrades,
- *   hold or regress.
+ * ## Architecture
+ *   This is a rule-based controller, not a predictive model.
+ *   It does NOT estimate a latent strength variable, compute
+ *   confidence intervals, or smooth performance trajectories.
  *
- *   This is NOT a physiological model. It is a feedback policy that
- *   stabilises observed performance trajectories under noisy self-report
- *   signals. "Strength" here means "smoothed achievable performance under
- *   this protocol," not a latent biological variable.
+ *   The entire decision loop is:
+ *
+ *     observed reps → classify → state machine → weight recommendation
+ *
+ *   Think thermostat, not forecaster. The system reacts to
+ *   categorical observations using fixed thresholds with
+ *   hysteresis to prevent chatter under noisy self-report data.
  *
  * ## Session classification (per exercise)
- *   For each exercise session, classify performance using only completed
- *   working sets and the prescribed rep range:
+ *   Each session is compressed into one of three categories
+ *   using only completed working sets and the prescribed rep range.
+ *   All within-category variation is intentionally discarded —
+ *   the signal is too noisy to extract a meaningful gradient.
  *
- *   qualifying — every completed working set reaches repRange.max or
- *                higher, AND the session is not rest-influenced
- *   adequate   — every completed working set reaches repRange.min, but
- *                not all reach repRange.max (or session is rest-influenced
- *                despite hitting max)
- *   failing    — at least one completed working set has reps < repRange.min
+ *   qualifying — every working set hits repRange.max or higher,
+ *                AND the session is not rest-influenced
+ *   adequate   — every working set hits repRange.min, but not
+ *                all reach max (or rest-influenced despite max)
+ *   failing    — at least one working set has reps < repRange.min
  *
- * ## Decision rules
+ *   Saturation: once reps exceed repRange.max, additional reps
+ *   provide zero additional evidence for progression. 12/12/12
+ *   and 20/20/20 both produce 'qualifying'. This is deliberate —
+ *   the controller treats all above-threshold performance
+ *   identically rather than attempting to extract a gradient.
+ *
+ * ## Decision rules (hysteresis band)
  *   Progress after 2 consecutive qualifying sessions.
  *   Regress  after 2 failing sessions within the last 3.
- *   Otherwise hold current weight.
- *   Regression step: 1 × deltaW.
+ *   Otherwise hold.
+ *   The consecutive/window thresholds ARE the noise filter —
+ *   they create inertia that prevents single-session flukes
+ *   from triggering weight changes.
  *
- * ## Rest-duration modeling
- *   Rest is a hidden control variable with effect size comparable to load
- *   changes. If the user rests significantly longer than prescribed between
- *   sets, the session is flagged as rest-influenced. A rest-influenced
- *   session that would otherwise be qualifying is downgraded to adequate
- *   for progression purposes.
+ *   Adequate sessions do NOT reset the qualifying streak.
+ *   Only failing sessions reset it. This means Q → A → Q
+ *   still satisfies the progression threshold, reflecting
+ *   that an in-range session is not counter-evidence.
+ *
+ * ## Rest-influence detection
+ *   Rest duration is a confounding variable: longer rest inflates
+ *   rep counts. If the majority of inter-set rest gaps exceed
+ *   prescribedRest × 1.5, the session is flagged as rest-influenced
+ *   and a qualifying result is downgraded to adequate.
  *
  * ## State (persisted between sessions)
- *   currentWeight          — the working weight the user should be using
- *   consecutiveQualifying  — count of consecutive qualifying sessions
- *   recentOutcomes         — last 3 session classifications
+ *   currentWeight          — the working weight the user should use
+ *   consecutiveQualifying  — qualifying streak length (resets on failing only)
+ *   recentOutcomes         — last 3 session classifications (sliding window)
  *   dw                     — progression step size (lbs)
+ *
+ * ## Controller vs Diagnostics
+ *   The controller operates on categorical observations only:
+ *   {qualifying, adequate, failing} → {progress, hold, regress}.
+ *
+ *   Diagnostic utilities expose continuous metrics for UI display:
+ *   epleyE1RM, workingTarget, computeFatigueIndex, topWeight,
+ *   workingWeight. These do NOT feed back into the controller.
+ *   They would become relevant only if migrating to an
+ *   estimator-based architecture.
  */
 
 // ── Default Hyperparameters ───────────────────────────────────────────────────
@@ -64,12 +88,14 @@ const DEFAULTS = {
   restCapMultiplier:  1.5,    // 150% of prescribed rest = soft cap
 };
 
-// ── Utility Exports (unchanged) ───────────────────────────────────────────────
+// ── Epley Utilities (diagnostic only, not consumed by controller) ─────────────
 
 /**
  * Compute per-set Epley e1RM.
  * Valid for ~1-12 reps. Degrades above ~15 reps.
- * Kept as a utility — not used in progression decisions.
+ *
+ * Not used in progression decisions. Exported for UI/diagnostic purposes.
+ * Would become relevant if migrating to an estimator-based architecture.
  *
  * @param {number} w  weight (lbs, > 0)
  * @param {number} r  reps (> 0)
@@ -83,7 +109,8 @@ export function epleyE1RM(w, r) {
 /**
  * Epley inverse: the weight at which you'd perform `reps` repetitions
  * given a 1RM estimate of `T`.
- * Kept as a utility — not used in progression decisions.
+ *
+ * Not used in progression decisions. Exported for UI/diagnostic purposes.
  *
  * @param {number} T           strength estimate / e1RM (lbs)
  * @param {number} targetReps  prescribed rep count
@@ -102,8 +129,11 @@ export function workingTarget(T, targetReps) {
  * could sustain under normal rest conditions.
  *
  * Uses `completedAt` timestamps on consecutive completed sets to compute
- * actual inter-set rest. If ANY rest gap exceeds `prescribedRest × restCapMultiplier`,
- * the session is flagged as rest-influenced.
+ * actual inter-set rest. The session is flagged as rest-influenced if the
+ * MAJORITY of rest gaps exceed `prescribedRest × restCapMultiplier`.
+ *
+ * Majority rule prevents a single long rest gap (e.g. a bathroom break)
+ * from vetoing an entire session's progression credit.
  *
  * @param {Array<{s:string, completedAt:number|null}>} sets
  * @param {number} prescribedRestSec  — expected rest between sets (seconds)
@@ -123,12 +153,16 @@ function isRestInfluenced(sets, prescribedRestSec) {
 
   const capMs = prescribedRestSec * 1000 * DEFAULTS.restCapMultiplier;
 
+  let exceeded = 0;
+  const totalGaps = sorted.length - 1;
+
   for (let i = 1; i < sorted.length; i++) {
     const restMs = sorted[i].completedAt - sorted[i - 1].completedAt;
-    if (restMs > capMs) return true;
+    if (restMs > capMs) exceeded++;
   }
 
-  return false;
+  // Flag only if the majority of rest gaps exceeded the cap
+  return exceeded > totalGaps / 2;
 }
 
 // ── Session Classification ────────────────────────────────────────────────────
@@ -194,7 +228,9 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   // Check rest influence
   const restInfluenced = isRestInfluenced(sets, restData.prescribedRestSec ?? 0);
 
-  // Classify based on working set reps vs rep range
+  // Classify based on working set reps vs rep range.
+  // Saturation: s.r >= max treats 12 reps and 20 reps identically.
+  // All above-threshold performance is equivalent to the controller.
   const allHitMax = workingSets.every(s => s.r >= max);
   const allHitMin = workingSets.every(s => s.r >= min);
 
@@ -231,7 +267,8 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   recentOutcomes:        string[],
  *   dw:                    number,
  *   suggestedWeight:       number|null,
- *   decision:              'progress'|'hold'|'regress'|'init',
+ *   decision:              'progress'|'hold'|'regress',
+ *   isFirstSession:        boolean,
  *   sessionClassification: 'qualifying'|'adequate'|'failing'|null,
  *   topWeight:             number|null,
  *   restInfluenced:        boolean,
@@ -262,7 +299,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       recentOutcomes: prevOutcomes,
       dw,
       suggestedWeight: prevWeight,
-      decision: prevWeight === null ? 'init' : 'hold',
+      decision: 'hold',
+      isFirstSession: prevWeight === null,
       sessionClassification: null,
       topWeight: topWeight ?? null,
       restInfluenced: false,
@@ -272,19 +310,24 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // Initialize currentWeight from first session's working weight
   const currentWeight = prevWeight ?? sessionWorkingWeight;
 
-  // Update consecutive qualifying counter
+  // Update consecutive qualifying counter.
+  // Only failing resets the streak — adequate preserves it.
+  // This means Q → A → Q still satisfies the progression threshold.
   let consecutiveQualifying;
   if (classification === 'qualifying') {
     consecutiveQualifying = prevConsecutive + 1;
-  } else {
+  } else if (classification === 'failing') {
     consecutiveQualifying = 0;
+  } else {
+    // adequate: preserve current streak
+    consecutiveQualifying = prevConsecutive;
   }
 
   // Update recent outcomes (capped to regressWindow)
   const recentOutcomes = [...prevOutcomes, classification]
     .slice(-DEFAULTS.regressWindow);
 
-  // ── Decision logic ─────────────────────────────────────────────────────
+  // ── Controller output ──────────────────────────────────────────────────
   let decision;
   let suggestedWeight;
 
@@ -292,12 +335,12 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const failingCount = recentOutcomes.filter(o => o === 'failing').length;
 
   if (consecutiveQualifying >= DEFAULTS.qualifyThreshold) {
-    // Progress: user has demonstrated stable performance at rep ceiling
+    // Progress: consecutive qualifying sessions exceeded hysteresis threshold
     decision = 'progress';
     suggestedWeight = currentWeight + dw;
     consecutiveQualifying = 0;  // Reset after progression
   } else if (failingCount >= DEFAULTS.regressThreshold) {
-    // Regress: performance has degraded — drop one increment
+    // Regress: failing density in recent window exceeded threshold
     decision = 'regress';
     suggestedWeight = Math.max(0, currentWeight - dw);
     consecutiveQualifying = 0;  // Reset after regression
@@ -311,10 +354,15 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const step = Math.max(dw, 0.5);
   suggestedWeight = Math.max(0, step * Math.round(suggestedWeight / step));
 
-  // If this was the first session (init), label it
-  if (prevWeight === null) {
-    decision = 'init';
-  }
+  // isFirstSession is a UI-layer concern, not a controller state.
+  // The controller always returns its true decision (progress/hold/regress).
+  const isFirstSession = prevWeight === null;
+
+  // Probability distribution over next-session outcomes
+  const outcomeDistribution = computeOutcomeDistribution({
+    consecutiveQualifying,
+    recentOutcomes,
+  });
 
   return {
     currentWeight: decision === 'progress' ? suggestedWeight
@@ -325,9 +373,11 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     dw,
     suggestedWeight,
     decision,
+    isFirstSession,
     sessionClassification: classification,
     topWeight: topWeight ?? null,
     restInfluenced,
+    outcomeDistribution,
   };
 }
 
@@ -357,4 +407,86 @@ export function computeFatigueIndex(sets) {
 
   if (firstPerf === 0) return null;
   return +(1 - lastPerf / firstPerf).toFixed(3);
+}
+
+// ── Outcome Distribution (probability simplex) ───────────────────────────────
+
+/**
+ * Compute probability distribution over next-session progression outcomes.
+ *
+ * Given the current progression state, estimates P(progress), P(hold),
+ * P(regress) for the next session by:
+ *   1. Estimating classification probabilities from recent outcome history
+ *      (Laplace-smoothed empirical frequencies)
+ *   2. Simulating the state machine forward for each possible classification
+ *   3. Summing probabilities by resulting decision
+ *
+ * The three probabilities always sum to 1.0 (simplex constraint).
+ *
+ * Laplace smoothing (adding 1 to each category) ensures no classification
+ * has zero probability, even with limited history.  With an empty history
+ * the prior is uniform: 1/3 each.
+ *
+ * @param {object} state — current progression state:
+ *   { consecutiveQualifying, recentOutcomes }
+ * @returns {{ progress: number, hold: number, regress: number }}
+ */
+export function computeOutcomeDistribution(state = {}) {
+  const consecutiveQualifying = state.consecutiveQualifying ?? 0;
+  const recentOutcomes = Array.isArray(state.recentOutcomes)
+    ? state.recentOutcomes
+    : [];
+
+  // ── Step 1: Estimate classification probabilities ──────────────────
+  // Laplace-smoothed empirical frequencies from recentOutcomes.
+  // +1 per category prevents zero probabilities.
+  const counts = { qualifying: 1, adequate: 1, failing: 1 };
+  for (const o of recentOutcomes) {
+    if (counts[o] !== undefined) counts[o]++;
+  }
+  const total = counts.qualifying + counts.adequate + counts.failing;
+  const pClassify = {
+    qualifying: counts.qualifying / total,
+    adequate:   counts.adequate / total,
+    failing:    counts.failing / total,
+  };
+
+  // ── Step 2: Simulate state machine for each possible classification ─
+  const CLASSIFICATIONS = ['qualifying', 'adequate', 'failing'];
+  const result = { progress: 0, hold: 0, regress: 0 };
+
+  for (const c of CLASSIFICATIONS) {
+    // Simulate consecutiveQualifying update
+    let nextConsecutive;
+    if (c === 'qualifying') {
+      nextConsecutive = consecutiveQualifying + 1;
+    } else if (c === 'failing') {
+      nextConsecutive = 0;
+    } else {
+      nextConsecutive = consecutiveQualifying; // adequate preserves streak
+    }
+
+    // Simulate recentOutcomes update
+    const nextOutcomes = [...recentOutcomes, c].slice(-DEFAULTS.regressWindow);
+    const failingCount = nextOutcomes.filter(o => o === 'failing').length;
+
+    // Determine decision from simulated state
+    let decision;
+    if (nextConsecutive >= DEFAULTS.qualifyThreshold) {
+      decision = 'progress';
+    } else if (failingCount >= DEFAULTS.regressThreshold) {
+      decision = 'regress';
+    } else {
+      decision = 'hold';
+    }
+
+    result[decision] += pClassify[c];
+  }
+
+  // Round to 3 decimal places for clean output
+  result.progress = +result.progress.toFixed(3);
+  result.hold     = +result.hold.toFixed(3);
+  result.regress  = +result.regress.toFixed(3);
+
+  return result;
 }
