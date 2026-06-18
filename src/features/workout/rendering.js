@@ -2,7 +2,7 @@ import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX, state, def
 import { REST_DURATION } from '../../core/state/state.js';
 import { query } from '../../core/logic/queries.js';
 import { getEffectiveExercise } from '../../core/utils/helpers.js';
-import { updateProgressionState, computeOutcomeDistribution } from '../../core/logic/progression.js';
+import { updateProgressionState } from '../../core/logic/progression.js';
 import { calculateETA } from '../../core/utils/eta.js';
 
 
@@ -561,52 +561,48 @@ export function buildDelta(weightDelta, repsDelta) {
 // ── Layer B: Live Progression Row ─────────────────────────────────────────────
 
 /**
- * Build a compact stacked probability bar showing outcome certainty.
+ * Build compact chips showing controller distance to progression/regression.
  *
- * Renders a thin horizontal bar with green (progress), silver (hold), and
- * red (regress) segments proportional to their probabilities.  The dominant
- * outcome is labelled with its percentage.
+ * Renders one or two small chips:
+ *   '1Q → ↑'  — 1 qualifying session until progression
+ *   '1F → ↓'  — 1 more failing session until regression
  *
- * Only shown when uncertainty is meaningful (dominant < 95% — otherwise the
- * outcome is effectively certain and the bar adds no information).
+ * These are exact controller-state arithmetic, not probability
+ * estimates.  See computeControllerDistance() in progression.js.
  *
- * @param {{ progress: number, hold: number, regress: number }} dist
- * @returns {string} HTML string, or '' if certainty is high
+ * Suppressed when the distance is at its default (no useful signal)
+ * or when progression/regression has already been decided.
+ *
+ * @param {{ qualifyingNeeded: number, failingCapacity: number }} dist
+ * @returns {string[]} Array of HTML chip strings (0-2 elements)
  */
-function buildOutcomeBar(dist) {
-  if (!dist) return '';
+function buildDistanceChips(dist) {
+  if (!dist) return [];
+  const chips = [];
+  const { qualifyingNeeded = 0, failingCapacity = 0 } = dist;
 
-  const { progress = 0, hold = 0, regress = 0 } = dist;
+  // Show progress distance when the user has made some headway
+  // (qualifyingNeeded < threshold) but hasn't triggered yet
+  if (qualifyingNeeded > 0 && qualifyingNeeded < 2) {
+    chips.push(
+      `<span class="prog-chip prog-chip-distance prog-chip-dist-progress"
+         title="${qualifyingNeeded} more qualifying session${qualifyingNeeded !== 1 ? 's' : ''} to trigger progression">
+        ${qualifyingNeeded}Q → ↑
+      </span>`
+    );
+  }
 
-  // Find dominant outcome
-  const max = Math.max(progress, hold, regress);
-  if (max >= 0.95) return ''; // effectively certain — bar adds no info
+  // Show regress distance when it's getting tight (1 failure away)
+  if (failingCapacity > 0 && failingCapacity <= 1) {
+    chips.push(
+      `<span class="prog-chip prog-chip-distance prog-chip-dist-regress"
+         title="${failingCapacity} more failing session${failingCapacity !== 1 ? 's' : ''} before regression triggers">
+        ${failingCapacity}F → ↓
+      </span>`
+    );
+  }
 
-  const pPct = Math.round(progress * 100);
-  const hPct = Math.round(hold * 100);
-  const rPct = Math.round(regress * 100);
-
-  // SVG icons (9×9, stroke-based, inherit color via currentColor)
-  const iconUp    = '<svg class="prog-bar-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 8 6 4 10 8"/></svg>';
-  const iconRight = '<svg class="prog-bar-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="6" x2="10" y2="6"/><polyline points="7 3 10 6 7 9"/></svg>';
-  const iconDown  = '<svg class="prog-bar-icon" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2 4 6 8 10 4"/></svg>';
-
-  // Determine label for the dominant outcome
-  let label, labelCls;
-  if (progress === max)     { label = `${pPct}%${iconUp}`;    labelCls = 'prog-bar-label-progress'; }
-  else if (regress === max) { label = `${rPct}%${iconDown}`;  labelCls = 'prog-bar-label-regress'; }
-  else                      { label = `${hPct}%${iconRight}`; labelCls = 'prog-bar-label-hold'; }
-
-  const title = `Next session outlook: ${pPct}% progress · ${hPct}% hold · ${rPct}% regress`;
-
-  return `<span class="prog-chip prog-outcome-bar-chip" title="${title}">
-    <span class="prog-bar-label ${labelCls}">${label}</span>
-    <span class="prog-outcome-bar">
-      ${pPct > 0 ? `<span class="prog-bar-seg prog-bar-progress" style="width:${pPct}%"></span>` : ''}
-      ${hPct > 0 ? `<span class="prog-bar-seg prog-bar-hold" style="width:${hPct}%"></span>` : ''}
-      ${rPct > 0 ? `<span class="prog-bar-seg prog-bar-regress" style="width:${rPct}%"></span>` : ''}
-    </span>
-  </span>`;
+  return chips;
 }
 
 /**
@@ -679,10 +675,9 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       );
     }
 
-    // Outcome distribution bar (review mode)
-    if (ps.outcomeDistribution) {
-      const barHtml = buildOutcomeBar(ps.outcomeDistribution);
-      if (barHtml) chips.push(barHtml);
+    // Controller distance chips (review mode)
+    if (ps.controllerDistance) {
+      chips.push(...buildDistanceChips(ps.controllerDistance));
     }
 
     // Rest-influenced warning
@@ -751,10 +746,9 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
         );
       }
 
-      // Outcome distribution bar (live)
-      if (result.outcomeDistribution) {
-        const barHtml = buildOutcomeBar(result.outcomeDistribution);
-        if (barHtml) chips.push(barHtml);
+      // Controller distance chips (live)
+      if (result.controllerDistance) {
+        chips.push(...buildDistanceChips(result.controllerDistance));
       }
 
       // Rest-influenced warning
@@ -785,10 +779,9 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
         );
       }
 
-      // Outcome distribution bar (pre-session, from persisted state)
-      if (prevPs.outcomeDistribution) {
-        const barHtml = buildOutcomeBar(prevPs.outcomeDistribution);
-        if (barHtml) chips.push(barHtml);
+      // Controller distance chips (pre-session, from persisted state)
+      if (prevPs.controllerDistance) {
+        chips.push(...buildDistanceChips(prevPs.controllerDistance));
       }
     }
   }

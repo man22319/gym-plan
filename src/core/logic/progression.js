@@ -358,8 +358,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // The controller always returns its true decision (progress/hold/regress).
   const isFirstSession = prevWeight === null;
 
-  // Probability distribution over next-session outcomes
-  const outcomeDistribution = computeOutcomeDistribution({
+  // Controller distance: exact arithmetic on state, no statistics
+  const controllerDistance = computeControllerDistance({
     consecutiveQualifying,
     recentOutcomes,
   });
@@ -377,7 +377,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     sessionClassification: classification,
     topWeight: topWeight ?? null,
     restInfluenced,
-    outcomeDistribution,
+    controllerDistance,
   };
 }
 
@@ -409,84 +409,43 @@ export function computeFatigueIndex(sets) {
   return +(1 - lastPerf / firstPerf).toFixed(3);
 }
 
-// ── Outcome Distribution (probability simplex) ───────────────────────────────
+// ── Controller Distance (exact, no statistics) ───────────────────────────────
 
 /**
- * Compute probability distribution over next-session progression outcomes.
+ * Compute the controller's distance to its progression and regression
+ * thresholds.
  *
- * Given the current progression state, estimates P(progress), P(hold),
- * P(regress) for the next session by:
- *   1. Estimating classification probabilities from recent outcome history
- *      (Laplace-smoothed empirical frequencies)
- *   2. Simulating the state machine forward for each possible classification
- *   3. Summing probabilities by resulting decision
+ * This is pure arithmetic on the controller state — no probability
+ * model, no Laplace smoothing, no simulation.  It reads the same
+ * variables the controller uses to make decisions and reports how
+ * far the current state is from each threshold.
  *
- * The three probabilities always sum to 1.0 (simplex constraint).
+ * Returns:
+ *   qualifyingNeeded — consecutive qualifying sessions still needed
+ *                      to trigger progression (0 = would progress now)
+ *   failingCapacity  — additional failing sessions the recent window
+ *                      can absorb before regression triggers
+ *                      (0 = would regress now)
  *
- * Laplace smoothing (adding 1 to each category) ensures no classification
- * has zero probability, even with limited history.  With an empty history
- * the prior is uniform: 1/3 each.
+ * These are the controller-native quantities.  They are exact,
+ * immediately interpretable, and make no claims about the future.
  *
  * @param {object} state — current progression state:
  *   { consecutiveQualifying, recentOutcomes }
- * @returns {{ progress: number, hold: number, regress: number }}
+ * @returns {{ qualifyingNeeded: number, failingCapacity: number }}
  */
-export function computeOutcomeDistribution(state = {}) {
+export function computeControllerDistance(state = {}) {
   const consecutiveQualifying = state.consecutiveQualifying ?? 0;
   const recentOutcomes = Array.isArray(state.recentOutcomes)
     ? state.recentOutcomes
     : [];
 
-  // ── Step 1: Estimate classification probabilities ──────────────────
-  // Laplace-smoothed empirical frequencies from recentOutcomes.
-  // +1 per category prevents zero probabilities.
-  const counts = { qualifying: 1, adequate: 1, failing: 1 };
-  for (const o of recentOutcomes) {
-    if (counts[o] !== undefined) counts[o]++;
-  }
-  const total = counts.qualifying + counts.adequate + counts.failing;
-  const pClassify = {
-    qualifying: counts.qualifying / total,
-    adequate:   counts.adequate / total,
-    failing:    counts.failing / total,
-  };
+  // Distance to progression: how many more consecutive qualifying sessions needed
+  const qualifyingNeeded = Math.max(0, DEFAULTS.qualifyThreshold - consecutiveQualifying);
 
-  // ── Step 2: Simulate state machine for each possible classification ─
-  const CLASSIFICATIONS = ['qualifying', 'adequate', 'failing'];
-  const result = { progress: 0, hold: 0, regress: 0 };
+  // Distance to regression: how many more failing sessions the window can absorb
+  const failingInWindow = recentOutcomes.filter(o => o === 'failing').length;
+  const failingCapacity = Math.max(0, DEFAULTS.regressThreshold - failingInWindow);
 
-  for (const c of CLASSIFICATIONS) {
-    // Simulate consecutiveQualifying update
-    let nextConsecutive;
-    if (c === 'qualifying') {
-      nextConsecutive = consecutiveQualifying + 1;
-    } else if (c === 'failing') {
-      nextConsecutive = 0;
-    } else {
-      nextConsecutive = consecutiveQualifying; // adequate preserves streak
-    }
-
-    // Simulate recentOutcomes update
-    const nextOutcomes = [...recentOutcomes, c].slice(-DEFAULTS.regressWindow);
-    const failingCount = nextOutcomes.filter(o => o === 'failing').length;
-
-    // Determine decision from simulated state
-    let decision;
-    if (nextConsecutive >= DEFAULTS.qualifyThreshold) {
-      decision = 'progress';
-    } else if (failingCount >= DEFAULTS.regressThreshold) {
-      decision = 'regress';
-    } else {
-      decision = 'hold';
-    }
-
-    result[decision] += pClassify[c];
-  }
-
-  // Round to 3 decimal places for clean output
-  result.progress = +result.progress.toFixed(3);
-  result.hold     = +result.hold.toFixed(3);
-  result.regress  = +result.regress.toFixed(3);
-
-  return result;
+  return { qualifyingNeeded, failingCapacity };
 }

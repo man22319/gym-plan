@@ -470,50 +470,24 @@
   color: rgba(200, 185, 160, 0.85);
 }
 
-/* ── Outcome Distribution Bar ── */
-.prog-outcome-bar-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-}
-.prog-outcome-bar {
-  display: inline-flex;
-  width: 40px;
-  height: 4px;
-  border-radius: 2px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.04);
-  flex-shrink: 0;
-}
-.prog-bar-seg {
-  height: 100%;
-  min-width: 1px;
-  transition: width 0.3s ease;
-}
-.prog-bar-progress { background: rgba(255, 255, 255, 0.85); }
-.prog-bar-hold     { background: rgba(255, 255, 255, 0.25); }
-.prog-bar-regress  { background: rgba(255, 255, 255, 0.12); }
-
-.prog-bar-label {
+/* ── Controller Distance Chips ── */
+.prog-chip-distance {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   letter-spacing: 0.5px;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+  padding: 2px 7px;
 }
-.prog-bar-label-progress { color: var(--silver); }
-.prog-bar-label-hold     { color: var(--muted); }
-.prog-bar-label-regress  { color: var(--dim); }
-.prog-bar-icon {
-  width: 9px;
-  height: 9px;
-  flex-shrink: 0;
-  vertical-align: middle;
+/* Progress distance — muted green, same palette as prog-chip-progress */
+.prog-chip-dist-progress {
+  border-color: rgba(120, 200, 120, 0.25);
+  background: rgba(120, 200, 120, 0.05);
+  color: rgba(150, 220, 150, 0.85);
+}
+/* Regress distance — muted warm/red, same palette as prog-chip-regress */
+.prog-chip-dist-regress {
+  border-color: rgba(200, 80, 70, 0.25);
+  background: rgba(200, 80, 70, 0.05);
+  color: rgba(210, 100, 90, 0.85);
 }
 
 
