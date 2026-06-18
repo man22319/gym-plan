@@ -1,7 +1,7 @@
 import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX, state, defaultWorkoutsData } from '../../core/state/store.js';
 import { REST_DURATION } from '../../core/state/state.js';
 import { query } from '../../core/logic/queries.js';
-import { getEffectiveExercise } from '../../core/utils/helpers.js';
+import { getEffectiveExercise, lowerBound } from '../../core/utils/helpers.js';
 import { updateProgressionState } from '../../core/logic/progression.js';
 import { calculateETA } from '../../core/utils/eta.js';
 
@@ -634,7 +634,8 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
     const suggested = ps.lastSuggested;
     const decision = ps.lastDecision ?? 'hold';
     const classification = ps.lastClassification;
-    const restInfluenced = ps.restInfluenced ?? false;
+    // Backward compat: legacy state may have boolean restInfluenced
+    const restInflationFactor = ps.restInflationFactor ?? (ps.restInfluenced ? 1.0 : 0);
 
     // Decision chip
     if (suggested !== null && suggested !== undefined) {
@@ -680,10 +681,10 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       chips.push(...buildDistanceChips(ps.controllerDistance));
     }
 
-    // Rest-influenced warning
-    if (restInfluenced) {
+    // Rest-inflation warning (scalar threshold)
+    if (restInflationFactor > 0.5) {
       chips.push(
-        `<span class="prog-chip prog-chip-warn" title="Extended rest detected — reps may not reflect true capacity">REST-INFLUENCED</span>`
+        `<span class="prog-chip prog-chip-warn" title="Extended rest detected (inflation: ${(restInflationFactor * 100).toFixed(0)}%) — reps may not reflect true capacity">REST-INFLATED</span>`
       );
     }
 
@@ -710,6 +711,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
         repRange,
         deltaW,
         prescribedRestSec,
+        prescribedWeight: lowerBound(ex?.load) ?? null,
       });
 
       // Live classification chip
@@ -751,10 +753,10 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
         chips.push(...buildDistanceChips(result.controllerDistance));
       }
 
-      // Rest-influenced warning
-      if (result.restInfluenced) {
+      // Rest-inflation warning (scalar threshold)
+      if (result.restInflationFactor > 0.5) {
         chips.push(
-          `<span class="prog-chip prog-chip-warn" title="Extended rest between sets detected — reps may overstate readiness">REST-INFLUENCED</span>`
+          `<span class="prog-chip prog-chip-warn" title="Extended rest between sets detected (inflation: ${(result.restInflationFactor * 100).toFixed(0)}%) — reps may overstate readiness">REST-INFLATED</span>`
         );
       }
 

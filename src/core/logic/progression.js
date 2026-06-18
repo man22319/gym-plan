@@ -1,6 +1,6 @@
 /**
  * ══════════════════════════════════════════════════════
- *  Progression Engine — Hysteresis Controller
+ *  Progression Engine — Categorical Controller
  *  src/core/logic/progression.js
  * ══════════════════════════════════════════════════════
  *
@@ -17,8 +17,8 @@
  *     observed reps → classify → state machine → weight recommendation
  *
  *   Think thermostat, not forecaster. The system reacts to
- *   categorical observations using fixed thresholds with
- *   hysteresis to prevent chatter under noisy self-report data.
+ *   categorical observations using fixed thresholds to prevent
+ *   chatter under noisy self-report data.
  *
  * ## Session classification (per exercise)
  *   Each session is compressed into one of three categories
@@ -27,10 +27,14 @@
  *   the signal is too noisy to extract a meaningful gradient.
  *
  *   qualifying — every working set hits repRange.max or higher,
- *                AND the session is not rest-influenced
+ *                AND the session is not rest-inflated beyond threshold
  *   adequate   — every working set hits repRange.min, but not
- *                all reach max (or rest-influenced despite max)
+ *                all reach max (or rest-inflated despite max)
  *   failing    — at least one working set has reps < repRange.min
+ *
+ *   Note: qualifying is environment-adjusted (performance + rest constraint);
+ *   failing is purely performance-based. The system is a hybrid
+ *   categorical + confound-adjusted filter, not a pure categorical observer.
  *
  *   Saturation: once reps exceed repRange.max, additional reps
  *   provide zero additional evidence for progression. 12/12/12
@@ -38,24 +42,36 @@
  *   the controller treats all above-threshold performance
  *   identically rather than attempting to extract a gradient.
  *
- * ## Decision rules (hysteresis band)
- *   Progress after 2 consecutive qualifying sessions.
- *   Regress  after 2 failing sessions within the last 3.
- *   Otherwise hold.
- *   The consecutive/window thresholds ARE the noise filter —
- *   they create inertia that prevents single-session flukes
- *   from triggering weight changes.
+ * ## Decision rules (asymmetric dual-threshold)
+ *   Progression and regression are intentionally asymmetric. They are
+ *   two different stochastic processes at different timescales:
+ *
+ *   Progression (evidence accumulation, low-frequency):
+ *     2 consecutive qualifying sessions. Order-sensitive streak.
+ *     Detects sustained readiness. False progress is expensive
+ *     (failure at new load, injury risk, confidence loss).
+ *
+ *   Regression (risk detection, high-frequency):
+ *     2 failing sessions within the last 3. Order-insensitive density.
+ *     Detects acute inability. False regression delay is cheap
+ *     (one extra session at current load).
+ *
+ *   This is NOT a symmetric hysteresis band. It is a dual-threshold
+ *   system with timescale-separated rules. Do not attempt to
+ *   symmetrize — the asymmetry is structural, not incidental.
  *
  *   Adequate sessions do NOT reset the qualifying streak.
  *   Only failing sessions reset it. This means Q → A → Q
  *   still satisfies the progression threshold, reflecting
  *   that an in-range session is not counter-evidence.
  *
- * ## Rest-influence detection
+ * ## Rest-inflation detection
  *   Rest duration is a confounding variable: longer rest inflates
- *   rep counts. If the majority of inter-set rest gaps exceed
- *   prescribedRest × 1.5, the session is flagged as rest-influenced
- *   and a qualifying result is downgraded to adequate.
+ *   rep counts. Rest inflation is computed as a continuous scalar
+ *   ∈ [0, 1] using a positionally-weighted log transform of
+ *   inter-set rest gaps vs prescribed rest. Later gaps are weighted
+ *   more heavily (fatigue-relevant structure). A qualifying result
+ *   is downgraded to adequate when restInflationFactor > 0.5.
  *
  * ## State (persisted between sessions)
  *   currentWeight          — the working weight the user should use
@@ -67,11 +83,18 @@
  *   The controller operates on categorical observations only:
  *   {qualifying, adequate, failing} → {progress, hold, regress}.
  *
- *   Diagnostic utilities expose continuous metrics for UI display:
- *   epleyE1RM, workingTarget, computeFatigueIndex, topWeight,
- *   workingWeight. These do NOT feed back into the controller.
- *   They would become relevant only if migrating to an
- *   estimator-based architecture.
+ *   Diagnostic functions are grouped under the `diagnostics` namespace
+ *   export: epleyE1RM, workingTarget, computeFatigueIndex. These
+ *   expose continuous metrics for UI display and potential future
+ *   estimator migration. They do NOT feed back into controller
+ *   decisions. The architectural boundary is enforced by namespace
+ *   grouping — no controller function calls into the diagnostics
+ *   namespace.
+ *
+ *   Additionally, classifySession returns distributional metadata
+ *   (modeDominanceRatio, weightAgreement) that the controller does
+ *   not consume. These are infrastructure for a future belief-state
+ *   layer; they are carried forward, not acted upon.
  */
 
 // ── Default Hyperparameters ───────────────────────────────────────────────────
@@ -81,27 +104,28 @@ const DEFAULTS = {
   regressThreshold:   2,      // failing sessions within regressWindow before regressing
   regressWindow:      3,      // window size for counting failing sessions
   defaultDw:          2.5,    // default progression step (lbs) if not set
-
-  // Rest-influence detection
-  // If actual inter-set rest exceeds prescribed rest × this multiplier,
-  // the session is flagged as rest-influenced.
-  restCapMultiplier:  1.5,    // 150% of prescribed rest = soft cap
 };
 
-// ── Epley Utilities (diagnostic only, not consumed by controller) ─────────────
+// Rest-inflation detection constants
+// Rest gap ≥ REST_SATURATION_RATIO × prescribed = fully inflated (inflation = 1.0)
+const REST_SATURATION_RATIO = 5;
+// Qualifying → adequate downgrade threshold for restInflationFactor
+const REST_INFLATION_THRESHOLD = 0.5;
+
+// ── Diagnostic Utilities (not consumed by controller) ─────────────────────────
+// Grouped under the `diagnostics` namespace export at end of file.
+// These expose continuous metrics for UI display. They do NOT feed
+// back into controller decisions.
 
 /**
  * Compute per-set Epley e1RM.
  * Valid for ~1-12 reps. Degrades above ~15 reps.
  *
- * Not used in progression decisions. Exported for UI/diagnostic purposes.
- * Would become relevant if migrating to an estimator-based architecture.
- *
  * @param {number} w  weight (lbs, > 0)
  * @param {number} r  reps (> 0)
  * @returns {number|null}  estimated 1RM in lbs, or null if inputs invalid
  */
-export function epleyE1RM(w, r) {
+function epleyE1RM(w, r) {
   if (!w || !r || w <= 0 || r <= 0) return null;
   return w * (1 + r / 30);
 }
@@ -110,59 +134,70 @@ export function epleyE1RM(w, r) {
  * Epley inverse: the weight at which you'd perform `reps` repetitions
  * given a 1RM estimate of `T`.
  *
- * Not used in progression decisions. Exported for UI/diagnostic purposes.
- *
  * @param {number} T           strength estimate / e1RM (lbs)
  * @param {number} targetReps  prescribed rep count
  * @returns {number}           working weight (lbs)
  */
-export function workingTarget(T, targetReps) {
+function workingTarget(T, targetReps) {
   if (!targetReps || targetReps <= 0) return T;
   return T / (1 + targetReps / 30);
 }
 
-// ── Rest-Influence Detection ──────────────────────────────────────────────────
+// ── Rest-Inflation Detection ──────────────────────────────────────────────────
 
 /**
- * Determine if a session's rest durations were significantly longer than
- * prescribed, which would inflate rep performance beyond what the user
- * could sustain under normal rest conditions.
+ * Compute a continuous rest-inflation factor for a session.
  *
- * Uses `completedAt` timestamps on consecutive completed sets to compute
- * actual inter-set rest. The session is flagged as rest-influenced if the
- * MAJORITY of rest gaps exceed `prescribedRest × restCapMultiplier`.
+ * Returns a scalar ∈ [0, 1] representing how much inter-set rest exceeded
+ * the prescribed duration. Uses a clipped log transform per gap with
+ * positional weighting (later gaps weighted more heavily, reflecting
+ * fatigue-relevant structure where inflation has larger effect on rep
+ * capacity).
  *
- * Majority rule prevents a single long rest gap (e.g. a bathroom break)
- * from vetoing an entire session's progression credit.
+ * Per-gap inflation:
+ *   inflation_i = clamp(ln(actualRest / prescribedRest) / ln(SAT_RATIO), 0, 1)
+ *
+ * Positional weighting:
+ *   weight_i = i  (1-indexed linear ramp: later gaps ≈ 2× early gaps)
+ *
+ * Factor = Σ(weight_i × inflation_i) / Σ(weight_i)
  *
  * @param {Array<{s:string, completedAt:number|null}>} sets
  * @param {number} prescribedRestSec  — expected rest between sets (seconds)
- * @returns {boolean}  true if the session is rest-influenced
+ * @returns {number}  ∈ [0, 1], 0 = no inflation, 1 = all gaps at saturation
  */
-function isRestInfluenced(sets, prescribedRestSec) {
-  if (!prescribedRestSec || prescribedRestSec <= 0) return false;
+function computeRestInflation(sets, prescribedRestSec) {
+  if (!prescribedRestSec || prescribedRestSec <= 0) return 0;
 
   const completedSets = (sets || []).filter(
     s => s.s === 'done' && s.completedAt !== null && s.completedAt > 0
   );
 
-  if (completedSets.length < 2) return false;
+  if (completedSets.length < 2) return 0;
 
   // Sort by completedAt to handle any ordering issues
   const sorted = [...completedSets].sort((a, b) => a.completedAt - b.completedAt);
 
-  const capMs = prescribedRestSec * 1000 * DEFAULTS.restCapMultiplier;
-
-  let exceeded = 0;
+  const prescribedMs = prescribedRestSec * 1000;
+  const lnMax = Math.log(REST_SATURATION_RATIO);
   const totalGaps = sorted.length - 1;
+
+  let weightedSum = 0;
+  let weightTotal = 0;
 
   for (let i = 1; i < sorted.length; i++) {
     const restMs = sorted[i].completedAt - sorted[i - 1].completedAt;
-    if (restMs > capMs) exceeded++;
+    const ratio = restMs / prescribedMs;
+    // Clipped log transform: sub-prescribed rest → 0, ≥ SAT_RATIO → 1
+    const inflation = Math.max(0, Math.min(1, Math.log(ratio) / lnMax));
+
+    // Positional weight: later gaps weighted more (fatigue-relevant)
+    const posWeight = i;  // 1, 2, 3, ...
+    weightedSum += posWeight * inflation;
+    weightTotal += posWeight;
   }
 
-  // Flag only if the majority of rest gaps exceeded the cap
-  return exceeded > totalGaps / 2;
+  return +(weightedSum / weightTotal).toFixed(4);
 }
 
 // ── Session Classification ────────────────────────────────────────────────────
@@ -176,15 +211,21 @@ function isRestInfluenced(sets, prescribedRestSec) {
  * For fixed-rep exercises (min === max), qualifying means every working set
  * hits exactly that rep count or higher.
  *
+ * Returns distributional metadata (modeDominanceRatio, weightAgreement) that
+ * the controller does not consume. These are infrastructure for a future
+ * belief-state layer — carried forward, not acted upon.
+ *
  * @param {Array<{s:string, w:number|null, r:number|null}>} sets
  * @param {{min:number, max:number}} repRange — prescribed rep range
  * @param {number|null} currentWeight — the working weight for classification context
- * @param {{prescribedRestSec:number}} restData — rest configuration for rest-influence detection
+ * @param {{prescribedRestSec:number, dw:number}} restData — rest and step config
  * @returns {{
- *   classification: 'qualifying'|'adequate'|'failing'|null,
- *   restInfluenced: boolean,
- *   workingWeight:  number|null,
- *   topWeight:      number|null,
+ *   classification:      'qualifying'|'adequate'|'failing'|null,
+ *   restInflationFactor: number,
+ *   workingWeight:       number|null,
+ *   topWeight:           number|null,
+ *   modeDominanceRatio:  number,
+ *   weightAgreement:     number,
  * }}
  */
 export function classifySession(sets, repRange, currentWeight = null, restData = {}) {
@@ -193,7 +234,11 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   );
 
   if (!done.length) {
-    return { classification: null, restInfluenced: false, workingWeight: null, topWeight: null };
+    return {
+      classification: null, restInflationFactor: 0,
+      workingWeight: null, topWeight: null,
+      modeDominanceRatio: 0, weightAgreement: 1.0,
+    };
   }
 
   // Working weight: the most common weight across completed sets.
@@ -214,19 +259,39 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
     if (s.w > topWeight) topWeight = s.w;
   }
 
+  // modeDominanceRatio: fraction of ALL completed sets at the mode weight.
+  // Full-session distribution metric — includes warmups, back-offs, etc.
+  // Not consumed by controller. Carried as distributional summary for
+  // future belief-state layer.
+  const modeDominanceRatio = done.length > 0 ? +(maxCount / done.length).toFixed(4) : 0;
+
+  // weightAgreement: agreement between inferred mode and prescribed weight.
+  // 1.0 = identical or no prescribed weight, 0.0 = maximally divergent.
+  // Not consumed by controller — propagated for diagnostics.
+  let weightAgreement = 1.0;
+  if (currentWeight != null && workingWeight != null && currentWeight !== workingWeight) {
+    const drift = Math.abs(currentWeight - workingWeight);
+    const tolerance = restData.dw ?? DEFAULTS.defaultDw;
+    weightAgreement = +Math.max(0, 1 - drift / (tolerance * 3)).toFixed(4);
+  }
+
   // Filter to only working sets (sets at the working weight).
   // This excludes warm-up sets, ramp sets, and back-off sets.
   const workingSets = done.filter(s => s.w === workingWeight);
 
   if (!workingSets.length) {
-    return { classification: null, restInfluenced: false, workingWeight, topWeight };
+    return {
+      classification: null, restInflationFactor: 0,
+      workingWeight, topWeight,
+      modeDominanceRatio, weightAgreement,
+    };
   }
 
   const min = repRange?.min ?? 1;
   const max = repRange?.max ?? min;
 
-  // Check rest influence
-  const restInfluenced = isRestInfluenced(sets, restData.prescribedRestSec ?? 0);
+  // Compute rest inflation (continuous scalar)
+  const restInflationFactor = computeRestInflation(sets, restData.prescribedRestSec ?? 0);
 
   // Classify based on working set reps vs rep range.
   // Saturation: s.r >= max treats 12 reps and 20 reps identically.
@@ -238,14 +303,17 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
 
   if (!allHitMin) {
     classification = 'failing';
-  } else if (allHitMax && !restInfluenced) {
+  } else if (allHitMax && restInflationFactor <= REST_INFLATION_THRESHOLD) {
     classification = 'qualifying';
   } else {
-    // Either not all sets hit max, or rest-influenced despite hitting max
+    // Either not all sets hit max, or rest-inflated beyond threshold
     classification = 'adequate';
   }
 
-  return { classification, restInfluenced, workingWeight, topWeight };
+  return {
+    classification, restInflationFactor, workingWeight, topWeight,
+    modeDominanceRatio, weightAgreement,
+  };
 }
 
 // ── Full Session Update ───────────────────────────────────────────────────────
@@ -258,9 +326,10 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   { currentWeight, consecutiveQualifying, recentOutcomes, dw }
  * @param {object[]} sets Completed sets for this exercise this session
  * @param {object} opts   Options:
- *   - repRange         {{min:number, max:number}}  prescribed rep range
- *   - deltaW           {number}                    exercise-specific step (lbs)
- *   - prescribedRestSec {number}                   expected rest between sets (seconds)
+ *   - repRange          {{min:number, max:number}}  prescribed rep range
+ *   - deltaW            {number}                    exercise-specific step (lbs)
+ *   - prescribedRestSec {number}                    expected rest between sets (seconds)
+ *   - prescribedWeight  {number|null}               program-defined working weight (bootstrap seed)
  * @returns {{
  *   currentWeight:         number|null,
  *   consecutiveQualifying: number,
@@ -271,7 +340,10 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   isFirstSession:        boolean,
  *   sessionClassification: 'qualifying'|'adequate'|'failing'|null,
  *   topWeight:             number|null,
- *   restInfluenced:        boolean,
+ *   restInflationFactor:   number,
+ *   controllerDistance:    { qualifyingNeeded: number, failingCapacity: number },
+ *   modeDominanceRatio:    number,
+ *   weightAgreement:       number,
  * }}
  */
 export function updateProgressionState(prev = {}, sets = [], opts = {}) {
@@ -284,11 +356,14 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // Classify this session
   const {
     classification,
-    restInfluenced,
+    restInflationFactor,
     workingWeight: sessionWorkingWeight,
-    topWeight
+    topWeight,
+    modeDominanceRatio,
+    weightAgreement,
   } = classifySession(sets, repRange, prevWeight, {
     prescribedRestSec: opts.prescribedRestSec ?? 0,
+    dw,
   });
 
   // No completed working sets — return state unchanged with no suggestion
@@ -303,12 +378,18 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       isFirstSession: prevWeight === null,
       sessionClassification: null,
       topWeight: topWeight ?? null,
-      restInfluenced: false,
+      restInflationFactor: 0,
+      controllerDistance: computeControllerDistance({ consecutiveQualifying: prevConsecutive, recentOutcomes: prevOutcomes }),
+      modeDominanceRatio,
+      weightAgreement,
     };
   }
 
-  // Initialize currentWeight from first session's working weight
-  const currentWeight = prevWeight ?? sessionWorkingWeight;
+  // Initialize currentWeight:
+  //   persisted state > program seed > observed mode (absolute fallback)
+  // prescribedWeight is bootstrap-only — once state exists, it is authoritative.
+  // Controller does not re-validate prior state against session observations.
+  const currentWeight = prevWeight ?? opts.prescribedWeight ?? sessionWorkingWeight;
 
   // Update consecutive qualifying counter.
   // Only failing resets the streak — adequate preserves it.
@@ -334,13 +415,13 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // Count failing sessions in the recent window
   const failingCount = recentOutcomes.filter(o => o === 'failing').length;
 
+  // Progression: evidence accumulation (consecutive streak, low-frequency)
   if (consecutiveQualifying >= DEFAULTS.qualifyThreshold) {
-    // Progress: consecutive qualifying sessions exceeded hysteresis threshold
     decision = 'progress';
     suggestedWeight = currentWeight + dw;
     consecutiveQualifying = 0;  // Reset after progression
+  // Regression: risk detection (window density, high-frequency)
   } else if (failingCount >= DEFAULTS.regressThreshold) {
-    // Regress: failing density in recent window exceeded threshold
     decision = 'regress';
     suggestedWeight = Math.max(0, currentWeight - dw);
     consecutiveQualifying = 0;  // Reset after regression
@@ -376,8 +457,10 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     isFirstSession,
     sessionClassification: classification,
     topWeight: topWeight ?? null,
-    restInfluenced,
+    restInflationFactor,
     controllerDistance,
+    modeDominanceRatio,
+    weightAgreement,
   };
 }
 
@@ -389,14 +472,13 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
  * Fatigue Index = 1 − (Last Set Performance / First Set Performance)
  * Performance = weight × reps.
  *
- * This is a diagnostic function — it returns a plausible fatigue metric
- * but does NOT feed into the progression state or decisions.
- * It can be displayed in the UI for user awareness.
+ * Diagnostic function — does NOT feed into the progression state or decisions.
+ * Displayed in the UI for user awareness.
  *
  * @param {Array<{s:string, w:number|null, r:number|null}>} sets
  * @returns {number|null}  ∈ [-∞, 1], increasing = more fatigue; negative = strength increase within session
  */
-export function computeFatigueIndex(sets) {
+function computeFatigueIndex(sets) {
   const done = (sets || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
   if (done.length < 2) return null;
 
@@ -449,3 +531,15 @@ export function computeControllerDistance(state = {}) {
 
   return { qualifyingNeeded, failingCapacity };
 }
+
+// ── Diagnostics Namespace ─────────────────────────────────────────────────────
+// Structural boundary: diagnostic functions are grouped here to enforce
+// separation from controller logic without premature module splitting.
+// These share evolution with the controller (same data structures) but
+// are NOT consumed by any controller function.
+
+export const diagnostics = {
+  epleyE1RM,
+  workingTarget,
+  computeFatigueIndex,
+};

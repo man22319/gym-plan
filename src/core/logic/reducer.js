@@ -1,7 +1,7 @@
 import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, STORAGE_KEY } from '../state/state.js';
 import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
-import { resolveWeight, resolveReps } from '../utils/helpers.js';
+import { resolveWeight, resolveReps, lowerBound } from '../utils/helpers.js';
 import { startRestTimer } from '../utils/restTimer.js';
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
 import { updateProgressionState } from './progression.js';
@@ -501,6 +501,7 @@ export function dispatch(type, payload = {}) {
             repRange,
             deltaW: nextState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
             prescribedRestSec,
+            prescribedWeight: lowerBound(ex.load) ?? null,
           });
           newProgState[instanceId] = {
             currentWeight:         updated.currentWeight,
@@ -512,8 +513,10 @@ export function dispatch(type, payload = {}) {
             lastClassification:    updated.sessionClassification,
             lastSessionTimestamp:  currentTimestamp,
             lastTopWeight:         updated.topWeight ?? null,
-            restInfluenced:        updated.restInfluenced,
+            restInflationFactor:   updated.restInflationFactor,
             controllerDistance:    updated.controllerDistance,
+            modeDominanceRatio:    updated.modeDominanceRatio,
+            weightAgreement:       updated.weightAgreement,
           };
         }
 
@@ -566,6 +569,7 @@ export function rebuildAllProgressions(appState) {
         repRange,
         deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
         prescribedRestSec,
+        prescribedWeight: lowerBound(ex.load) ?? null,
       });
       newProgState[instanceId] = {
         currentWeight:         updated.currentWeight,
@@ -577,8 +581,10 @@ export function rebuildAllProgressions(appState) {
         lastClassification:    updated.sessionClassification,
         lastSessionTimestamp:  currentTimestamp,
         lastTopWeight:         updated.topWeight ?? null,
-        restInfluenced:        updated.restInfluenced,
+        restInflationFactor:   updated.restInflationFactor,
         controllerDistance:    updated.controllerDistance,
+        modeDominanceRatio:    updated.modeDominanceRatio,
+        weightAgreement:       updated.weightAgreement,
       };
     }
   }
