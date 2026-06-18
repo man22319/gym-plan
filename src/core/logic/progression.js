@@ -26,6 +26,14 @@
  *   All within-category variation is intentionally discarded —
  *   the signal is too noisy to extract a meaningful gradient.
  *
+ *   Working-weight identification follows a deterministic fallback:
+ *     1. currentWeight (persisted controller state, authoritative)
+ *     2. prescribedWeight (program seed, bootstrap only)
+ *     3. mode of completed set weights (absolute fallback)
+ *   This ensures warmups and back-offs do not contaminate the
+ *   working-set filter. Mode inference is only used when no
+ *   prescribed context is available.
+ *
  *   qualifying — every working set hits repRange.max or higher,
  *                AND the session is not rest-inflated beyond threshold
  *   adequate   — every working set hits repRange.min, but not
@@ -33,8 +41,12 @@
  *   failing    — at least one working set has reps < repRange.min
  *
  *   Note: qualifying is environment-adjusted (performance + rest constraint);
- *   failing is purely performance-based. The system is a hybrid
- *   categorical + confound-adjusted filter, not a pure categorical observer.
+ *   failing is purely performance-based. The classifier is categorical
+ *   but includes inference scaffolding: mode-derived working-weight
+ *   identification (fallback only) and weight-agreement computation
+ *   (diagnostic only). These are not pure categorical observations —
+ *   they are deterministic heuristics that support the categorical
+ *   decision without introducing statistical modeling.
  *
  *   Saturation: once reps exceed repRange.max, additional reps
  *   provide zero additional evidence for progression. 12/12/12
@@ -56,6 +68,14 @@
  *     Detects acute inability. False regression delay is cheap
  *     (one extra session at current load).
  *
+ *   Precedence: if both thresholds are satisfied simultaneously,
+ *   progression wins. Rationale: the qualifying streak requires
+ *   consecutive evidence (stronger signal), whereas the failing
+ *   window tolerates non-adjacent observations. Meeting both
+ *   conditions simultaneously implies recent qualifying performance
+ *   superimposed on older failures — the streak is the more
+ *   temporally local signal.
+ *
  *   This is NOT a symmetric hysteresis band. It is a dual-threshold
  *   system with timescale-separated rules. Do not attempt to
  *   symmetrize — the asymmetry is structural, not incidental.
@@ -73,6 +93,12 @@
  *   more heavily (fatigue-relevant structure). A qualifying result
  *   is downgraded to adequate when restInflationFactor > 0.5.
  *
+ * ## Input validation
+ *   repRange, deltaW, and prescribedRestSec are validated at the
+ *   entry point of updateProgressionState. Invalid inputs (min > max,
+ *   dw <= 0, negative rest) cause the controller to fail closed:
+ *   it returns the previous state unchanged with decision 'hold'.
+ *
  * ## State (persisted between sessions)
  *   currentWeight          — the working weight the user should use
  *   consecutiveQualifying  — qualifying streak length (resets on failing only)
@@ -80,8 +106,15 @@
  *   dw                     — progression step size (lbs)
  *
  * ## Controller vs Diagnostics
- *   The controller operates on categorical observations only:
+ *   The controller's decision loop operates on categorical observations:
  *   {qualifying, adequate, failing} → {progress, hold, regress}.
+ *
+ *   The classifier (classifySession) additionally produces distributional
+ *   metadata (modeDominanceRatio, weightAgreement) via mode inference and
+ *   weight-drift computation. These are deterministic heuristics, not
+ *   statistical estimates, but they are not purely categorical either.
+ *   The controller does not consume them — they are infrastructure for
+ *   a future belief-state layer, carried forward but not acted upon.
  *
  *   Diagnostic functions are grouped under the `diagnostics` namespace
  *   export: epleyE1RM, workingTarget, computeFatigueIndex. These
@@ -90,11 +123,6 @@
  *   decisions. The architectural boundary is enforced by namespace
  *   grouping — no controller function calls into the diagnostics
  *   namespace.
- *
- *   Additionally, classifySession returns distributional metadata
- *   (modeDominanceRatio, weightAgreement) that the controller does
- *   not consume. These are infrastructure for a future belief-state
- *   layer; they are carried forward, not acted upon.
  */
 
 // ── Default Hyperparameters ───────────────────────────────────────────────────
@@ -225,7 +253,7 @@ function computeRestInflation(sets, prescribedRestSec) {
  *   workingWeight:       number|null,
  *   topWeight:           number|null,
  *   modeDominanceRatio:  number,
- *   weightAgreement:     number,
+ *   weightAgreement:     number|null,
  * }}
  */
 export function classifySession(sets, repRange, currentWeight = null, restData = {}) {
@@ -237,16 +265,25 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
     return {
       classification: null, restInflationFactor: 0,
       workingWeight: null, topWeight: null,
-      modeDominanceRatio: 0, weightAgreement: 1.0,
+      modeDominanceRatio: 0, weightAgreement: null,
     };
   }
 
-  // Working weight: the most common weight across completed sets.
-  // For straight sets this is the single working weight.
-  // For pyramid/ramp schemes this is the mode of completed set weights.
+  // ── Working-weight identification ─────────────────────────────────────
+  // Deterministic fallback chain:
+  //   1. currentWeight  — persisted controller state (authoritative)
+  //   2. prescribedWeight from restData — program seed (bootstrap only)
+  //   3. mode of completed set weights — absolute fallback
+  //
+  // Anchoring to a known weight prevents warmups and back-offs from
+  // hijacking the working-set filter. Mode inference is only used
+  // when no prescribed context is available.
+  const anchorWeight = currentWeight ?? restData.prescribedWeight ?? null;
+
+  // Always compute mode for distributional metadata, regardless of anchor.
   const weightCounts = {};
   let maxCount = 0;
-  let workingWeight = null;
+  let modeWeight = null;
   let topWeight = 0;
 
   for (const s of done) {
@@ -254,9 +291,19 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
     weightCounts[wKey] = (weightCounts[wKey] || 0) + 1;
     if (weightCounts[wKey] > maxCount) {
       maxCount = weightCounts[wKey];
-      workingWeight = s.w;
+      modeWeight = s.w;
     }
     if (s.w > topWeight) topWeight = s.w;
+  }
+
+  // workingWeight: anchor if available, mode otherwise.
+  // When anchored, we verify at least one set exists at that weight;
+  // if not, fall back to mode (user may have deviated from plan).
+  let workingWeight;
+  if (anchorWeight != null && done.some(s => s.w === anchorWeight)) {
+    workingWeight = anchorWeight;
+  } else {
+    workingWeight = modeWeight;
   }
 
   // modeDominanceRatio: fraction of ALL completed sets at the mode weight.
@@ -265,14 +312,19 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   // future belief-state layer.
   const modeDominanceRatio = done.length > 0 ? +(maxCount / done.length).toFixed(4) : 0;
 
-  // weightAgreement: agreement between inferred mode and prescribed weight.
-  // 1.0 = identical or no prescribed weight, 0.0 = maximally divergent.
+  // weightAgreement: agreement between inferred working weight and prescribed weight.
+  // null when no prescribed weight exists — absence of a comparison target
+  // is not agreement, it is unknown.
   // Not consumed by controller — propagated for diagnostics.
-  let weightAgreement = 1.0;
-  if (currentWeight != null && workingWeight != null && currentWeight !== workingWeight) {
-    const drift = Math.abs(currentWeight - workingWeight);
-    const tolerance = restData.dw ?? DEFAULTS.defaultDw;
-    weightAgreement = +Math.max(0, 1 - drift / (tolerance * 3)).toFixed(4);
+  let weightAgreement = null;
+  if (currentWeight != null && workingWeight != null) {
+    if (currentWeight === workingWeight) {
+      weightAgreement = 1.0;
+    } else {
+      const drift = Math.abs(currentWeight - workingWeight);
+      const tolerance = restData.dw ?? DEFAULTS.defaultDw;
+      weightAgreement = +Math.max(0, 1 - drift / (tolerance * 3)).toFixed(4);
+    }
   }
 
   // Filter to only working sets (sets at the working weight).
@@ -343,7 +395,7 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   restInflationFactor:   number,
  *   controllerDistance:    { qualifyingNeeded: number, failingCapacity: number },
  *   modeDominanceRatio:    number,
- *   weightAgreement:       number,
+ *   weightAgreement:       number|null,
  * }}
  */
 export function updateProgressionState(prev = {}, sets = [], opts = {}) {
@@ -352,6 +404,20 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const prevWeight = prev.currentWeight ?? null;
   const prevConsecutive = prev.consecutiveQualifying ?? 0;
   const prevOutcomes = Array.isArray(prev.recentOutcomes) ? [...prev.recentOutcomes] : [];
+
+  // ── Input validation (fail closed) ──────────────────────────────────────
+  // Invalid inputs → return previous state unchanged with decision 'hold'.
+  // This prevents the controller from producing garbage-shaped certainty
+  // on malformed configuration.
+  if (repRange.min != null && repRange.max != null && repRange.min > repRange.max) {
+    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw);
+  }
+  if (dw <= 0) {
+    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw);
+  }
+  if (opts.prescribedRestSec != null && opts.prescribedRestSec < 0) {
+    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw);
+  }
 
   // Classify this session
   const {
@@ -363,6 +429,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     weightAgreement,
   } = classifySession(sets, repRange, prevWeight, {
     prescribedRestSec: opts.prescribedRestSec ?? 0,
+    prescribedWeight: opts.prescribedWeight ?? null,
     dw,
   });
 
@@ -386,7 +453,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   }
 
   // Initialize currentWeight:
-  //   persisted state > program seed > observed mode (absolute fallback)
+  //   persisted state > program seed > observed working weight (absolute fallback)
   // prescribedWeight is bootstrap-only — once state exists, it is authoritative.
   // Controller does not re-validate prior state against session observations.
   const currentWeight = prevWeight ?? opts.prescribedWeight ?? sessionWorkingWeight;
@@ -408,7 +475,20 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const recentOutcomes = [...prevOutcomes, classification]
     .slice(-DEFAULTS.regressWindow);
 
+  // ── Controller distance (pre-decision) ─────────────────────────────────
+  // Computed BEFORE the decision/reset below so it reflects the distance
+  // that triggered the action, not the post-action state.
+  const controllerDistance = computeControllerDistance({
+    consecutiveQualifying,
+    recentOutcomes,
+  });
+
   // ── Controller output ──────────────────────────────────────────────────
+  // Precedence: progression is checked before regression.
+  // Rationale: the qualifying streak requires consecutive evidence (stronger,
+  // more temporally local signal). If both thresholds are satisfied
+  // simultaneously, recent qualifying performance supersedes older failures
+  // in the window. See file header § Decision rules for full rationale.
   let decision;
   let suggestedWeight;
 
@@ -416,6 +496,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const failingCount = recentOutcomes.filter(o => o === 'failing').length;
 
   // Progression: evidence accumulation (consecutive streak, low-frequency)
+  // Checked FIRST — takes precedence over regression. See § Decision rules.
   if (consecutiveQualifying >= DEFAULTS.qualifyThreshold) {
     decision = 'progress';
     suggestedWeight = currentWeight + dw;
@@ -439,12 +520,6 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // The controller always returns its true decision (progress/hold/regress).
   const isFirstSession = prevWeight === null;
 
-  // Controller distance: exact arithmetic on state, no statistics
-  const controllerDistance = computeControllerDistance({
-    consecutiveQualifying,
-    recentOutcomes,
-  });
-
   return {
     currentWeight: decision === 'progress' ? suggestedWeight
                  : decision === 'regress'  ? suggestedWeight
@@ -461,6 +536,29 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     controllerDistance,
     modeDominanceRatio,
     weightAgreement,
+  };
+}
+
+/**
+ * Return a fail-closed result: previous state unchanged, decision 'hold'.
+ * Used when input validation fails.
+ * @private
+ */
+function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw) {
+  return {
+    currentWeight: prevWeight,
+    consecutiveQualifying: prevConsecutive,
+    recentOutcomes: prevOutcomes,
+    dw,
+    suggestedWeight: prevWeight,
+    decision: 'hold',
+    isFirstSession: prevWeight === null,
+    sessionClassification: null,
+    topWeight: null,
+    restInflationFactor: 0,
+    controllerDistance: computeControllerDistance({ consecutiveQualifying: prevConsecutive, recentOutcomes: prevOutcomes }),
+    modeDominanceRatio: 0,
+    weightAgreement: null,
   };
 }
 
