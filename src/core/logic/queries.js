@@ -199,17 +199,11 @@ export const query = {
     const ps = appState?.progressionState?.[exId];
     if (!ps || ps.currentWeight === null || ps.currentWeight === undefined) return null;
 
-    // Backward compat: legacy state may have boolean restInfluenced instead of scalar restInflationFactor
-    let restInflationFactor = ps.restInflationFactor ?? 0;
-    if (restInflationFactor === 0 && ps.restInfluenced != null) {
-      restInflationFactor = ps.restInfluenced ? 1.0 : 0;
-    }
-
     return {
       suggestedWeight:     ps.lastSuggested        ?? null,
       decision:            ps.lastDecision          ?? 'hold',
       classification:      ps.lastClassification    ?? null,
-      restInflationFactor,
+      restInflationFactor: ps.restInflationFactor   ?? 0,
     };
   },
 

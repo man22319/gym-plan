@@ -634,8 +634,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
     const suggested = ps.lastSuggested;
     const decision = ps.lastDecision ?? 'hold';
     const classification = ps.lastClassification;
-    // Backward compat: legacy state may have boolean restInfluenced
-    const restInflationFactor = ps.restInflationFactor ?? (ps.restInfluenced ? 1.0 : 0);
+    const restInflationFactor = ps.restInflationFactor ?? 0;
 
     // Decision chip
     if (suggested !== null && suggested !== undefined) {
