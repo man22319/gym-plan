@@ -8,9 +8,12 @@
  * All inputs are passed in; all outputs are plain values.
  *
  * ## Architecture
- *   This is a rule-based controller, not a predictive model.
- *   It does NOT estimate a latent strength variable, compute
- *   confidence intervals, or smooth performance trajectories.
+ *   This is a BOUNDED-MEMORY DETERMINISTIC CONTROLLER, not a
+ *   state estimator. It does NOT estimate a latent strength
+ *   variable, compute confidence intervals, smooth performance
+ *   trajectories, or perform parametric trajectory modeling
+ *   (slope fitting, curvature estimation, rate-of-change
+ *   inference).
  *
  *   The entire decision loop is:
  *
@@ -20,39 +23,112 @@
  *   categorical observations using fixed thresholds to prevent
  *   chatter under noisy self-report data.
  *
+ *   Formally: the controller is a finite-state automaton with
+ *   bounded memory (Markov order ≤ 3). It maintains:
+ *     - consecutiveQualifying (order-sensitive streak)
+ *     - recentOutcomes (order-insensitive sliding window, size 3)
+ *     - controllerDistance (derived from both, not independent)
+ *   These encode path dependence — the system is NOT memoryless.
+ *   It does not, however, aggregate history into latent structure,
+ *   build running estimates, or adapt its own thresholds based
+ *   on past decisions. Responsiveness to progress signals, fatigue
+ *   trajectory, or adaptation rate would require a separate
+ *   estimation layer feeding into the decision layer — that is a
+ *   different architecture, not a patch on this one.
+ *
+ * ## Accepted Design Tradeoffs
+ *   The categorical controller deliberately sacrifices sensitivity
+ *   for noise robustness. The following limitations are structural,
+ *   not bugs. They are the cost of operating on noisy, self-reported
+ *   gym data with only fixed-rule transforms (no learned weighting
+ *   of signals, no parametric models, no uncertainty quantification):
+ *
+ *   SATURATION — 12/12/12 and 20/20/20 both produce 'qualifying'.
+ *     All above-threshold performance is treated identically.
+ *     No acceleration for surplus capacity. No within-category
+ *     gradient. This means strong performers may plateau
+ *     artificially early in system terms.
+ *
+ *   NO PARAMETRIC TRAJECTORY MODELING — the controller cannot
+ *     distinguish chronic instability (Q A Q F Q F) from acute
+ *     failure collapse (Q Q Q F F). Both are evaluated by the
+ *     same density-in-window rule. The streak and window DO
+ *     encode crude temporal structure (first-order contiguity
+ *     and windowed frequency), but this is not parametric
+ *     trajectory inference — no slope, curvature, or rate-of-
+ *     change is estimated.
+ *
+ *   ASYMMETRIC TIMESCALES — progression (streak) and regression
+ *     (window density) operate on different timescale structures.
+ *     This is intentional but means the system reacts equally to
+ *     different risk profiles. See § Decision rules.
+ *
+ *   CONTROLLER DISTANCE IS NOT PREDICTIVE — distance-to-threshold
+ *     reports current state, not future likelihood. Two athletes
+ *     both "1 session away" may have completely different outcomes.
+ *     The metric is exact but makes no claims about the future.
+ *
+ *   These tradeoffs are inherent to a bounded-memory categorical
+ *   controller. Addressing them requires a two-layer architecture
+ *   (estimation layer + decision layer), not modifications to
+ *   the decision rules.
+ *
  * ## Session classification (per exercise)
  *   Each session is compressed into one of three categories
  *   using only completed working sets and the prescribed rep range.
- *   All within-category variation is intentionally discarded —
- *   the signal is too noisy to extract a meaningful gradient.
+ *   All within-category variation is intentionally discarded.
+ *   The system does NOT reject continuous data — it consumes
+ *   exact rep counts, weights, and timing. What it rejects is
+ *   inference over continuous data: no learned weighting, no
+ *   model-based interpretation of magnitude. Only fixed-rule
+ *   transforms of continuous inputs into categorical outputs.
  *
- *   Working-weight identification follows a deterministic fallback:
- *     1. currentWeight (persisted controller state, authoritative)
- *     2. prescribedWeight (program seed, bootstrap only)
- *     3. mode of completed set weights (absolute fallback)
- *   This ensures warmups and back-offs do not contaminate the
- *   working-set filter. Mode inference is only used when no
- *   prescribed context is available.
+ *   Working-weight identification uses the anchor weight (persisted
+ *   currentWeight or prescribedWeight) ONLY when the anchor has at
+ *   least as many completed sets as the mode weight. If mode has
+ *   strictly more sets, the user did most of their work at a weight
+ *   different from the anchor — mode is the real working weight.
  *
- *   qualifying — every working set hits repRange.max or higher,
- *                AND the session is not rest-inflated beyond threshold
+ *   This handles the common pattern: user does a check set at the
+ *   recommended weight, then bumps up because it felt easy. The one
+ *   anchor-weight set no longer hijacks classification.
+ *
+ *   Fallback chain:
+ *     1. anchor (currentWeight or prescribedWeight) — if set count >= mode
+ *     2. mode of completed set weights — if mode has more sets
+ *     3. mode also serves as absolute fallback when no anchor exists
+ *
+ *   qualifying — every working set hits repRange.max or higher
  *   adequate   — every working set hits repRange.min, but not
- *                all reach max (or rest-inflated despite max)
+ *                all reach max
  *   failing    — at least one working set has reps < repRange.min
  *
- *   Note: qualifying is environment-adjusted (performance + rest constraint);
- *   failing is purely performance-based. The classifier is categorical
- *   but includes inference scaffolding: mode-derived working-weight
- *   identification (fallback only) and weight-agreement computation
- *   (diagnostic only). These are not pure categorical observations —
- *   they are deterministic heuristics that support the categorical
- *   decision without introducing statistical modeling.
+ *   Classification is PURELY performance-based: reps vs prescribed
+ *   range, nothing else. Rest duration, e1RM trends, and other
+ *   contextual variables do NOT influence the categorical label.
+ *   They are computed and returned as diagnostic metadata for
+ *   UI display but are not consumed by the classifier or the
+ *   controller.
  *
- *   Saturation: once reps exceed repRange.max, additional reps
- *   provide zero additional evidence for progression. 12/12/12
- *   and 20/20/20 both produce 'qualifying'. This is deliberate —
- *   the controller treats all above-threshold performance
- *   identically rather than attempting to extract a gradient.
+ *   The classifier includes inference scaffolding: mode-derived
+ *   working-weight identification and weight-agreement computation
+ *   (diagnostic only). These are deterministic heuristics that
+ *   support the categorical decision without introducing
+ *   statistical modeling.
+ *
+ * ## Rest-inflation detection (DIAGNOSTIC ONLY)
+ *   Rest inflation is computed as a continuous scalar ∈ [0, 1]
+ *   using a positionally-weighted log transform of inter-set
+ *   rest gaps vs prescribed rest. This metric is RETURNED for
+ *   UI display and user awareness but does NOT influence
+ *   session classification or controller decisions.
+ *
+ *   Rationale: rest duration is a confounding variable, but
+ *   there is no validated model mapping rest to "true" capacity.
+ *   Any adjustment (threshold-based or continuous attenuation)
+ *   introduces an unvalidated heuristic into the decision path.
+ *   It is better to surface the information for human judgment
+ *   than to silently reshape controller behavior.
  *
  * ## Decision rules (asymmetric dual-threshold)
  *   Progression and regression are intentionally asymmetric. They are
@@ -67,6 +143,18 @@
  *     2 failing sessions within the last 3. Order-insensitive density.
  *     Detects acute inability. False regression delay is cheap
  *     (one extra session at current load).
+ *
+ *   DUAL MEMORY CHANNELS — streak (order-sensitive) and window
+ *   (order-insensitive) are independent state representations
+ *   encoding different hypotheses about the same process:
+ *     - Streak assumes contiguity matters (Markov assumption)
+ *     - Window assumes frequency matters (Bernoulli-like model)
+ *   These are incommensurate. Disagreement between them is
+ *   expected and is not resolved by a reconciliation layer.
+ *   They can produce ordering-dependent behavior: the sequence
+ *   Q Q F Q Q may progress while F Q Q Q F may not, despite
+ *   identical event counts. This is a structural property of
+ *   dual-channel control, not a bug.
  *
  *   Precedence: if both thresholds are satisfied simultaneously,
  *   progression wins. Rationale: the qualifying streak requires
@@ -85,14 +173,6 @@
  *   still satisfies the progression threshold, reflecting
  *   that an in-range session is not counter-evidence.
  *
- * ## Rest-inflation detection
- *   Rest duration is a confounding variable: longer rest inflates
- *   rep counts. Rest inflation is computed as a continuous scalar
- *   ∈ [0, 1] using a positionally-weighted log transform of
- *   inter-set rest gaps vs prescribed rest. Later gaps are weighted
- *   more heavily (fatigue-relevant structure). A qualifying result
- *   is downgraded to adequate when restInflationFactor > 0.5.
- *
  * ## Input validation
  *   repRange, deltaW, and prescribedRestSec are validated at the
  *   entry point of updateProgressionState. Invalid inputs (min > max,
@@ -100,7 +180,12 @@
  *   it returns the previous state unchanged with decision 'hold'.
  *
  * ## State (persisted between sessions)
- *   currentWeight          — the working weight the user should use
+ *   currentWeight          — the working weight the user should use.
+ *                            Updated on progress/regress (by ±dw) AND
+ *                            on upward weight acknowledgment: if the user
+ *                            lifts above currentWeight and doesn't fail,
+ *                            currentWeight jumps to match observed weight.
+ *                            This is reality tracking, not progression.
  *   consecutiveQualifying  — qualifying streak length (resets on failing only)
  *   recentOutcomes         — last 3 session classifications (sliding window)
  *   dw                     — progression step size (lbs)
@@ -109,20 +194,23 @@
  *   The controller's decision loop operates on categorical observations:
  *   {qualifying, adequate, failing} → {progress, hold, regress}.
  *
- *   The classifier (classifySession) additionally produces distributional
- *   metadata (modeDominanceRatio, weightAgreement) via mode inference and
- *   weight-drift computation. These are deterministic heuristics, not
- *   statistical estimates, but they are not purely categorical either.
- *   The controller does not consume them — they are infrastructure for
- *   a future belief-state layer, carried forward but not acted upon.
+ *   The classifier (classifySession) additionally produces:
+ *     - restInflationFactor (continuous, ∈ [0,1]) — diagnostic only
+ *     - modeDominanceRatio (distributional summary) — diagnostic only
+ *     - weightAgreement (drift detection) — diagnostic only
+ *   These are deterministic point estimators of latent variables
+ *   (rest influence, weight distribution, anchor drift) without
+ *   uncertainty modeling — fixed transforms with hard-coded
+ *   assumptions, not fitted or adaptive. The controller does not
+ *   consume them — they are surfaced for UI display and user
+ *   judgment.
  *
  *   Diagnostic functions are grouped under the `diagnostics` namespace
  *   export: epleyE1RM, workingTarget, computeFatigueIndex. These
- *   expose continuous metrics for UI display and potential future
- *   estimator migration. They do NOT feed back into controller
- *   decisions. The architectural boundary is enforced by namespace
- *   grouping — no controller function calls into the diagnostics
- *   namespace.
+ *   expose continuous metrics for UI display. They do NOT feed back
+ *   into controller decisions. The architectural boundary is enforced
+ *   by namespace grouping — no controller function calls into the
+ *   diagnostics namespace.
  */
 
 // ── Default Hyperparameters ───────────────────────────────────────────────────
@@ -134,11 +222,9 @@ const DEFAULTS = {
   defaultDw:          2.5,    // default progression step (lbs) if not set
 };
 
-// Rest-inflation detection constants
+// Rest-inflation detection constants (DIAGNOSTIC ONLY — not consumed by classifier)
 // Rest gap ≥ REST_SATURATION_RATIO × prescribed = fully inflated (inflation = 1.0)
 const REST_SATURATION_RATIO = 5;
-// Qualifying → adequate downgrade threshold for restInflationFactor
-const REST_INFLATION_THRESHOLD = 0.5;
 
 // ── Diagnostic Utilities (not consumed by controller) ─────────────────────────
 // Grouped under the `diagnostics` namespace export at end of file.
@@ -289,19 +375,43 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   for (const s of done) {
     const wKey = String(s.w);
     weightCounts[wKey] = (weightCounts[wKey] || 0) + 1;
-    if (weightCounts[wKey] > maxCount) {
+    // Mode = weight with most sets. On tie, prefer higher weight.
+    // This handles ramp sessions (each set at a different weight):
+    // the heaviest weight becomes mode when counts are equal.
+    if (
+      weightCounts[wKey] > maxCount ||
+      (weightCounts[wKey] === maxCount && s.w > (modeWeight ?? 0))
+    ) {
       maxCount = weightCounts[wKey];
       modeWeight = s.w;
     }
     if (s.w > topWeight) topWeight = s.w;
   }
 
-  // workingWeight: anchor if available, mode otherwise.
-  // When anchored, we verify at least one set exists at that weight;
-  // if not, fall back to mode (user may have deviated from plan).
+  // workingWeight: anchor if it has STRICTLY more sets than mode, mode
+  // otherwise.
+  //
+  // The anchor prevents warmups from hijacking the working-set filter.
+  // But when the user does a check set at the anchor then works at a
+  // higher weight, or ramps through multiple weights, the anchor has
+  // fewer or equal sets vs mode. In those cases mode wins — the user's
+  // real work was at the higher weight.
+  //
+  // Combined with the mode tie-break (prefer higher weight on equal
+  // count), this means:
+  //   [50×12, 60×12, 60×12] → mode=60 (2 sets) > anchor=50 (1) → 60
+  //   [60×12, 70×12, 75×12] → mode=75 (tie, highest) = anchor=60 (1) → 75
+  //   [60×12, 60×12, 60×12] → mode=60 = anchor=60 → 60 (either branch)
   let workingWeight;
-  if (anchorWeight != null && done.some(s => s.w === anchorWeight)) {
-    workingWeight = anchorWeight;
+  if (anchorWeight != null) {
+    const anchorCount = done.filter(s => s.w === anchorWeight).length;
+    if (anchorCount > maxCount) {
+      // Anchor has strictly more sets than any other weight → use anchor
+      workingWeight = anchorWeight;
+    } else {
+      // Mode has equal or more sets → user mostly worked at mode weight
+      workingWeight = modeWeight;
+    }
   } else {
     workingWeight = modeWeight;
   }
@@ -345,9 +455,14 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   // Compute rest inflation (continuous scalar)
   const restInflationFactor = computeRestInflation(sets, restData.prescribedRestSec ?? 0);
 
-  // Classify based on working set reps vs rep range.
+  // Classify based on working set reps vs rep range ONLY.
+  // Classification is purely performance-based. Rest inflation, e1RM,
+  // and other contextual variables are diagnostic — they do not
+  // influence the categorical label. See § Rest-inflation detection.
+  //
   // Saturation: s.r >= max treats 12 reps and 20 reps identically.
   // All above-threshold performance is equivalent to the controller.
+  // This is an accepted tradeoff — see § Accepted Design Tradeoffs.
   const allHitMax = workingSets.every(s => s.r >= max);
   const allHitMin = workingSets.every(s => s.r >= min);
 
@@ -355,10 +470,9 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
 
   if (!allHitMin) {
     classification = 'failing';
-  } else if (allHitMax && restInflationFactor <= REST_INFLATION_THRESHOLD) {
+  } else if (allHitMax) {
     classification = 'qualifying';
   } else {
-    // Either not all sets hit max, or rest-inflated beyond threshold
     classification = 'adequate';
   }
 
@@ -455,8 +569,24 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // Initialize currentWeight:
   //   persisted state > program seed > observed working weight (absolute fallback)
   // prescribedWeight is bootstrap-only — once state exists, it is authoritative.
-  // Controller does not re-validate prior state against session observations.
-  const currentWeight = prevWeight ?? opts.prescribedWeight ?? sessionWorkingWeight;
+  let currentWeight = prevWeight ?? opts.prescribedWeight ?? sessionWorkingWeight;
+
+  // ── Reality tracking: upward weight acknowledgment ──────────────────
+  // If the user lifted at a weight ABOVE the controller's state AND
+  // didn't fail, update currentWeight to match observed reality.
+  // This is not progression — it's acknowledging what the user proved.
+  // The streak/window logic still controls when the weight advances.
+  //
+  // Failing at a self-selected higher weight does NOT update — the user
+  // overreached, and the controller should not penalize by regressing
+  // from the higher weight. Only qualifying/adequate prove capacity.
+  if (
+    classification !== 'failing' &&
+    sessionWorkingWeight != null &&
+    sessionWorkingWeight > currentWeight
+  ) {
+    currentWeight = sessionWorkingWeight;
+  }
 
   // Update consecutive qualifying counter.
   // Only failing resets the streak — adequate preserves it.
@@ -502,7 +632,16 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     suggestedWeight = currentWeight + dw;
     consecutiveQualifying = 0;  // Reset after progression
   // Regression: risk detection (window density, high-frequency)
-  } else if (failingCount >= DEFAULTS.regressThreshold) {
+  // Additional precondition: the most recent session must be failing.
+  // A qualifying or adequate session should never trigger regression —
+  // the user just proved they can handle the weight. Stale failing
+  // sessions in the window should not override the most recent evidence.
+  // This prevents the "double regression on recovery" bug where a user
+  // recovers from illness (Q after F,F) and gets regressed anyway.
+  } else if (
+    failingCount >= DEFAULTS.regressThreshold &&
+    classification === 'failing'
+  ) {
     decision = 'regress';
     suggestedWeight = Math.max(0, currentWeight - dw);
     consecutiveQualifying = 0;  // Reset after regression
