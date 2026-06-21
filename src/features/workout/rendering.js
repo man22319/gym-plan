@@ -198,17 +198,31 @@ export function getSuggestedSessionId(appState) {
   );
 
   if (unfinished.length > 0) {
-    // 2. Among unfinished, pick the one with the oldest last-done timestamp
-    //    (most overdue — hasn't been trained the longest).
-    //    Sessions never done get timestamp = 0 so they surface first.
+    // 2. Among unfinished, pick the one whose scheduled day is soonest
+    //    from today (next reachable session on the calendar).
+    //    e.g. if today is Sunday: MON = 1 day away, THU = 4 days away → pick MON.
+    //    Ties fall back to template order (earlier in workouts array wins).
+    const DAY_MAP = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+    const todayDow = new Date().getDay(); // 0 = Sunday
+
+    function daysUntil(session) {
+      const label = (session.dayLabel || '').toUpperCase();
+      const targetDow = DAY_MAP[label];
+      if (targetDow === undefined) return 7; // unknown label → sort last
+      // Days from today to the target day (0 = today, 7 if same day wraps to next week)
+      // Use 0 for "today" so a session on the current day is most urgent
+      const diff = (targetDow - todayDow + 7) % 7;
+      return diff === 0 ? 0 : diff;
+    }
+
     let best = unfinished[0];
-    let bestTs = query.lastDoneTimestamp(appState, best.id) ?? 0;
+    let bestDist = daysUntil(best);
 
     for (let i = 1; i < unfinished.length; i++) {
-      const ts = query.lastDoneTimestamp(appState, unfinished[i].id) ?? 0;
-      if (ts < bestTs) {
+      const dist = daysUntil(unfinished[i]);
+      if (dist < bestDist) {
         best = unfinished[i];
-        bestTs = ts;
+        bestDist = dist;
       }
     }
     return best.id;
