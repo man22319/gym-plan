@@ -1,4 +1,4 @@
-import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, STORAGE_KEY } from '../state/state.js';
+import { DEV_MODE, REST_DURATION, makeSet, makeCardio, makeDefaultExercises, createDefaultState, STORAGE_KEY } from '../state/state.js';
 import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from '../utils/helpers.js';
@@ -299,7 +299,7 @@ export function reducer(currentState, action) {
 
       let nextState = {
         ...currentState,
-        exercises:         {},   // clear live scratch pad — data is now in history
+        exercises:         makeDefaultExercises(workouts, currentState.exerciseLibrary),   // re-init fresh dots for all sessions
         history,
         cardio:            null,
         sessionStarted:    null,
