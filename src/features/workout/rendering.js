@@ -989,7 +989,7 @@ export function renderSetUpdate(appState, exId) {
 
   // 3. Update the session-complete banner if needed
   const isComplete = query.isSessionComplete(appState, sessionId);
-  const banner = document.querySelector('.complete-banner');
+  const banner = document.querySelector(`#${CSS.escape(sessionId)} .complete-banner:not(.finished-banner)`);
   if (banner && !finished) {
     const isStarted = query.activeSessionStartTime(appState) !== null;
     if (isComplete && isStarted) {
@@ -1038,7 +1038,7 @@ export function renderCardioUpdate(appState) {
   const sessionId = appState.activeSessionId;
   if (sessionId) {
     const finished = query.isSessionFinishedInCurrentWeek(appState, sessionId);
-    const banner = document.querySelector('.complete-banner');
+    const banner = document.querySelector(`#${CSS.escape(sessionId)} .complete-banner:not(.finished-banner)`);
     if (banner && !finished) {
       const isComplete = query.isSessionComplete(appState, sessionId);
       const isStarted = query.activeSessionStartTime(appState) !== null;
@@ -1270,7 +1270,7 @@ export function initETAUI() {
       // issues, state restore after sleep, etc.).
       const sessionId = state.activeSessionId;
       if (sessionId) {
-        const banner = document.querySelector('.complete-banner:not(.finished-banner)');
+        const banner = document.querySelector(`#${CSS.escape(sessionId)} .complete-banner:not(.finished-banner)`);
         if (banner && !banner.classList.contains('visible')) {
           const finished = query.isSessionFinishedInCurrentWeek(state, sessionId);
           if (!finished) {
