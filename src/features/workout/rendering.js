@@ -304,8 +304,8 @@ export function buildSession(session, appState) {
         <div class="finished-banner-body">
           <span class="finished-banner-title">SESSION COMPLETED</span>
           <small>Logged ${timeLabel} · View only</small>
+          <button class="export-inline-btn" id="export-inline-btn">Export Data</button>
         </div>
-        <button class="export-inline-btn" id="export-inline-btn">Export Data</button>
       </div>`;
   } else {
     bannerHtml = `

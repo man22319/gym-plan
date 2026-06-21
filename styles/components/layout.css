@@ -902,6 +902,27 @@ header {
   transform: scale(0.98);
 }
 
+/* Inside finished banner: small subtle text link */
+.finished-banner .export-inline-btn {
+  display: inline-block;
+  width: auto;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+.finished-banner .export-inline-btn:hover {
+  color: var(--white);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* RIR/ROM metadata on completed session dots */
 .dot-meta {
   display: block;
