@@ -584,20 +584,22 @@ function buildDistanceChips(dist) {
   // Show progress distance when the user has made some headway
   // (qualifyingNeeded < threshold) but hasn't triggered yet
   if (qualifyingNeeded > 0 && qualifyingNeeded < 2) {
+    const label = `${qualifyingNeeded} TO ↑`;
     chips.push(
       `<span class="prog-chip prog-chip-distance prog-chip-dist-progress"
          title="${qualifyingNeeded} more qualifying session${qualifyingNeeded !== 1 ? 's' : ''} to trigger progression">
-        ${qualifyingNeeded}Q → ↑
+        ${label}
       </span>`
     );
   }
 
   // Show regress distance when it's getting tight (1 failure away)
   if (failingCapacity > 0 && failingCapacity <= 1) {
+    const label = `${failingCapacity} TO ↓`;
     chips.push(
       `<span class="prog-chip prog-chip-distance prog-chip-dist-regress"
          title="${failingCapacity} more failing session${failingCapacity !== 1 ? 's' : ''} before regression triggers">
-        ${failingCapacity}F → ↓
+        ${label}
       </span>`
     );
   }
@@ -1043,6 +1045,22 @@ export function renderCardioUpdate(appState) {
     const finisherCb = finisherCard.querySelector('.finisher-checkbox');
     if (finisherCb) finisherCb.checked = c.finisherDone === true;
   }
+
+  // Also update the session-complete banner: the Finish Workout button should
+  // appear as soon as all exercise sets are done, regardless of warm-up/finisher.
+  // This catches cases where the banner was not revealed during renderSetUpdate.
+  const sessionId = appState.activeSessionId;
+  if (sessionId) {
+    const finished = query.isSessionFinishedInCurrentWeek(appState, sessionId);
+    const banner = document.querySelector('.complete-banner');
+    if (banner && !finished) {
+      const isComplete = query.isSessionComplete(appState, sessionId);
+      const isStarted = query.activeSessionStartTime(appState) !== null;
+      if (isComplete && isStarted) {
+        banner.classList.add('visible');
+      }
+    }
+  }
 }
 
 // ── ETA Display ───────────────────────────────────────────────────────────────
@@ -1259,6 +1277,25 @@ export function initETAUI() {
     if (state) {
       updateElapsedDisplay(state);
       updateETADisplay(state);
+
+      // Safety net: ensure the Finish Workout banner is visible whenever all
+      // exercise sets are complete.  This catches any edge case where the
+      // targeted renderSetUpdate missed showing the banner (e.g., timing
+      // issues, state restore after sleep, etc.).
+      const sessionId = state.activeSessionId;
+      if (sessionId) {
+        const banner = document.querySelector('.complete-banner:not(.finished-banner)');
+        if (banner && !banner.classList.contains('visible')) {
+          const finished = query.isSessionFinishedInCurrentWeek(state, sessionId);
+          if (!finished) {
+            const isComplete = query.isSessionComplete(state, sessionId);
+            const isStarted = query.activeSessionStartTime(state) !== null;
+            if (isComplete && isStarted) {
+              banner.classList.add('visible');
+            }
+          }
+        }
+      }
     }
   }, 1_000);
 }
