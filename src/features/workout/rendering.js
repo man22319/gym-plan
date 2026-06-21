@@ -305,6 +305,7 @@ export function buildSession(session, appState) {
           <span class="finished-banner-title">SESSION COMPLETED</span>
           <small>Logged ${timeLabel} · View only</small>
         </div>
+        <button class="export-inline-btn" id="export-inline-btn">Export Data</button>
       </div>`;
   } else {
     bannerHtml = `
@@ -312,7 +313,6 @@ export function buildSession(session, appState) {
         SESSION COMPLETE<small>Rest up. You earned it.</small>
         <div class="eta-departure" id="eta-departure"></div>
         <button class="finish-workout-btn" data-session-id="${session.id}">Finish Workout</button>
-        <button class="export-inline-btn" id="export-inline-btn">Export Data</button>
       </div>`;
   }
 
