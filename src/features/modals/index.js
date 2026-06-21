@@ -3,7 +3,7 @@ import { query } from '../../core/logic/queries.js';
 import { dispatch, registerStartWorkoutModal } from '../../core/logic/reducer.js';
 import { makeSet } from '../../core/state/state.js';
 import { lowerBound, resolveWeight } from '../../core/utils/helpers.js';
-import { formatDate, formatTime, formatDuration } from '../workout/rendering.js';
+import { formatDate, formatTime, formatDuration, getSuggestedSessionId } from '../workout/rendering.js';
 
 
 export let activeHistoryModal = null;
@@ -340,7 +340,16 @@ export function openSessionSummaryModal(entry, appState, isCycleComplete = false
 }
 
 export function closeSessionSummaryModal() {
-  if (activeSummaryModal) { activeSummaryModal.remove(); activeSummaryModal = null; }
+  if (activeSummaryModal) {
+    activeSummaryModal.remove();
+    activeSummaryModal = null;
+    // After closing, auto-switch to the next suggested session so the user
+    // isn't stuck on the finished session's read-only view (no set dots).
+    const suggested = getSuggestedSessionId(state);
+    if (suggested && suggested !== state.activeSessionId) {
+      dispatch('SET_ACTIVE_SESSION', { sessionId: suggested });
+    }
+  }
 }
 
 export let activeModal = null;
