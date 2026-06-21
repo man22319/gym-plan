@@ -1,7 +1,7 @@
 import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, STORAGE_KEY } from '../state/state.js';
 import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
-import { resolveWeight, resolveReps, lowerBound } from '../utils/helpers.js';
+import { resolveWeight, resolveReps } from '../utils/helpers.js';
 import { startRestTimer } from '../utils/restTimer.js';
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
 import { updateProgressionState } from './progression.js';
@@ -137,9 +137,9 @@ export function reducer(currentState, action) {
       } else {
         const current = runtimeOverrides[exId] || {};
         const merged  = { ...current };
-        // UI passes fields.weight; stored as .load to match library field name
-        if (fields.weight === null) delete merged.load;
-        else if (fields.weight !== undefined) merged.load = fields.weight;
+        // UI passes fields.workingWeight; stored as .workingWeight (explicit opt-out from controller)
+        if (fields.workingWeight === null) delete merged.workingWeight;
+        else if (fields.workingWeight !== undefined) merged.workingWeight = fields.workingWeight;
         if (fields.reps   === null) delete merged.reps;
         else if (fields.reps   !== undefined) merged.reps   = fields.reps;
         if (fields.notes  === null) delete merged.notes;
@@ -501,7 +501,8 @@ export function dispatch(type, payload = {}) {
             repRange,
             deltaW: nextState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
             prescribedRestSec,
-            prescribedWeight: lowerBound(ex.load) ?? null,
+            prescribedWeight: ex.baseWeight ?? null,
+            maxW: ex.maxW ?? null,
           });
           newProgState[instanceId] = {
             currentWeight:         updated.currentWeight,
@@ -517,6 +518,7 @@ export function dispatch(type, payload = {}) {
             controllerDistance:    updated.controllerDistance,
             modeDominanceRatio:    updated.modeDominanceRatio,
             weightAgreement:       updated.weightAgreement,
+            isAtMax:               updated.isAtMax ?? false,
           };
         }
 
@@ -569,7 +571,8 @@ export function rebuildAllProgressions(appState) {
         repRange,
         deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
         prescribedRestSec,
-        prescribedWeight: lowerBound(ex.load) ?? null,
+        prescribedWeight: ex.baseWeight ?? null,
+        maxW: ex.maxW ?? null,
       });
       newProgState[instanceId] = {
         currentWeight:         updated.currentWeight,
@@ -585,6 +588,7 @@ export function rebuildAllProgressions(appState) {
         controllerDistance:    updated.controllerDistance,
         modeDominanceRatio:    updated.modeDominanceRatio,
         weightAgreement:       updated.weightAgreement,
+        isAtMax:               updated.isAtMax ?? false,
       };
     }
   }

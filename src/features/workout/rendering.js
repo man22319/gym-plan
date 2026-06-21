@@ -1,7 +1,7 @@
 import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX, state, defaultWorkoutsData } from '../../core/state/store.js';
 import { REST_DURATION } from '../../core/state/state.js';
 import { query } from '../../core/logic/queries.js';
-import { getEffectiveExercise, lowerBound } from '../../core/utils/helpers.js';
+import { getEffectiveExercise, getWorkingWeight } from '../../core/utils/helpers.js';
 import { updateProgressionState } from '../../core/logic/progression.js';
 import { calculateETA } from '../../core/utils/eta.js';
 
@@ -17,14 +17,9 @@ export function formatReps(reps) {
   return `${reps.min}–${reps.max}`;
 }
 
-export function formatWeight(weight) {
-  if (!weight || typeof weight !== 'object') return '';
-  if ('min' in weight && 'max' in weight) {
-    if (weight.min === weight.max) return `${weight.min} lbs`;
-    return `${weight.min}–${weight.max} lbs`;
-  }
-  if ('value' in weight) return `${weight.value} lbs`;
-  return '';
+export function formatWeight(w) {
+  if (w == null) return '';
+  return `${w} lbs`;
 }
 
 export function formatDuration(ms) {
@@ -376,9 +371,10 @@ export function buildCard(ex, appState, readOnly = false) {
 
   const effEx = getEffectiveExercise(appState, instanceId);
   const displayName = effEx?.name ?? ex.name ?? instanceId;
-  const isOverridden = !!appState?.runtimeOverrides?.[instanceId];
+  const workingWeight = getWorkingWeight(appState, instanceId);
+  const isOverridden = !!appState?.runtimeOverrides?.[instanceId]?.workingWeight;
 
-  const wStr = formatWeight(effEx?.load);
+  const wStr = formatWeight(workingWeight);
   const prs = query.currentSetPRs(appState, instanceId);
   const hasPR = prs.length > 0;
 
@@ -391,7 +387,7 @@ export function buildCard(ex, appState, readOnly = false) {
   }
 
   const isOverriddenClass = isOverridden ? 'overridden' : '';
-  const overrideIndicator = isOverridden ? ' <span class="ex-override-indicator" title="Custom targets active">●</span>' : '';
+  const overrideIndicator = isOverridden ? ' <span class="ex-override-indicator" title="Working weight override active">●</span>' : '';
 
   // In completed sessions: show a LOGGED badge instead of the edit button; header is non-interactive
   const loggedBadgeHtml = readOnly ? `<span class="ex-logged-badge">LOGGED</span>` : '';
@@ -403,6 +399,9 @@ export function buildCard(ex, appState, readOnly = false) {
 
   // Layer B: live progression row (active) or review row (finished)
   const progressionRowHtml = buildProgressionRow(instanceId, appState, readOnly);
+
+  // Tolerance for dot feedback (per-exercise or default 10%)
+  const tolerance = effEx?.tolerance ?? 0.1;
 
   return `<div class="exercise-card ${cardClass}" data-ex-id="${instanceId}">
     <div class="exercise-header" data-ex-id="${instanceId}" role="button" aria-label="View history for ${displayName}" tabindex="0" ${readOnly ? 'style="cursor: default; pointer-events: none;"' : ''}>
@@ -430,7 +429,7 @@ export function buildCard(ex, appState, readOnly = false) {
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
     ${readOnly ? '' : `<div class="set-row">
-      ${sets.map((s, i) => buildDot(instanceId, i, s, readOnly, effEx)).join('')}
+      ${sets.map((s, i) => buildDot(instanceId, i, s, readOnly, workingWeight, tolerance)).join('')}
     </div>`}
   </div>`;
 }
@@ -438,45 +437,25 @@ export function buildCard(ex, appState, readOnly = false) {
 export function buildEditPanel(ex, appState) {
   const instanceId = ex.instanceId;
   const effEx = getEffectiveExercise(appState, instanceId);
-
-  // Use .load only — no .weight alias
-  const weightObj = effEx?.load;
-  const isRangeLoad = weightObj && ('min' in weightObj);
+  const currentWW = getWorkingWeight(appState, instanceId);
 
   const repMin = effEx?.reps?.min ?? '';
   const repMax = effEx?.reps?.max ?? '';
 
   const notesVal = effEx?.notes ?? '';
 
-  // Build load input(s) based on whether the exercise uses a range or single value
-  let loadFieldsHtml;
-  if (isRangeLoad) {
-    const loadMin = weightObj.min ?? '';
-    const loadMax = weightObj.max ?? '';
-    loadFieldsHtml = `
-      <div class="ex-edit-field">
-        <label>Target Load (Min / Max)</label>
-        <div class="ex-edit-reps-wrap">
-          <input type="number" class="ex-edit-input" id="edit-weight-min-${instanceId}" step="2.5" min="0" value="${loadMin}" placeholder="Min" />
-          <span class="ex-edit-reps-dash">—</span>
-          <input type="number" class="ex-edit-input" id="edit-weight-max-${instanceId}" step="2.5" min="0" value="${loadMax}" placeholder="Max" />
-          <span class="ex-edit-unit">lbs</span>
-        </div>
-      </div>`;
-  } else {
-    const weightVal = weightObj?.value ?? '';
-    loadFieldsHtml = `
-      <div class="ex-edit-field">
-        <label for="edit-weight-${instanceId}">Target Weight</label>
-        <div class="ex-edit-input-wrap">
-          <input type="number" class="ex-edit-input" id="edit-weight-${instanceId}" step="2.5" min="0" value="${weightVal}" placeholder="Prescribed weight" />
-          <span class="ex-edit-unit">lbs</span>
-        </div>
-      </div>`;
-  }
+  // Single working weight input — no range modes
+  const loadFieldsHtml = `
+    <div class="ex-edit-field">
+      <label for="edit-weight-${instanceId}">Working Weight</label>
+      <div class="ex-edit-input-wrap">
+        <input type="number" class="ex-edit-input" id="edit-weight-${instanceId}" step="2.5" min="0" value="${currentWW ?? ''}" placeholder="Auto from progression" />
+        <span class="ex-edit-unit">lbs</span>
+      </div>
+    </div>`;
 
   return `
-    <div class="ex-edit-panel" data-ex-id="${instanceId}" data-load-mode="${isRangeLoad ? 'range' : 'single'}">
+    <div class="ex-edit-panel" data-ex-id="${instanceId}">
       <div class="ex-edit-fields">
         ${loadFieldsHtml}
         <div class="ex-edit-field">
@@ -712,7 +691,8 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
         repRange,
         deltaW,
         prescribedRestSec,
-        prescribedWeight: lowerBound(ex?.load) ?? null,
+        prescribedWeight: ex?.baseWeight ?? null,
+        maxW: ex?.maxW ?? null,
       });
 
       // Live classification chip
@@ -799,38 +779,30 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
 
 /**
  * Returns a feedback label for a completed/failed set based on how the logged
- * weight compares to the prescribed range in the exercise definition.
+ * weight compares to the working weight.
  *
- * @param {object} setObj   — { s, w, r }
- * @param {object} effEx    — resolved exercise with .load
- * @returns {string}        — 'light' | 'heavy' | 'on-target' | '' | 'failed'
+ * @param {object} setObj        — { s, w, r }
+ * @param {number|null} workingWeight — resolved working weight
+ * @param {number} tolerance     — fractional tolerance (default 0.1 = ±10%)
+ * @returns {string}             — 'light' | 'heavy' | 'on-target' | '' | 'failed'
  */
-function getSetFeedback(setObj, effEx) {
+function getSetFeedback(setObj, workingWeight, tolerance = 0.1) {
   if (setObj.s === 'failed') return 'failed';
-  if (setObj.s !== 'done' || setObj.w === null) return '';
-
-  const load = effEx?.load;
-  if (!load) return '';
-
-  const w = setObj.w;
-  const min = load.min ?? load.value ?? null;
-  const max = load.max ?? load.value ?? null;
-
-  if (min === null && max === null) return '';
-  if (max !== null && w > max * 1.1) return 'heavy';   // >10% above target max
-  if (min !== null && w < min * 0.9) return 'light';   // >10% below target min
+  if (setObj.s !== 'done' || setObj.w === null || workingWeight == null) return '';
+  if (setObj.w > workingWeight * (1 + tolerance)) return 'heavy';
+  if (setObj.w < workingWeight * (1 - tolerance)) return 'light';
   return 'on-target';
 }
 
-export function buildDot(exId, idx, setObj, readOnly = false, effEx = null) {
+export function buildDot(exId, idx, setObj, readOnly = false, workingWeight = null, tolerance = 0.1) {
   const { s, w, r } = setObj;
   let cls = 'set-dot';
   let inner = '';
 
   const hasData = w !== null || r !== null;
 
-  // Layer A: set-level feedback (active sessions only) — label removed; dot colour conveys state
-  const feedback = (!readOnly && effEx) ? getSetFeedback(setObj, effEx) : '';
+  // Layer A: set-level feedback (active sessions only) — dot colour conveys state
+  const feedback = (!readOnly && workingWeight != null) ? getSetFeedback(setObj, workingWeight, tolerance) : '';
 
   // Build RIR/ROM metadata line for logged sets
   const rirVal = setObj.rir;

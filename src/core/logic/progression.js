@@ -496,6 +496,7 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   - deltaW            {number}                    exercise-specific step (lbs)
  *   - prescribedRestSec {number}                    expected rest between sets (seconds)
  *   - prescribedWeight  {number|null}               program-defined working weight (bootstrap seed)
+ *   - maxW              {number|null}               equipment ceiling — hard clamp (optional)
  * @returns {{
  *   currentWeight:         number|null,
  *   consecutiveQualifying: number,
@@ -514,6 +515,7 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  */
 export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const dw = opts.deltaW ?? prev.dw ?? DEFAULTS.defaultDw;
+  const maxW = opts.maxW ?? null;
   const repRange = opts.repRange ?? { min: 8, max: 12 };
   const prevWeight = prev.currentWeight ?? null;
   const prevConsecutive = prev.consecutiveQualifying ?? 0;
@@ -524,13 +526,13 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // This prevents the controller from producing garbage-shaped certainty
   // on malformed configuration.
   if (repRange.min != null && repRange.max != null && repRange.min > repRange.max) {
-    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw);
+    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW);
   }
   if (dw <= 0) {
-    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw);
+    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW);
   }
   if (opts.prescribedRestSec != null && opts.prescribedRestSec < 0) {
-    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw);
+    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW);
   }
 
   // Classify this session
@@ -677,20 +679,30 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const step = Math.max(dw, 0.5);
   suggestedWeight = Math.max(0, step * Math.round(suggestedWeight / step));
 
+  // ── maxW clamp (SINGLE location) ──────────────────────────────────
+  // Equipment ceiling supersedes the deltaW grid.
+  // Applied once, after all computation is final.
+  if (maxW != null && suggestedWeight > maxW) {
+    suggestedWeight = maxW;
+  }
+
+  const committedWeight = decision === 'progress' ? suggestedWeight
+                        : decision === 'regress'  ? suggestedWeight
+                        : currentWeight;
+
   // isFirstSession is a UI-layer concern, not a controller state.
   // The controller always returns its true decision (progress/hold/regress).
   const isFirstSession = prevWeight === null;
 
   return {
-    currentWeight: decision === 'progress' ? suggestedWeight
-                 : decision === 'regress'  ? suggestedWeight
-                 : currentWeight,
+    currentWeight: maxW != null ? Math.min(committedWeight, maxW) : committedWeight,
     consecutiveQualifying,
     recentOutcomes,
     dw,
     suggestedWeight,
     decision,
     isFirstSession,
+    isAtMax: maxW != null && committedWeight >= maxW,
     sessionClassification: classification,
     topWeight: topWeight ?? null,
     restInflationFactor,
@@ -705,15 +717,17 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
  * Used when input validation fails.
  * @private
  */
-function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw) {
+function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null) {
+  const cw = maxW != null && prevWeight != null ? Math.min(prevWeight, maxW) : prevWeight;
   return {
-    currentWeight: prevWeight,
+    currentWeight: cw,
     consecutiveQualifying: prevConsecutive,
     recentOutcomes: prevOutcomes,
     dw,
-    suggestedWeight: prevWeight,
+    suggestedWeight: cw,
     decision: 'hold',
     isFirstSession: prevWeight === null,
+    isAtMax: maxW != null && cw != null && cw >= maxW,
     sessionClassification: null,
     topWeight: null,
     restInflationFactor: 0,

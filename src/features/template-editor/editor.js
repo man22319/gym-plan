@@ -28,7 +28,7 @@ const EQUIPMENT_TYPES = [
 ];
 
 // Instance-level override fields (subset of canonical fields)
-const INSTANCE_OVERRIDE_KEYS = ['sets', 'reps', 'load'];
+const INSTANCE_OVERRIDE_KEYS = ['sets', 'reps', 'baseWeight'];
 
 // ── Editor state ─────────────────────────────────────────────────────────────
 
@@ -56,11 +56,9 @@ function generateId(prefix = 'id') {
 
 
 
-/** Format load for display */
-function formatLoad(load) {
-  if (!load) return 'BW';
-  if ('value' in load) return `${load.value} lbs`;
-  if ('min' in load) return `${load.min}–${load.max} lbs`;
+/** Format base weight for display */
+function formatLoad(ex) {
+  if (ex.baseWeight != null) return `${ex.baseWeight} lbs`;
   return 'BW';
 }
 
@@ -189,7 +187,7 @@ function renderLibraryPanel(container) {
           </div>
           <div class="te-lib-card-header-right">
             <span class="te-lib-usage-badge" title="Used in ${usageCount} session placement(s)">${usageCount}×</span>
-            <span class="te-lib-card-meta">${ex.sets || 3}×${formatReps(ex.reps)} · ${formatLoad(ex.load)}</span>
+            <span class="te-lib-card-meta">${ex.sets || 3}×${formatReps(ex.reps)} · ${formatLoad(ex)}</span>
           </div>
         </div>
         ${isExpanded ? renderLibraryCardBody(ref, ex) : ''}
@@ -217,37 +215,6 @@ function renderLibraryCardBody(ref, ex) {
   const eqOptions = EQUIPMENT_TYPES.map(t =>
     `<option value="${t.value}" ${ex.equipmentType === t.value ? 'selected' : ''}>${t.label}</option>`
   ).join('');
-
-  // Load mode: 'single' if load.value exists, 'range' if load.min/max, 'none' otherwise
-  let loadMode = 'none';
-  if (ex.load) {
-    loadMode = ('min' in ex.load) ? 'range' : 'single';
-  }
-
-  let loadFieldsHtml = '';
-  if (loadMode === 'single') {
-    loadFieldsHtml = `
-      <div class="te-field-row">
-        <div class="te-field-sm">
-          <label class="te-field-label">Load Value</label>
-          <input type="number" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="load.value" value="${ex.load?.value ?? 0}" />
-        </div>
-      </div>
-    `;
-  } else if (loadMode === 'range') {
-    loadFieldsHtml = `
-      <div class="te-field-row">
-        <div class="te-field-sm">
-          <label class="te-field-label">Load Min</label>
-          <input type="number" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="load.min" value="${ex.load?.min ?? 0}" />
-        </div>
-        <div class="te-field-sm">
-          <label class="te-field-label">Load Max</label>
-          <input type="number" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="load.max" value="${ex.load?.max ?? 0}" />
-        </div>
-      </div>
-    `;
-  }
 
   return `
     <div class="te-lib-card-body">
@@ -282,15 +249,14 @@ function renderLibraryCardBody(ref, ex) {
       </div>
 
       <div class="te-fields-grid">
-        <div class="te-field te-field-wide">
-          <label class="te-field-label">Load Mode</label>
-          <select class="te-select te-lib-load-mode" data-ref="${ref}">
-            <option value="none" ${loadMode === 'none' ? 'selected' : ''}>None (Bodyweight)</option>
-            <option value="single" ${loadMode === 'single' ? 'selected' : ''}>Fixed Value</option>
-            <option value="range" ${loadMode === 'range' ? 'selected' : ''}>Min / Max Range</option>
-          </select>
+        <div class="te-field">
+          <label class="te-field-label">Base Weight</label>
+          <input type="number" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="baseWeight" value="${ex.baseWeight ?? ''}" placeholder="Bodyweight" />
         </div>
-        ${loadFieldsHtml}
+        <div class="te-field">
+          <label class="te-field-label">Equipment Max (maxW)</label>
+          <input type="number" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="maxW" value="${ex.maxW ?? ''}" placeholder="No limit" />
+        </div>
       </div>
 
       <div class="te-fields-grid">
@@ -442,17 +408,17 @@ function renderSessionExerciseCard(inst, blockIdx, exIdx, block, session) {
   // Resolved values (canonical + overrides)
   const resolvedSets = inst.sets ?? canonicalEx.sets ?? 3;
   const resolvedReps = inst.reps ?? canonicalEx.reps ?? { min: 8, max: 12 };
-  const resolvedLoad = inst.load ?? canonicalEx.load;
+  const resolvedBaseWeight = inst.baseWeight ?? canonicalEx.baseWeight;
 
   // Check which fields are overridden
   const hasSetOverride = inst.sets !== undefined;
   const hasRepOverride = inst.reps !== undefined;
-  const hasLoadOverride = inst.load !== undefined;
+  const hasBaseWeightOverride = inst.baseWeight !== undefined;
 
   const overrideBadges = [
     hasSetOverride ? '<span class="te-override-badge" title="Sets overridden">sets</span>' : '',
     hasRepOverride ? '<span class="te-override-badge" title="Reps overridden">reps</span>' : '',
-    hasLoadOverride ? '<span class="te-override-badge" title="Load overridden">load</span>' : '',
+    hasBaseWeightOverride ? '<span class="te-override-badge" title="Base weight overridden">weight</span>' : '',
   ].filter(Boolean).join('');
 
   let expandedHtml = '';
@@ -494,15 +460,15 @@ function renderSessionExerciseCard(inst, blockIdx, exIdx, block, session) {
             </div>
             ${hasRepOverride ? `<button class="te-clear-override-btn" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps" title="Clear override">✕ Clear reps override</button>` : ''}
           </div>
-          <div class="te-field te-field-wide">
+          <div class="te-field">
             <label class="te-field-label">
-              Load
-              ${hasLoadOverride ? '<span class="te-override-dot" title="Overridden">●</span>' : ''}
+              Base Weight
+              ${hasBaseWeightOverride ? '<span class="te-override-dot" title="Overridden">●</span>' : ''}
             </label>
-            <div class="te-field-row">
-              ${renderInstanceLoadFields(inst, blockIdx, exIdx, canonicalEx)}
+            <div class="te-override-input-group">
+              <input type="number" step="any" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="baseWeight" value="${inst.baseWeight ?? ''}" placeholder="${canonicalEx.baseWeight ?? 'BW'}" />
+              ${hasBaseWeightOverride ? `<button class="te-clear-override-btn" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="baseWeight" title="Clear override">✕</button>` : ''}
             </div>
-            ${hasLoadOverride ? `<button class="te-clear-override-btn" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="load" title="Clear override">✕ Clear load override</button>` : ''}
           </div>
         </div>
 
@@ -535,37 +501,8 @@ function renderSessionExerciseCard(inst, blockIdx, exIdx, block, session) {
   `;
 }
 
-function renderInstanceLoadFields(inst, blockIdx, exIdx, canonicalEx) {
-  const canonicalLoad = canonicalEx.load;
-  const instLoad = inst.load;
-
-  if (!canonicalLoad && !instLoad) {
-    return '<span class="te-field-hint">Library: Bodyweight (no load)</span>';
-  }
-
-  // Determine if canonical uses single value or range
-  const isCanoRange = canonicalLoad && ('min' in canonicalLoad);
-
-  if (isCanoRange) {
-    return `
-      <div class="te-field-sm">
-        <label class="te-field-label">Min</label>
-        <input type="number" step="any" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="load.min" value="${instLoad?.min ?? ''}" placeholder="${canonicalLoad?.min ?? ''}" />
-      </div>
-      <div class="te-field-sm">
-        <label class="te-field-label">Max</label>
-        <input type="number" step="any" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="load.max" value="${instLoad?.max ?? ''}" placeholder="${canonicalLoad?.max ?? ''}" />
-      </div>
-    `;
-  }
-
-  return `
-    <div class="te-field-sm">
-      <label class="te-field-label">Value</label>
-      <input type="number" step="any" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="load.value" value="${instLoad?.value ?? ''}" placeholder="${canonicalLoad?.value ?? ''}" />
-    </div>
-  `;
-}
+// renderInstanceLoadFields removed — baseWeight is now a single scalar input
+// handled inline in renderSessionExerciseCard
 
 // ══════════════════════════════════════════
 // ─── RENDER: EXERCISE PICKER MODAL ───
@@ -588,7 +525,7 @@ function renderExercisePicker() {
         <div class="te-picker-item-name">${ex.name || ref}</div>
         <div class="te-picker-item-meta">
           <span class="te-ref-badge">${ref}</span>
-          <span>${ex.sets || 3}×${formatReps(ex.reps)} · ${formatLoad(ex.load)} · ${ex.equipmentType || '?'}</span>
+          <span>${ex.sets || 3}×${formatReps(ex.reps)} · ${formatLoad(ex)} · ${ex.equipmentType || '?'}</span>
         </div>
       </div>
     `;
@@ -709,10 +646,14 @@ function setupEditorEvents() {
         if (!ex.reps) ex.reps = {};
         const sub = fieldPath.split('.')[1];
         ex.reps[sub] = parseInt(e.target.value, 10) || 0;
-      } else if (fieldPath.startsWith('load.')) {
-        if (!ex.load) ex.load = {};
-        const sub = fieldPath.split('.')[1];
-        ex.load[sub] = parseFloat(e.target.value) || 0;
+      } else if (fieldPath === 'baseWeight') {
+        const v = e.target.value;
+        if (v === '') delete ex.baseWeight;
+        else ex.baseWeight = parseFloat(v) || 0;
+      } else if (fieldPath === 'maxW') {
+        const v = e.target.value;
+        if (v === '') delete ex.maxW;
+        else ex.maxW = parseFloat(v) || 0;
       }
       return;
     }
@@ -749,15 +690,9 @@ function setupEditorEvents() {
           if (!inst.reps) inst.reps = {};
           inst.reps[sub] = parseInt(value, 10) || 0;
         }
-      } else if (fieldPath.startsWith('load.')) {
-        const sub = fieldPath.split('.')[1];
-        if (value === '' && inst.load) {
-          delete inst.load[sub];
-          if (Object.keys(inst.load).length === 0) delete inst.load;
-        } else if (value !== '') {
-          if (!inst.load) inst.load = {};
-          inst.load[sub] = parseFloat(value) || 0;
-        }
+      } else if (fieldPath === 'baseWeight') {
+        if (value === '') delete inst.baseWeight;
+        else inst.baseWeight = parseFloat(value) || 0;
       }
       return;
     }
@@ -766,22 +701,7 @@ function setupEditorEvents() {
   // ── Change events (select dropdowns) ────────────────────────────────────────
 
   overlayEl.addEventListener('change', e => {
-    // Library load mode change
-    if (e.target.classList.contains('te-lib-load-mode')) {
-      const ref = e.target.dataset.ref;
-      if (!ref || !draftLibrary[ref]) return;
-      const mode = e.target.value;
-      const ex = draftLibrary[ref];
-      if (mode === 'none') {
-        delete ex.load;
-      } else if (mode === 'single') {
-        ex.load = { value: 0 };
-      } else if (mode === 'range') {
-        ex.load = { min: 0, max: 0 };
-      }
-      renderBody();
-      return;
-    }
+    // (Load mode selector removed — baseWeight is a flat scalar now)
 
     // Library equipmentType dropdown
     if (e.target.classList.contains('te-lib-field') && e.target.dataset.field === 'equipmentType') {
@@ -852,7 +772,8 @@ function setupEditorEvents() {
         equipmentType: 'machine',
         sets: 3,
         reps: { min: 8, max: 12 },
-        load: { value: 0 },
+        baseWeight: 0,
+        maxW: 500,
         deltaW: 5,
         restBetweenSets: 90,
         restBetweenExercises: 60,

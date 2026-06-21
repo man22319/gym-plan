@@ -1,6 +1,6 @@
 import { workouts, state, setState, defaultWorkoutsData, resolveInstance, hydrateInstanceIds } from '../core/state/store.js';
 import { dispatch } from '../core/logic/reducer.js';
-import { formatReps, formatWeight, render } from '../features/workout/rendering.js';
+import { formatReps, render } from '../features/workout/rendering.js';
 import { persist, normalize, sanitizeSessions } from '../core/state/persistence.js';
 import { compactExport, expandImport } from './compactFormat.js';
 
@@ -115,7 +115,7 @@ export function copyWorkout(btn) {
       (block.exercises ?? []).forEach(inst => {
         const ex = resolveInstance(inst, library, defaults);
         lines.push(`  ${ex.letter ?? ''}  ${ex.name}`);
-        lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${formatWeight(ex.load)}`);
+        lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${ex.baseWeight != null ? ex.baseWeight + ' lbs' : 'BW'}`);
         if (ex.notes) lines.push(`     Note: ${ex.notes}`);
       });
       lines.push('');

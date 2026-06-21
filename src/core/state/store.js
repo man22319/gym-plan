@@ -30,7 +30,7 @@ export let state = null;
 
 // ── Overridable instance fields (layer 3) ───────────────────────────────────
 
-const INSTANCE_OVERRIDE_KEYS = ['sets', 'reps', 'load', 'restBetweenSets', 'restBetweenExercises'];
+const INSTANCE_OVERRIDE_KEYS = ['sets', 'reps', 'baseWeight', 'restBetweenSets', 'restBetweenExercises'];
 
 // ── Core resolution function ─────────────────────────────────────────────────
 

@@ -8,14 +8,37 @@ export function lowerBound(obj) {
 }
 
 /**
+ * Single source of truth for working weight.
+ *
+ * Resolution (most specific wins):
+ *   runtimeOverrides.workingWeight > progressionState.currentWeight > baseWeight
+ *
+ * Used by: display (header weight tag), set logging defaults, feedback.
+ * One value. No branching.
+ *
+ * @param {object} appState
+ * @param {string} instanceId
+ * @returns {number|null}
+ */
+export function getWorkingWeight(appState, instanceId) {
+  // Layer 1: explicit user override (opt-out from controller)
+  const ww = appState?.runtimeOverrides?.[instanceId]?.workingWeight;
+  if (ww != null) return ww;
+  // Layer 2: controller state (authoritative after first session)
+  const cw = appState?.progressionState?.[instanceId]?.currentWeight;
+  if (cw != null) return cw;
+  // Layer 3: exercise definition anchor (bootstrap only)
+  return EXERCISE_INDEX[instanceId]?.baseWeight ?? null;
+}
+
+/**
  * Resolve the effective exercise for a given instanceId.
  *
  * Applies layer 4 (runtimeOverrides) on top of the EXERCISE_INDEX entry
  * which already has layers 1–3 merged (programDefaults + library + instance overrides).
  *
- * All fields use the same naming convention as the library:
- *   load, reps, notes, deltaW, equipmentType
- * The old .weight alias is removed — callers use .load.
+ * Working weight is NOT merged here — it's resolved via getWorkingWeight().
+ * This function handles reps, notes, deltaW, equipmentType overrides only.
  *
  * @param {object} appState
  * @param {string} instanceId
@@ -28,8 +51,7 @@ export function getEffectiveExercise(appState, instanceId) {
   if (!override) return base;
 
   const result = { ...base };
-  // All override keys match library field names
-  if (override.load  !== undefined) result.load  = override.load;
+  // Working weight resolved via getWorkingWeight() — not spread onto exercise object
   if (override.reps  !== undefined) result.reps  = override.reps;
   if (override.notes !== undefined) result.notes = override.notes;
   if (override.deltaW !== undefined) result.deltaW = override.deltaW;
@@ -39,7 +61,8 @@ export function getEffectiveExercise(appState, instanceId) {
 
 /**
  * Resolve the working weight for an exercise.
- * Reads runtimeOverrides (keyed by instanceId) then falls back to library load.
+ * Used when user taps a set dot without entering a weight — defaults to
+ * the controller's current weight via getWorkingWeight().
  *
  * @param {number|null} userValue — explicitly typed value (wins if present)
  * @param {string} instanceId
@@ -47,9 +70,7 @@ export function getEffectiveExercise(appState, instanceId) {
  */
 export function resolveWeight(userValue, instanceId) {
   if (userValue !== null && userValue !== undefined && !isNaN(userValue)) return userValue;
-  const override = state?.runtimeOverrides?.[instanceId];
-  const loadObj  = override?.load ?? EXERCISE_INDEX[instanceId]?.load;
-  return loadObj ? lowerBound(loadObj) : null;
+  return getWorkingWeight(state, instanceId);
 }
 
 /**

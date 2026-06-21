@@ -42,23 +42,10 @@ export function setupExerciseEvents() {
     const saveBtn = e.target.closest('.ex-edit-btn-save');
     if (saveBtn) {
       const exId  = saveBtn.dataset.exId;
-      const panel = document.querySelector(`.ex-edit-panel[data-ex-id="${exId}"]`);
-      const loadMode = panel?.dataset.loadMode || 'single';
 
-      let weight = null;
-      if (loadMode === 'range') {
-        const minVal = document.getElementById(`edit-weight-min-${exId}`)?.value.trim() ?? '';
-        const maxVal = document.getElementById(`edit-weight-max-${exId}`)?.value.trim() ?? '';
-        if (minVal !== '' || maxVal !== '') {
-          weight = {
-            min: minVal !== '' ? parseFloat(minVal) : 0,
-            max: maxVal !== '' ? parseFloat(maxVal) : 0
-          };
-        }
-      } else {
-        const wVal = document.getElementById(`edit-weight-${exId}`)?.value.trim() ?? '';
-        weight = wVal !== '' ? { value: parseFloat(wVal) } : null;
-      }
+      // Working weight — single scalar, no range modes
+      const wVal = document.getElementById(`edit-weight-${exId}`)?.value.trim() ?? '';
+      const workingWeight = wVal !== '' ? parseFloat(wVal) : null;
 
       const rMin  = document.getElementById(`edit-repmin-${exId}`)?.value.trim() ?? '';
       const rMax  = document.getElementById(`edit-repmax-${exId}`)?.value.trim() ?? '';
@@ -73,7 +60,7 @@ export function setupExerciseEvents() {
 
       dispatch('UPDATE_EXERCISE_OVERRIDE', {
         exId,
-        fields: { weight, reps, notes: notes !== '' ? notes : null }
+        fields: { workingWeight, reps, notes: notes !== '' ? notes : null }
       });
       setEditingExId(null);
       return;
