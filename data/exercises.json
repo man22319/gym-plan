@@ -16,7 +16,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Rotate palms outward as you press. Controlled rotation both ways."
+      "notes": "Find comfortable grip! Press in an arc from in front of face to overhead. Rotation is passive, not forced. Stop before lower back takes over."
     },
 
     "barbell_curl": {
@@ -28,7 +28,7 @@
       "deltaW": 10,
       "restBetweenSets": 75,
       "restBetweenExercises": 45,
-      "notes": "Elbows pinned at sides. Supinate at top, full hang at bottom."
+      "notes": "Keep elbows still. Small body swing is OK only near hard reps. Do not turn it into a hip drive."
     },
 
     "bench_db": {
@@ -40,7 +40,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Lower slowly to chest, full extension at top. Feet flat on floor."
+      "notes": "Lower slow. Press straight up. Do not bounce or rush the bottom."
     },
 
     "bench_db_incline": {
@@ -52,7 +52,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "30–45° incline. Lower to upper chest. Full press, slight arch."
+      "notes": "Press up and slightly in. Do not turn into shoulder press."
     },
 
     "back_ext": {
@@ -64,7 +64,7 @@
       "deltaW": 10,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Controlled hip extension. Squeeze glutes at top. No hyperextending lower back."
+      "notes": "Move at hips. Stop when body is straight. Do not lean past straight."
     },
     
     "reverse_pd": {
@@ -72,11 +72,11 @@
       "equipmentType": "machine",
       "sets": 3,
       "reps": { "min": 12, "max": 15 },
-      "load": { "min": 140, "max": 160 },
+      "load": { "min": 40, "max": 60 },
       "deltaW": 10,
       "restBetweenSets": 70,
       "restBetweenExercises": 45,
-      "notes": "Wide arc, not a pull. 2-3 sec eccentric, No swing."
+      "notes": "Pull out and back. Do not use traps or momentum."
     },
 
     "glute_kickback": {
@@ -88,7 +88,7 @@
       "deltaW": 10,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Drive through heel. Pause at peak squeeze. Keep hips square."
+      "notes": "Push back with heel. Keep hips still. Squeeze at the top."
     },
 
     "hammer_curl": {
@@ -100,7 +100,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Neutral grip throughout. Curl to shoulder, lower with control. No swinging."
+      "notes": "Neutral grip throughout. Curl to shoulder. No swinging. Slow down on the way down."
     },
 
     "lat_pull": {
@@ -112,9 +112,21 @@
       "deltaW": 10,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Pull to upper chest, not behind neck. Slight lean back, chest up."
+      "notes": "Pull down to chest. Keep body still. No swinging."
     },
 
+    "lat_machine": {
+      "name": "Seated Lateral Raise Machine",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": { "min": 12, "max": 20 },
+      "load": { "min": 20, "max": 40 },
+      "deltaW": 10,
+      "restBetweenSets": 60,
+      "restBetweenExercises": 30,
+      "notes": "Controlled reps only. Keep constant tension, stop at shoulder height, no shrugging. Stay in the rep range even on fatigued days."
+    },
+    
     "lat_raise": {
       "name": "Lateral Raise",
       "equipmentType": "dumbbell",
@@ -124,7 +136,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 60,
       "restBetweenExercises": 30,
-      "notes": "Lead with elbows, slight bend. Stop at shoulder height. Slow eccentric."
+      "notes": "Raise out to the sides. Slight elbow bend stays the same. No swinging, Slow eccentric."
     },
 
     "leg_curl": {
@@ -136,7 +148,7 @@
       "deltaW": 10,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Full ROM — extend fully, curl to 90°+. Control the return."
+      "notes": "Curl down and back. Control the return. Do not cut range short, curl to 90°+."
     },
 
     "leg_press": {
@@ -148,7 +160,7 @@
       "deltaW": 20,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Standard foot placement. Knees track over toes, lower to 90°."
+      "notes": "Push smoothly. Control depth. Do not lift hips. Knees track over toes, lower to 90°."
     },
 
     "ohp": {
@@ -160,7 +172,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Press directly overhead — slight forward lean is fine. Lock out at top."
+      "notes": "Press straight up. Keep body tight. Do not lean back. Lock out at top."
     },
 
     "row_dumbbell": {
@@ -172,7 +184,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Brace on bench, full stretch at bottom. Row to hip, not shoulder."
+      "notes": "Pull to your side. Keep body still. Do not twist. Row to hip, not shoulder."
     },
 
     "row_machine": {
@@ -184,7 +196,7 @@
       "deltaW": 10,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Drive elbows back, pause 1s at peak contraction. Keep chest tall."
+      "notes": "Drive elbows back, pause 1s at peak contraction. Do not rock your body."
     },
 
     "skull_crushers": {
@@ -196,7 +208,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 75,
       "restBetweenExercises": 45,
-      "notes": "Keep upper arms vertical. Lower to forehead/crown, full extension up."
+      "notes": "Bend and extend elbows only. Keep upper arms still. Lower to forehead/crown, full extension up."
     },
 
     "tri_press": {
@@ -208,7 +220,7 @@
       "deltaW": 10,
       "restBetweenSets": 90,
       "restBetweenExercises": 45,
-      "notes": "Lock elbows in at sides. Full extension, controlled return."
+      "notes": "Push down and lock out. Keep elbows in place, controlled return."
     }
   }
 }

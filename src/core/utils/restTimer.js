@@ -61,11 +61,13 @@ export function extendRestTimer(amount = 30) {
 
   if (wasFinished) {
     restRemaining = Math.min(amount, MAX_REST_DURATION);
-    restDuration = restRemaining;
   } else {
     restRemaining = Math.min(restRemaining + amount, MAX_REST_DURATION);
-    restDuration = Math.min(restDuration + amount, MAX_REST_DURATION);
   }
+  // Always reset duration to match remaining so the bar fills from 100%
+  // after each extension, instead of accumulating a denominator that
+  // makes the bar impossible to visually refill.
+  restDuration = restRemaining;
 
   notify('extend');
   startRestTimerLoop();

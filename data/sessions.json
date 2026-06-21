@@ -59,7 +59,7 @@
               "letter": "A"
             },
             {
-              "exerciseRef": "lat_raise",
+              "exerciseRef": "lat_machine",
               "letter": "B"
             },
             {
@@ -113,7 +113,7 @@
           "label": "Shoulder Cap + Upper Chest",
           "exercises": [
             {
-              "exerciseRef": "lat_raise",
+              "exerciseRef": "lat_machine",
               "letter": "A"
             },
             {

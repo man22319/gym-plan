@@ -567,9 +567,27 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   }
 
   // Initialize currentWeight:
-  //   persisted state > program seed > observed working weight (absolute fallback)
-  // prescribedWeight is bootstrap-only — once state exists, it is authoritative.
-  let currentWeight = prevWeight ?? opts.prescribedWeight ?? sessionWorkingWeight;
+  //   persisted state > observed working weight (on bootstrap) > program seed
+  //
+  // On the FIRST session (prevWeight is null / bootstrap), the observed
+  // working weight is always the anchor — regardless of classification.
+  // The prescribedWeight (load min) is a seed for UI display before any
+  // data exists; once we have a real session, reality takes precedence.
+  // This prevents the load-min seed from anchoring the controller below
+  // the user's actual working level (e.g., user works at 80, fails, but
+  // the seed is 60 → controller would wrongly hold at 60 instead of
+  // regressing from 80 to 70).
+  //
+  // On subsequent sessions (prevWeight exists), persisted state is
+  // authoritative. The overreach guard below only applies here.
+  const isBootstrap = prevWeight == null;
+  let currentWeight;
+  if (isBootstrap) {
+    // Bootstrap: observed reality > program seed > null
+    currentWeight = sessionWorkingWeight ?? opts.prescribedWeight ?? null;
+  } else {
+    currentWeight = prevWeight;
+  }
 
   // ── Reality tracking: upward weight acknowledgment ──────────────────
   // If the user lifted at a weight ABOVE the controller's state AND
@@ -580,7 +598,11 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // Failing at a self-selected higher weight does NOT update — the user
   // overreached, and the controller should not penalize by regressing
   // from the higher weight. Only qualifying/adequate prove capacity.
+  //
+  // This guard only applies to ESTABLISHED baselines (non-bootstrap).
+  // On bootstrap, the observed weight was already set above.
   if (
+    !isBootstrap &&
     classification !== 'failing' &&
     sessionWorkingWeight != null &&
     sessionWorkingWeight > currentWeight
