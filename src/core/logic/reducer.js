@@ -2,7 +2,7 @@ import { DEV_MODE, REST_DURATION, makeSet, makeCardio, createDefaultState, STORA
 import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from '../utils/helpers.js';
-import { startRestTimer } from '../utils/restTimer.js';
+import { startRestTimer, skipRestTimer } from '../utils/restTimer.js';
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
 import { updateProgressionState } from './progression.js';
 import { expandImport } from '../../io/compactFormat.js';
@@ -444,17 +444,24 @@ export function dispatch(type, payload = {}) {
     }
 
     if (isDoneTransition) {
-      let restDuration = REST_DURATION;
-      const { exId, idx } = payload;
-      const ex = EXERCISE_INDEX[exId];
-      if (ex) {
-        const isLastSet = idx >= ex.sets - 1;
-        // camelCase fields only (restBetweenSets / restBetweenExercises) from resolved exercise
-        restDuration = isLastSet
-          ? (ex.restBetweenExercises ?? REST_DURATION)
-          : (ex.restBetweenSets      ?? REST_DURATION);
+      // If this set completion finishes the entire session, kill any running
+      // rest timer so it doesn't block the Finish Workout banner.
+      const sessionId = EX_SESSION_INDEX[payload.exId];
+      if (sessionId && query.isSessionComplete(nextState, sessionId)) {
+        skipRestTimer();
+      } else {
+        let restDuration = REST_DURATION;
+        const { exId, idx } = payload;
+        const ex = EXERCISE_INDEX[exId];
+        if (ex) {
+          const isLastSet = idx >= ex.sets - 1;
+          // camelCase fields only (restBetweenSets / restBetweenExercises) from resolved exercise
+          restDuration = isLastSet
+            ? (ex.restBetweenExercises ?? REST_DURATION)
+            : (ex.restBetweenSets      ?? REST_DURATION);
+        }
+        startRestTimer(restDuration);
       }
-      startRestTimer(restDuration);
     }
 
     if (type === 'FINISH_WORKOUT') {
