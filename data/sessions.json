@@ -8,40 +8,28 @@
         {
           "label": "Lat Width Priority",
           "exercises": [
-            {
-              "exerciseRef": "lat_pull",
-              "letter": "A"
-            },
-            {
-              "exerciseRef": "row_machine",
-              "letter": "B"
-            }
+            { "exerciseRef": "lat_pull", "letter": "A" },
+            { "exerciseRef": "row_machine", "letter": "B" }
           ]
         },
         {
           "label": "Upper Chest + Side Delts",
           "exercises": [
-            {
-              "exerciseRef": "bench_db_incline",
-              "letter": "A"
-            },
-            {
-              "exerciseRef": "lat_raise",
-              "letter": "B"
-            }
+            { "exerciseRef": "bench_db_incline", "letter": "A" },
+            { "exerciseRef": "lat_raise", "letter": "B" }
           ]
         },
         {
           "label": "Arms",
           "exercises": [
-            {
-              "exerciseRef": "hammer_curl",
-              "letter": "A"
-            },
-            {
-              "exerciseRef": "tri_press",
-              "letter": "B"
-            }
+            { "exerciseRef": "hammer_curl", "letter": "A" },
+            { "exerciseRef": "tri_press", "letter": "B" }
+          ]
+        },
+        {
+          "label": "Core",
+          "exercises": [
+            { "exerciseRef": "abdominal_crunch", "letter": "A" }
           ]
         }
       ]
@@ -54,39 +42,24 @@
         {
           "label": "Back Thickness + Shoulders",
           "exercises": [
-            {
-              "exerciseRef": "row_dumbbell",
-              "letter": "A"
-            },
-            {
-              "exerciseRef": "lat_machine",
-              "letter": "B"
-            },
-            {
-              "exerciseRef": "arnold_press",
-              "letter": "C"
-            },
-            {
-              "exerciseRef": "reverse_pd",
-              "letter": "D"
-            }
+            { "exerciseRef": "row_dumbbell", "letter": "A" },
+            { "exerciseRef": "lateral_raise_machine", "letter": "B" },
+            { "exerciseRef": "arnold_press", "letter": "C" },
+            { "exerciseRef": "reverse_pd", "letter": "D" }
           ]
         },
         {
-          "label": "Lower Maintenance",
+          "label": "Lower Body (Primary, not maintenance)",
           "exercises": [
-            {
-              "exerciseRef": "leg_press",
-              "letter": "A"
-            },
-            {
-              "exerciseRef": "leg_curl",
-              "letter": "B"
-            },
-            {
-              "exerciseRef": "back_ext",
-              "letter": "C"
-            }
+            { "exerciseRef": "leg_press", "letter": "A" },
+            { "exerciseRef": "leg_curl", "letter": "B" },
+            { "exerciseRef": "back_ext", "letter": "C" }
+          ]
+        },
+        {
+          "label": "Core",
+          "exercises": [
+            { "exerciseRef": "abdominal_crunch", "letter": "A" }
           ]
         }
       ]
@@ -97,46 +70,32 @@
       "sessionLabel": "Session 3",
       "blocks": [
         {
-          "label": "Lat Width Priority",
+          "label": "Back Volume",
           "exercises": [
-            {
-              "exerciseRef": "lat_pull",
-              "letter": "A"
-            },
-            {
-              "exerciseRef": "row_dumbbell",
-              "letter": "B"
-            }
+            { "exerciseRef": "lat_pull", "letter": "A" },
+            { "exerciseRef": "row_dumbbell", "letter": "B" }
           ]
         },
         {
           "label": "Shoulder Cap + Upper Chest",
           "exercises": [
-            {
-              "exerciseRef": "lat_machine",
-              "letter": "A"
-            },
-            {
-              "exerciseRef": "reverse_pd",
-              "letter": "B"
-            },
-            {
-              "exerciseRef": "bench_db_incline",
-              "letter": "C"
-            }
+            { "exerciseRef": "lateral_raise_machine", "letter": "A" },
+            { "exerciseRef": "reverse_pd", "letter": "B" },
+            { "exerciseRef": "bench_db_incline", "letter": "C" }
           ]
         },
         {
           "label": "Arms",
           "exercises": [
-            {
-              "exerciseRef": "barbell_curl",
-              "letter": "A"
-            },
-            {
-              "exerciseRef": "skull_crushers",
-              "letter": "B"
-            }
+            { "exerciseRef": "barbell_curl", "letter": "A" },
+            { "exerciseRef": "skull_crushers", "letter": "B" }
+          ]
+        },
+        {
+          "label": "Lower Body",
+          "exercises": [
+            { "exerciseRef": "leg_press", "letter": "A" },
+            { "exerciseRef": "leg_curl", "letter": "B" }
           ]
         }
       ]
