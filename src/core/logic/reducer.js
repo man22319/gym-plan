@@ -475,12 +475,10 @@ export function dispatch(type, payload = {}) {
       // We read from the nextState BEFORE the nested RESET_SESSION call to capture the boundary
       const isCycleComplete = completedCount > 0 && completedCount % spwCheck === 0;
       if (completedEntry) _sessionCompleteFn?.(completedEntry, nextState, isCycleComplete);
-      persist();
-      _renderFn?.(state);
-    }
 
-    // ── Progression pipeline ───────────────────────────────────────────────
-    if (type === 'FINISH_WORKOUT') {
+      // ── Consolidated post-completion pipeline (Bugs 1+2+3) ────────────
+      // All three mutations are computed off the same intermediate state and
+      // merged into ONE final object → ONE setState → ONE persist.
       const session = workouts.find(s => s.id === payload.sessionId);
       if (session) {
         const allExercises = session.blocks.flatMap(b => b.exercises);
@@ -488,55 +486,94 @@ export function dispatch(type, payload = {}) {
         const lastEntry = query.sessionHistory(nextState, payload.sessionId).slice(-1)[0];
         const currentTimestamp = lastEntry?.timestamp ?? Date.now();
 
+        // ── Progression state (Bug 2: per-exercise isolation) ─────────
         for (const inst of allExercises) {
           if (inst.invariant) continue;
           const instanceId = inst.instanceId;
-          const ex   = EXERCISE_INDEX[instanceId] ?? inst;
-          const sets = lastEntry?.exercises[instanceId] || [];
-          const prev = newProgState[instanceId] || {};
+          try {
+            const ex   = EXERCISE_INDEX[instanceId] ?? inst;
+            const sets = lastEntry?.exercises[instanceId] || [];
+            const prev = newProgState[instanceId] || {};
 
-          // Rep range from exercise definition
-          const repRange = {
-            min: ex.reps?.min ?? ex.reps ?? 8,
-            max: ex.reps?.max ?? ex.reps?.min ?? ex.reps ?? 8,
-          };
+            // Rep range from exercise definition
+            const repRange = {
+              min: ex.reps?.min ?? ex.reps ?? 8,
+              max: ex.reps?.max ?? ex.reps?.min ?? ex.reps ?? 8,
+            };
 
-          // Prescribed rest between sets (seconds) for rest-influence detection
-          const prescribedRestSec = ex.restBetweenSets ?? REST_DURATION;
+            // Prescribed rest between sets (seconds) for rest-influence detection
+            const prescribedRestSec = ex.restBetweenSets ?? REST_DURATION;
 
-          const updated = updateProgressionState(prev, sets, {
-            repRange,
-            deltaW: nextState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
-            prescribedRestSec,
-            prescribedWeight: ex.baseWeight ?? null,
-            maxW: ex.maxW ?? null,
-          });
-          newProgState[instanceId] = {
-            currentWeight:         updated.currentWeight,
-            consecutiveQualifying: updated.consecutiveQualifying,
-            recentOutcomes:        updated.recentOutcomes,
-            dw:                    updated.dw,
-            lastSuggested:         updated.suggestedWeight,
-            lastDecision:          updated.decision,
-            lastClassification:    updated.sessionClassification,
-            lastSessionTimestamp:  currentTimestamp,
-            lastTopWeight:         updated.topWeight ?? null,
-            restInflationFactor:   updated.restInflationFactor,
-            controllerDistance:    updated.controllerDistance,
-            modeDominanceRatio:    updated.modeDominanceRatio,
-            weightAgreement:       updated.weightAgreement,
-            isAtMax:               updated.isAtMax ?? false,
-          };
+            const updated = updateProgressionState(prev, sets, {
+              repRange,
+              deltaW: nextState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
+              prescribedRestSec,
+              prescribedWeight: ex.baseWeight ?? null,
+              maxW: ex.maxW ?? null,
+            });
+            newProgState[instanceId] = {
+              currentWeight:         updated.currentWeight,
+              consecutiveQualifying: updated.consecutiveQualifying,
+              recentOutcomes:        updated.recentOutcomes,
+              dw:                    updated.dw,
+              lastSuggested:         updated.suggestedWeight,
+              lastDecision:          updated.decision,
+              lastClassification:    updated.sessionClassification,
+              lastSessionTimestamp:  currentTimestamp,
+              lastTopWeight:         updated.topWeight ?? null,
+              restInflationFactor:   updated.restInflationFactor,
+              controllerDistance:    updated.controllerDistance,
+              modeDominanceRatio:    updated.modeDominanceRatio,
+              weightAgreement:       updated.weightAgreement,
+              isAtMax:               updated.isAtMax ?? false,
+            };
+          } catch (err) {
+            console.warn(`[FINISH_WORKOUT] Skipped progression for ${instanceId}:`, err);
+          }
         }
 
-        nextState = reducer(nextState, {
-          type:    'UPDATE_PROGRESSION_STATE',
-          payload: { progressionState: newProgState }
-        });
-        setState(nextState);
-        persist();
-        _renderFn?.(state);
+        // ── Bug 3: clear stale workingWeight overrides ────────────────
+        // progressionState.currentWeight is now authoritative. Stale
+        // runtimeOverrides.workingWeight entries from a prior manual
+        // opt-out must not shadow it on next render.
+        // Non-weight overrides (reps, notes, deltaW, equipmentType)
+        // are intentionally preserved.
+        const cleanedOverrides = { ...(nextState.runtimeOverrides || {}) };
+        for (const inst of allExercises) {
+          const ov = cleanedOverrides[inst.instanceId];
+          if (ov && 'workingWeight' in ov) {
+            const remaining = { ...ov };
+            delete remaining.workingWeight;
+            if (Object.keys(remaining).length === 0) {
+              delete cleanedOverrides[inst.instanceId];
+            } else {
+              cleanedOverrides[inst.instanceId] = remaining;
+            }
+          }
+        }
+
+        // ── Bug 1: advance activeSessionId ────────────────────────────
+        // Computed against the fully updated state (progression +
+        // cleaned overrides) so DUE badge and activeSessionId always
+        // agree. Uses query.getSuggestedSessionId — the same function
+        // that buildTabs uses for the badge.
+        const stateWithUpdates = {
+          ...nextState,
+          progressionState: newProgState,
+          runtimeOverrides: cleanedOverrides,
+        };
+        const nextActiveId = query.getSuggestedSessionId(stateWithUpdates);
+
+        // ── ONE merged object. ONE setState. ONE persist. ─────────────
+        nextState = {
+          ...stateWithUpdates,
+          activeSessionId: nextActiveId ?? stateWithUpdates.activeSessionId,
+        };
       }
+
+      setState(nextState);
+      persist();
+      _renderFn?.(state);
     }
 
   } catch (err) {
@@ -561,42 +598,46 @@ export function rebuildAllProgressions(appState) {
     for (const inst of allExercises) {
       if (inst.invariant) continue;
       const instanceId = inst.instanceId;
-      const ex   = EXERCISE_INDEX[instanceId] ?? inst;
-      const sets = entry.exercises[instanceId] || [];
-      const prev = newProgState[instanceId] || {};
+      try {
+        const ex   = EXERCISE_INDEX[instanceId] ?? inst;
+        const sets = entry.exercises[instanceId] || [];
+        const prev = newProgState[instanceId] || {};
 
-      // Rep range from exercise definition
-      const repRange = {
-        min: ex.reps?.min ?? ex.reps ?? 8,
-        max: ex.reps?.max ?? ex.reps?.min ?? ex.reps ?? 8,
-      };
+        // Rep range from exercise definition
+        const repRange = {
+          min: ex.reps?.min ?? ex.reps ?? 8,
+          max: ex.reps?.max ?? ex.reps?.min ?? ex.reps ?? 8,
+        };
 
-      // Prescribed rest between sets (seconds)
-      const prescribedRestSec = ex.restBetweenSets ?? REST_DURATION;
+        // Prescribed rest between sets (seconds)
+        const prescribedRestSec = ex.restBetweenSets ?? REST_DURATION;
 
-      const updated = updateProgressionState(prev, sets, {
-        repRange,
-        deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
-        prescribedRestSec,
-        prescribedWeight: ex.baseWeight ?? null,
-        maxW: ex.maxW ?? null,
-      });
-      newProgState[instanceId] = {
-        currentWeight:         updated.currentWeight,
-        consecutiveQualifying: updated.consecutiveQualifying,
-        recentOutcomes:        updated.recentOutcomes,
-        dw:                    updated.dw,
-        lastSuggested:         updated.suggestedWeight,
-        lastDecision:          updated.decision,
-        lastClassification:    updated.sessionClassification,
-        lastSessionTimestamp:  currentTimestamp,
-        lastTopWeight:         updated.topWeight ?? null,
-        restInflationFactor:   updated.restInflationFactor,
-        controllerDistance:    updated.controllerDistance,
-        modeDominanceRatio:    updated.modeDominanceRatio,
-        weightAgreement:       updated.weightAgreement,
-        isAtMax:               updated.isAtMax ?? false,
-      };
+        const updated = updateProgressionState(prev, sets, {
+          repRange,
+          deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
+          prescribedRestSec,
+          prescribedWeight: ex.baseWeight ?? null,
+          maxW: ex.maxW ?? null,
+        });
+        newProgState[instanceId] = {
+          currentWeight:         updated.currentWeight,
+          consecutiveQualifying: updated.consecutiveQualifying,
+          recentOutcomes:        updated.recentOutcomes,
+          dw:                    updated.dw,
+          lastSuggested:         updated.suggestedWeight,
+          lastDecision:          updated.decision,
+          lastClassification:    updated.sessionClassification,
+          lastSessionTimestamp:  currentTimestamp,
+          lastTopWeight:         updated.topWeight ?? null,
+          restInflationFactor:   updated.restInflationFactor,
+          controllerDistance:    updated.controllerDistance,
+          modeDominanceRatio:    updated.modeDominanceRatio,
+          weightAgreement:       updated.weightAgreement,
+          isAtMax:               updated.isAtMax ?? false,
+        };
+      } catch (err) {
+        console.warn(`[rebuildAllProgressions] Skipped ${instanceId} (entry ${entry.timestamp}):`, err);
+      }
     }
   }
 

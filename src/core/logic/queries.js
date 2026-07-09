@@ -362,6 +362,70 @@ export const query = {
       }
     }
     return latest || null;
-  }
-};
+  },
 
+  // ── Session Suggestion ─────────────────────────────────────────────────────
+
+  /**
+   * Return the ID of the session the user should do next.
+   *
+   * Priority:
+   *   1. Among sessions NOT finished this cycle, pick the one whose scheduled
+   *      day is soonest from today (calendar-aware). Ties break by template order.
+   *   2. If all sessions are finished this cycle, fall back to the one after the
+   *      last completed session in history (rotation order).
+   *
+   * Moved from rendering.js — this is a state query, not a render helper.
+   * Used by: buildTabs (DUE badge) and FINISH_WORKOUT (activeSessionId advance).
+   *
+   * @param {object} appState
+   * @returns {string|null}
+   */
+  getSuggestedSessionId(appState) {
+    if (!workouts.length) return null;
+
+    // 1. Find sessions NOT finished in the current cycle
+    const unfinished = workouts.filter(
+      s => !this.isSessionFinishedInCurrentWeek(appState, s.id)
+    );
+
+    if (unfinished.length > 0) {
+      // 2. Among unfinished, pick the one whose scheduled day is soonest
+      //    from today (next reachable session on the calendar).
+      //    e.g. if today is Sunday: MON = 1 day away, THU = 4 days away → pick MON.
+      //    Ties fall back to template order (earlier in workouts array wins).
+      const DAY_MAP = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+      const todayDow = new Date().getDay(); // 0 = Sunday
+
+      function daysUntil(session) {
+        const label = (session.dayLabel || '').toUpperCase();
+        const targetDow = DAY_MAP[label];
+        if (targetDow === undefined) return 7; // unknown label → sort last
+        // Days from today to the target day (0 = today, 7 if same day wraps to next week)
+        // Use 0 for "today" so a session on the current day is most urgent
+        const diff = (targetDow - todayDow + 7) % 7;
+        return diff === 0 ? 0 : diff;
+      }
+
+      let best = unfinished[0];
+      let bestDist = daysUntil(best);
+
+      for (let i = 1; i < unfinished.length; i++) {
+        const dist = daysUntil(unfinished[i]);
+        if (dist < bestDist) {
+          best = unfinished[i];
+          bestDist = dist;
+        }
+      }
+      return best.id;
+    }
+
+    // 3. All sessions finished this cycle — fall back to next-in-cycle
+    const history = this.chronological(appState);
+    if (!history.length) return workouts[0].id;
+    const lastSessionId = history[history.length - 1].sessionId;
+    const lastIndex = workouts.findIndex(s => s.id === lastSessionId);
+    const nextIndex = (lastIndex + 1) % workouts.length;
+    return workouts[nextIndex]?.id || workouts[0].id;
+  },
+};
