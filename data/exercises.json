@@ -24,7 +24,7 @@
       "equipmentType": "machine",
       "sets": 3,
       "reps": { "min": 10, "max": 12 },
-      "baseWeight": 10,
+      "baseWeight": 110,
       "maxW": 160,
       "deltaW": 15,
       "restBetweenSets": 90,
@@ -87,7 +87,7 @@
       "name": "Back Extension Machine",
       "equipmentType": "machine",
       "sets": 3,
-      "reps": { "min": 10, "max": 15 },
+      "reps": { "min": 12, "max": 15 },
       "baseWeight": 140,
       "maxW": 240,
       "deltaW": 10,
@@ -103,7 +103,10 @@
       "reps": { "min": 12, "max": 15 },
       "baseWeight": 40,
       "maxW": 300,
-      "deltaW": 10,
+      "deltaW": [
+        { "until": 100, "step": 10 },
+        { "until": 300, "step": 20 }
+      ],
       "restBetweenSets": 70,
       "restBetweenExercises": 45,
       "notes": "Pull out and back. Do not use traps or momentum."

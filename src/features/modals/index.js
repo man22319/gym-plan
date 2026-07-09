@@ -2,7 +2,7 @@ import { workouts, EXERCISE_INDEX, state } from '../../core/state/store.js';
 import { query } from '../../core/logic/queries.js';
 import { dispatch, registerStartWorkoutModal } from '../../core/logic/reducer.js';
 import { makeSet } from '../../core/state/state.js';
-import { lowerBound, resolveWeight } from '../../core/utils/helpers.js';
+import { lowerBound, resolveWeight, getDeltaW } from '../../core/utils/helpers.js';
 import { formatDate, formatTime, formatDuration } from '../workout/rendering.js';
 
 
@@ -398,6 +398,9 @@ export function openLogModal(exId, setIdx) {
   const placeholderW = prefillW !== '' ? prefillW : '—';
   const placeholderR = prefillR !== '' ? prefillR : '—';
 
+  const stepVal = getDeltaW(ex?.deltaW, prefillW !== '' ? parseFloat(prefillW) : null);
+  const stepAttr = stepVal !== undefined ? `step="${stepVal}"` : 'step="any"';
+
   const overlay = document.createElement('div');
   overlay.className = 'log-modal-overlay';
   overlay.innerHTML = `
@@ -411,7 +414,7 @@ export function openLogModal(exId, setIdx) {
           <label class="log-label" for="log-weight">WEIGHT</label>
           <div class="log-input-wrap">
             <input class="log-input" id="log-weight" type="number"
-              inputmode="decimal" min="0" step="${ex?.deltaW ?? 2.5}"
+              inputmode="decimal" min="0" ${stepAttr}
               placeholder="${placeholderW}" value="${prefillW}"/>
             <span class="log-unit">lbs</span>
           </div>

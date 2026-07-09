@@ -1,7 +1,7 @@
 import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX, state, defaultWorkoutsData } from '../../core/state/store.js';
 import { REST_DURATION } from '../../core/state/state.js';
 import { query } from '../../core/logic/queries.js';
-import { getEffectiveExercise, getWorkingWeight } from '../../core/utils/helpers.js';
+import { getEffectiveExercise, getWorkingWeight, getDeltaW } from '../../core/utils/helpers.js';
 import { updateProgressionState } from '../../core/logic/progression.js';
 import { calculateETA } from '../../core/utils/eta.js';
 
@@ -416,12 +416,15 @@ export function buildEditPanel(ex, appState) {
 
   const notesVal = effEx?.notes ?? '';
 
+  const stepVal = getDeltaW(effEx?.deltaW, currentWW);
+  const stepAttr = stepVal !== undefined ? `step="${stepVal}"` : 'step="any"';
+
   // Single working weight input — no range modes
   const loadFieldsHtml = `
     <div class="ex-edit-field">
       <label for="edit-weight-${instanceId}">Working Weight</label>
       <div class="ex-edit-input-wrap">
-        <input type="number" class="ex-edit-input" id="edit-weight-${instanceId}" step="${effEx?.deltaW ?? 2.5}" min="0" value="${currentWW ?? ''}" placeholder="Auto from progression" />
+        <input type="number" class="ex-edit-input" id="edit-weight-${instanceId}" ${stepAttr} min="0" value="${currentWW ?? ''}" placeholder="Auto from progression" />
         <span class="ex-edit-unit">lbs</span>
       </div>
     </div>`;

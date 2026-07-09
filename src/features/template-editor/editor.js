@@ -262,7 +262,7 @@ function renderLibraryCardBody(ref, ex) {
       <div class="te-fields-grid">
         <div class="te-field">
           <label class="te-field-label">ΔW (Progression Step)</label>
-          <input type="number" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="deltaW" value="${ex.deltaW ?? 5}" />
+          <input type="${(typeof ex.deltaW === 'object' && ex.deltaW !== null) ? 'text' : 'number'}" step="any" class="te-input te-lib-field" data-ref="${ref}" data-field="deltaW" value="${(typeof ex.deltaW === 'object' && ex.deltaW !== null) ? JSON.stringify(ex.deltaW) : (ex.deltaW ?? 5)}" />
         </div>
         <div class="te-field">
           <label class="te-field-label">Rest Between Sets (s)</label>
@@ -635,7 +635,16 @@ function setupEditorEvents() {
       } else if (fieldPath === 'sets') {
         ex.sets = parseInt(e.target.value, 10) || 3;
       } else if (fieldPath === 'deltaW') {
-        ex.deltaW = parseFloat(e.target.value) || 0;
+        const val = e.target.value.trim();
+        if (val.startsWith('[') || val.startsWith('{')) {
+          try {
+            ex.deltaW = JSON.parse(val);
+          } catch (err) {
+            console.error('Invalid deltaW JSON configuration', err);
+          }
+        } else {
+          ex.deltaW = parseFloat(val) || 0;
+        }
       } else if (fieldPath === 'restBetweenSets') {
         ex.restBetweenSets = parseInt(e.target.value, 10) || 90;
       } else if (fieldPath === 'restBetweenExercises') {

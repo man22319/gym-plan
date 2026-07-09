@@ -87,3 +87,31 @@ export function resolveReps(userValue, instanceId) {
   const repsObj  = override?.reps ?? EXERCISE_INDEX[instanceId]?.reps;
   return repsObj ? lowerBound(repsObj) : null;
 }
+
+/**
+ * Resolves the progression increment step size (deltaW) for a given weight configuration.
+ * Respects recorded values and returns undefined if unspecified (no guessing).
+ *
+ * @param {number|object[]} deltaWConfig
+ * @param {number|null} currentWeight
+ * @returns {number|undefined}
+ */
+export function getDeltaW(deltaWConfig, currentWeight) {
+  if (deltaWConfig === undefined || deltaWConfig === null) return undefined;
+  if (typeof deltaWConfig === 'number') return deltaWConfig;
+  if (Array.isArray(deltaWConfig)) {
+    const weight = currentWeight ?? 0;
+    for (const rule of deltaWConfig) {
+      if (rule.until === undefined || rule.until === null) {
+        return rule.step;
+      }
+      if (weight < rule.until) {
+        return rule.step;
+      }
+    }
+    if (deltaWConfig.length > 0) {
+      return deltaWConfig[deltaWConfig.length - 1].step;
+    }
+  }
+  return undefined;
+}

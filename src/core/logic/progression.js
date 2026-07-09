@@ -485,8 +485,12 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
       weightAgreement = 1.0;
     } else {
       const drift = Math.abs(currentWeight - workingWeight);
-      const tolerance = restData.dw ?? DEFAULTS.defaultDw;
-      weightAgreement = +Math.max(0, 1 - drift / (tolerance * 3)).toFixed(4);
+      const tolerance = restData.dw;
+      if (tolerance !== undefined && tolerance !== null && tolerance > 0) {
+        weightAgreement = +Math.max(0, 1 - drift / (tolerance * 3)).toFixed(4);
+      } else {
+        weightAgreement = 0.0;
+      }
     }
   }
 
@@ -594,11 +598,43 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   classifierConfidence:  number,
  * }}
  */
+/**
+ * Resolves the progression increment step size (deltaW) for a given weight configuration.
+ * Respects recorded values and returns undefined if unspecified (no guessing).
+ *
+ * @private
+ * @param {number|object[]} deltaWConfig
+ * @param {number|null} currentWeight
+ * @returns {number|undefined}
+ */
+function _getDeltaW(deltaWConfig, currentWeight) {
+  if (deltaWConfig === undefined || deltaWConfig === null) return undefined;
+  if (typeof deltaWConfig === 'number') return deltaWConfig;
+  if (Array.isArray(deltaWConfig)) {
+    const weight = currentWeight ?? 0;
+    for (const rule of deltaWConfig) {
+      if (rule.until === undefined || rule.until === null) {
+        return rule.step;
+      }
+      if (weight < rule.until) {
+        return rule.step;
+      }
+    }
+    if (deltaWConfig.length > 0) {
+      return deltaWConfig[deltaWConfig.length - 1].step;
+    }
+  }
+  return undefined;
+}
+
 export function updateProgressionState(prev = {}, sets = [], opts = {}) {
-  const dw = opts.deltaW ?? prev.dw ?? DEFAULTS.defaultDw;
+  const dwConfig = opts.deltaW ?? prev.dw;
+  const prevWeight = prev.currentWeight ?? null;
+  const initialWeight = prevWeight ?? opts.prescribedWeight ?? 0;
+  const dw = dwConfig !== undefined && dwConfig !== null ? _getDeltaW(dwConfig, initialWeight) : undefined;
+
   const maxW = opts.maxW ?? null;
   const repRange = opts.repRange ?? { min: 8, max: 12 };
-  const prevWeight = prev.currentWeight ?? null;
   const prevConsecutive = prev.consecutiveQualifying ?? 0;
   const prevOutcomes = Array.isArray(prev.recentOutcomes) ? [...prev.recentOutcomes] : [];
 
@@ -609,7 +645,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   if (repRange.min != null && repRange.max != null && repRange.min > repRange.max) {
     return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW);
   }
-  if (dw <= 0) {
+  if (dw === undefined || dw === null || isNaN(dw) || dw <= 0) {
     return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW);
   }
   if (opts.prescribedRestSec != null && opts.prescribedRestSec < 0) {
@@ -753,8 +789,14 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // Checked FIRST — takes precedence over regression. See § Decision rules.
   if (consecutiveQualifying >= DEFAULTS.qualifyThreshold) {
     decision = 'progress';
-    suggestedWeight = currentWeight + dw;
-    consecutiveQualifying = 0;  // Reset after progression
+    const progressDw = _getDeltaW(dwConfig, currentWeight);
+    if (progressDw === undefined || progressDw === null || isNaN(progressDw) || progressDw <= 0) {
+      decision = 'hold';
+      suggestedWeight = currentWeight;
+    } else {
+      suggestedWeight = currentWeight + progressDw;
+      consecutiveQualifying = 0;  // Reset after progression
+    }
   // Regression: risk detection (window density, high-frequency)
   // Additional precondition: the most recent session must be failing.
   // A qualifying or adequate session should never trigger regression —
@@ -767,8 +809,15 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     classification === 'failing'
   ) {
     decision = 'regress';
-    suggestedWeight = Math.max(0, currentWeight - dw);
-    consecutiveQualifying = 0;  // Reset after regression
+    // For regression, resolve dw at currentWeight - 0.1 to handle boundary step size transitions
+    const regressDw = _getDeltaW(dwConfig, currentWeight - 0.1);
+    if (regressDw === undefined || regressDw === null || isNaN(regressDw) || regressDw <= 0) {
+      decision = 'hold';
+      suggestedWeight = currentWeight;
+    } else {
+      suggestedWeight = Math.max(0, currentWeight - regressDw);
+      consecutiveQualifying = 0;  // Reset after regression
+    }
   } else {
     // Hold: keep working at current weight
     decision = 'hold';
@@ -776,8 +825,11 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   }
 
   // Discretize suggested weight to nearest dw step
-  const step = Math.max(dw, 0.5);
-  suggestedWeight = Math.max(0, step * Math.round(suggestedWeight / step));
+  const finalDw = _getDeltaW(dwConfig, suggestedWeight) ?? dw;
+  if (finalDw !== undefined && finalDw !== null && !isNaN(finalDw) && finalDw > 0) {
+    const step = Math.max(finalDw, 0.5);
+    suggestedWeight = Math.max(0, step * Math.round(suggestedWeight / step));
+  }
 
   // ── maxW clamp (SINGLE location) ──────────────────────────────────
   // Equipment ceiling supersedes the deltaW grid.
@@ -798,7 +850,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     currentWeight: maxW != null ? Math.min(committedWeight, maxW) : committedWeight,
     consecutiveQualifying,
     recentOutcomes,
-    dw,
+    dw: _getDeltaW(dwConfig, committedWeight),
     suggestedWeight,
     decision,
     isFirstSession,
