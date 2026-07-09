@@ -470,6 +470,14 @@
   color: rgba(200, 185, 160, 0.85);
 }
 
+/* Informational chip — muted blue-teal, distinct from warning orange */
+.prog-chip-info {
+  border-color: rgba(100, 180, 200, 0.25);
+  background: rgba(100, 180, 200, 0.05);
+  color: rgba(120, 190, 210, 0.85);
+}
+
+
 /* ── Controller Distance Chips ── */
 .prog-chip-distance {
   font-family: 'IBM Plex Mono', monospace;

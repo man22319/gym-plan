@@ -130,6 +130,49 @@
  *   It is better to surface the information for human judgment
  *   than to silently reshape controller behavior.
  *
+ * ## ROM quality tracking (DIAGNOSTIC ONLY)
+ *   Per-session ROM pattern is classified from working-set rom values
+ *   into one of five categories: consistent-full, consistent-partial,
+ *   degrading, improving, mixed.
+ *
+ *   DEGRADATION REQUIRES DIRECTIONALITY — a single partial-ROM set
+ *   surrounded by full-ROM sets is 'mixed', not 'degrading'. Only a
+ *   strictly descending tail (partial at the end with no subsequent
+ *   full recovery) qualifies. This prevents the classifier from
+ *   firing on normal intra-set variation.
+ *
+ *   Cross-session ROM trend detection uses a bounded window
+ *   (recentRomSummaries, size ≤3) persisted in progressionState.
+ *   Only 'degrading' and 'consistent-partial' count as evidence
+ *   toward the regression threshold — 'mixed' sessions are noise
+ *   and do NOT accumulate.
+ *
+ *   Two-tier warning:
+ *     Informational chip — current session is 'degrading' but no
+ *       prior degradation in the window (romWarning = null).
+ *     Full warning — current session is 'degrading' AND ≥1 prior
+ *       session in the window was also 'degrading', OR romTrend
+ *       is 'consistent-degradation' (romWarning = string).
+ *
+ *   ROM diagnostics do NOT feed into the controller.
+ *   Persisted: romPattern (display convenience), recentRomSummaries
+ *   (bounded memory). NOT persisted: romTrend, romWarning (derived
+ *   fresh each call to prevent stale-state bugs).
+ *
+ * ## RIR trend tracking (DIAGNOSTIC ONLY)
+ *   Per-session zeroRirCount counts working sets where RIR = 0.
+ *   A bounded window (recentZeroRir, size ≤3) persists the count
+ *   per session. When 2+ of the last 3 sessions have ≥1 zero-RIR
+ *   set, rirTrend = 'repeated-zero-rir' and a warning is surfaced.
+ *
+ *   0 RIR is NOT an automatic weight-reduction trigger. It is
+ *   diagnostic information to be interpreted alongside ROM quality,
+ *   failure patterns, and progression history. The warning copy
+ *   acknowledges that repeated 0 RIR is more significant on
+ *   technically demanding compounds than on stable isolations.
+ *
+ *   NOT persisted: rirTrend, rirWarning (derived fresh each call).
+ *
  * ## Decision rules (asymmetric dual-threshold)
  *   Progression and regression are intentionally asymmetric. They are
  *   two different stochastic processes at different timescales:
@@ -198,9 +241,10 @@
  *     - restInflationFactor (continuous, ∈ [0,1]) — diagnostic only
  *     - modeDominanceRatio (distributional summary) — diagnostic only
  *     - weightAgreement (drift detection) — diagnostic only
+ *     - romPattern, romValues, zeroRirCount — ROM/RIR diagnostics only
  *   These are deterministic point estimators of latent variables
- *   (rest influence, weight distribution, anchor drift) without
- *   uncertainty modeling — fixed transforms with hard-coded
+ *   (rest influence, weight distribution, anchor drift, ROM quality)
+ *   without uncertainty modeling — fixed transforms with hard-coded
  *   assumptions, not fitted or adaptive. The controller does not
  *   consume them — they are surfaced for UI display and user
  *   judgment.
@@ -225,6 +269,129 @@ const DEFAULTS = {
 // Rest-inflation detection constants (DIAGNOSTIC ONLY — not consumed by classifier)
 // Rest gap ≥ REST_SATURATION_RATIO × prescribed = fully inflated (inflation = 1.0)
 const REST_SATURATION_RATIO = 5;
+
+// ROM quality tracking constants (DIAGNOSTIC ONLY)
+// Minimum sessions required in the window to fire a cross-session ROM trend warning.
+const ROM_TREND_WINDOW     = 3;  // same as regressWindow for symmetry
+const ROM_TREND_THRESHOLD  = 2;  // qualifying-degradation sessions needed
+const RIR_TREND_WINDOW     = 3;
+const RIR_TREND_THRESHOLD  = 2;
+
+// ── ROM / RIR Quality Analysis (DIAGNOSTIC ONLY — not consumed by controller) ──
+
+/**
+ * Classify the ROM pattern of a set sequence for a single session.
+ *
+ * Uses the 'rom' field of each completed working set in temporal order.
+ * Missing/null rom values default to 'full' (backward-compatible with
+ * sets logged before ROM tracking was added).
+ *
+ * DEGRADATION REQUIRES DIRECTIONALITY:
+ *   The sequence is 'degrading' if and only if:
+ *     1. The last rom value is 'partial', AND
+ *     2. At least one earlier set was 'full', AND
+ *     3. There is no 'full' set AFTER the first 'partial' in the sequence
+ *        (i.e. no recovery — partial→full→partial is 'mixed').
+ *
+ *   A single partial-ROM set surrounded by full-ROM sets ('full','partial','full')
+ *   is 'mixed', not 'degrading'. This prevents false positives from isolated
+ *   hard sets.
+ *
+ * @param {Array<{s:string, w:number|null, r:number|null, rom?:string, completedAt?:number}>} workingSets
+ *   Completed working-weight sets only, already filtered (s==='done').
+ * @returns {{ romPattern: string, romValues: string[] }}
+ */
+function analyzeRomPattern(workingSets) {
+  if (!workingSets || workingSets.length === 0) {
+    return { romPattern: 'mixed', romValues: [] };
+  }
+
+  // Sort by completedAt for temporal order; preserve insertion order as fallback.
+  const sorted = [...workingSets].sort((a, b) => {
+    if (a.completedAt != null && b.completedAt != null) return a.completedAt - b.completedAt;
+    return 0;
+  });
+
+  // Normalise: missing/null rom → 'full' for backward compatibility.
+  const romValues = sorted.map(s => (s.rom && s.rom !== '') ? s.rom : 'full');
+
+  // Single set — pattern is the value itself, no sequence to compare.
+  if (romValues.length === 1) {
+    const p = romValues[0] === 'full' ? 'consistent-full' : 'consistent-partial';
+    return { romPattern: p, romValues };
+  }
+
+  const allFull    = romValues.every(v => v === 'full');
+  const allPartial = romValues.every(v => v === 'partial');
+
+  if (allFull)    return { romPattern: 'consistent-full',    romValues };
+  if (allPartial) return { romPattern: 'consistent-partial', romValues };
+
+  // Degradation check: last value partial, at least one full before it,
+  // and no 'full' after the first 'partial' (no recovery).
+  const lastVal = romValues[romValues.length - 1];
+  if (lastVal === 'partial') {
+    const firstPartialIdx = romValues.indexOf('partial');
+    const hasPriorFull = romValues.slice(0, firstPartialIdx).some(v => v === 'full');
+    const hasRecovery  = romValues.slice(firstPartialIdx + 1).some(v => v === 'full');
+    if (hasPriorFull && !hasRecovery) {
+      return { romPattern: 'degrading', romValues };
+    }
+  }
+
+  // Improving: last value full, at least one partial before it.
+  if (lastVal === 'full') {
+    const hasPriorPartial = romValues.slice(0, romValues.length - 1).some(v => v === 'partial');
+    if (hasPriorPartial) {
+      return { romPattern: 'improving', romValues };
+    }
+  }
+
+  return { romPattern: 'mixed', romValues };
+}
+
+/**
+ * Detect a cross-session ROM regression trend from a sliding window of
+ * past session ROM patterns.
+ *
+ * Only 'degrading' and 'consistent-partial' count as evidence.
+ * 'mixed' and 'improving' sessions do NOT accumulate — they are noise.
+ *
+ * @param {string[]} recentRomSummaries  — persisted window of ≤3 past romPattern values
+ * @returns {'consistent-degradation'|'sustained-partial'|'stable'}
+ */
+function analyzeRomTrend(recentRomSummaries) {
+  if (!Array.isArray(recentRomSummaries) || recentRomSummaries.length === 0) return 'stable';
+
+  const window = recentRomSummaries.slice(-ROM_TREND_WINDOW);
+  const degradingCount = window.filter(p => p === 'degrading').length;
+  const partialCount   = window.filter(p => p === 'consistent-partial').length;
+
+  if (degradingCount >= ROM_TREND_THRESHOLD) return 'consistent-degradation';
+  if (partialCount   >= ROM_TREND_THRESHOLD) return 'sustained-partial';
+  return 'stable';
+}
+
+/**
+ * Detect a cross-session repeated-zero-RIR trend.
+ *
+ * Counts the number of working sets with RIR = 0 in the current session,
+ * then checks whether the persisted window shows repeated occurrence.
+ *
+ * RIR is diagnostic only — repeated 0 RIR is more significant on
+ * technically demanding compounds than on stable isolations. The warning
+ * copy surfaces this context without hardcoding exercise categories.
+ *
+ * @param {number[]} recentZeroRir  — persisted window of ≤3 past zeroRirCount values
+ * @returns {'repeated-zero-rir'|'normal'}
+ */
+function analyzeRirTrend(recentZeroRir) {
+  if (!Array.isArray(recentZeroRir) || recentZeroRir.length === 0) return 'normal';
+
+  const window = recentZeroRir.slice(-RIR_TREND_WINDOW);
+  const zeroCount = window.filter(c => c > 0).length;  // sessions with ≥1 zero-RIR set
+  return zeroCount >= RIR_TREND_THRESHOLD ? 'repeated-zero-rir' : 'normal';
+}
 
 // ── Diagnostic Utilities (not consumed by controller) ─────────────────────────
 // Grouped under the `diagnostics` namespace export at end of file.
@@ -377,7 +544,7 @@ function detectSessionType(done) {
  * that the controller does not consume. These are infrastructure for a future
  * belief-state layer — carried forward, not acted upon.
  *
- * @param {Array<{s:string, w:number|null, r:number|null}>} sets
+ * @param {Array<{s:string, w:number|null, r:number|null, rom?:string, rir?:number|null}>} sets
  * @param {{min:number, max:number}} repRange — prescribed rep range
  * @param {number|null} currentWeight — the working weight for classification context
  * @param {{prescribedRestSec:number, dw:number}} restData — rest and step config
@@ -390,6 +557,9 @@ function detectSessionType(done) {
  *   weightAgreement:     number|null,
  *   sessionType:         'straight'|'ramp'|'topset_backoff'|'mixed',
  *   classifierConfidence: number,
+ *   romPattern:          'consistent-full'|'consistent-partial'|'degrading'|'improving'|'mixed',
+ *   romValues:           string[],
+ *   zeroRirCount:        number,
  * }}
  */
 export function classifySession(sets, repRange, currentWeight = null, restData = {}) {
@@ -558,10 +728,23 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
     classification = 'adequate';
   }
 
+  // ── ROM pattern analysis ──────────────────────────────────────────────
+  // Uses completed working sets only (already filtered above).
+  // Backward-compatible: missing rom field defaults to 'full' inside analyzeRomPattern.
+  const { romPattern, romValues } = analyzeRomPattern(workingSets);
+
+  // ── RIR zero-count ───────────────────────────────────────────────────
+  // Count working sets where RIR was explicitly logged as 0.
+  // null/undefined RIR (not logged) does NOT count.
+  const zeroRirCount = workingSets.filter(
+    s => s.rir !== null && s.rir !== undefined && s.rir === 0
+  ).length;
+
   return {
     classification, restInflationFactor, workingWeight, topWeight,
     modeDominanceRatio, weightAgreement,
     sessionType, classifierConfidence,
+    romPattern, romValues, zeroRirCount,
   };
 }
 
@@ -572,7 +755,8 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  * progression state and recommendation.
  *
  * @param {object} prev   Previous progression state:
- *   { currentWeight, consecutiveQualifying, recentOutcomes, dw }
+ *   { currentWeight, consecutiveQualifying, recentOutcomes, dw,
+ *     recentRomSummaries, recentZeroRir }  — ROM/RIR windows carried from last session
  * @param {object[]} sets Completed sets for this exercise this session
  * @param {object} opts   Options:
  *   - repRange          {{min:number, max:number}}  prescribed rep range
@@ -596,6 +780,15 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   weightAgreement:       number|null,
  *   sessionType:           'straight'|'ramp'|'topset_backoff'|'mixed',
  *   classifierConfidence:  number,
+ *   romPattern:            string,
+ *   romValues:             string[],
+ *   zeroRirCount:          number,
+ *   recentRomSummaries:    string[],
+ *   recentZeroRir:         number[],
+ *   romTrend:              'consistent-degradation'|'sustained-partial'|'stable',
+ *   rirTrend:              'repeated-zero-rir'|'normal',
+ *   romWarning:            string|null,
+ *   rirWarning:            string|null,
  * }}
  */
 /**
@@ -638,18 +831,22 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const prevConsecutive = prev.consecutiveQualifying ?? 0;
   const prevOutcomes = Array.isArray(prev.recentOutcomes) ? [...prev.recentOutcomes] : [];
 
+  // Pull ROM/RIR rolling windows from persisted prev state.
+  const prevRomSummaries = Array.isArray(prev.recentRomSummaries) ? [...prev.recentRomSummaries] : [];
+  const prevZeroRir      = Array.isArray(prev.recentZeroRir)      ? [...prev.recentZeroRir]      : [];
+
   // ── Input validation (fail closed) ──────────────────────────────────────
   // Invalid inputs → return previous state unchanged with decision 'hold'.
   // This prevents the controller from producing garbage-shaped certainty
   // on malformed configuration.
   if (repRange.min != null && repRange.max != null && repRange.min > repRange.max) {
-    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW);
+    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
   }
   if (dw === undefined || dw === null || isNaN(dw) || dw <= 0) {
-    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW);
+    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
   }
   if (opts.prescribedRestSec != null && opts.prescribedRestSec < 0) {
-    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW);
+    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
   }
 
   // Classify this session
@@ -662,6 +859,9 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     weightAgreement,
     sessionType,
     classifierConfidence,
+    romPattern,
+    romValues,
+    zeroRirCount,
   } = classifySession(sets, repRange, prevWeight, {
     prescribedRestSec: opts.prescribedRestSec ?? 0,
     prescribedWeight: opts.prescribedWeight ?? null,
@@ -686,6 +886,12 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       weightAgreement,
       sessionType: sessionType ?? 'mixed',
       classifierConfidence: classifierConfidence ?? 0,
+      // ROM/RIR: carry windows unchanged; no sets = no new data
+      romPattern: 'mixed', romValues: [], zeroRirCount: 0,
+      recentRomSummaries: prevRomSummaries, recentZeroRir: prevZeroRir,
+      romTrend: analyzeRomTrend(prevRomSummaries),
+      rirTrend: analyzeRirTrend(prevZeroRir),
+      romWarning: null, rirWarning: null,
     };
   }
 
@@ -846,6 +1052,36 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // The controller always returns its true decision (progress/hold/regress).
   const isFirstSession = prevWeight === null;
 
+  // ── ROM / RIR quality diagnostics ─────────────────────────────────────
+  // Update the bounded-memory windows with this session's data, then
+  // derive trend and warning strings. Only 'degrading' and
+  // 'consistent-partial' accumulate in the ROM window — 'mixed' is noise.
+  //
+  // Neither romTrend, rirTrend, nor the warning strings are persisted.
+  // They are computed fresh from the windows on every call to prevent
+  // stale-state bugs where persisted diagnostics disagree with history.
+
+  const recentRomSummaries = [...prevRomSummaries, romPattern].slice(-ROM_TREND_WINDOW);
+  const recentZeroRir      = [...prevZeroRir, zeroRirCount].slice(-RIR_TREND_WINDOW);
+
+  const romTrend = analyzeRomTrend(recentRomSummaries);
+  const rirTrend = analyzeRirTrend(recentZeroRir);
+
+  // ROM warning fires when cross-session trend is consistent-degradation OR
+  // current session is degrading and the previous window already had at least
+  // one degrading session. A single degrading session with no prior history
+  // produces romWarning = null (informational chip only, not a full warning).
+  let romWarning = null;
+  if (romTrend === 'consistent-degradation') {
+    romWarning = 'ROM is consistently decreasing across sets or sessions. Review your technique, maintain controlled ROM throughout each set, and consider reducing load if the weight is causing repeated ROM loss.';
+  } else if (romPattern === 'degrading' && prevRomSummaries.some(p => p === 'degrading')) {
+    romWarning = 'ROM is consistently decreasing across sets or sessions. Review your technique, maintain controlled ROM throughout each set, and consider reducing load if the weight is causing repeated ROM loss.';
+  }
+
+  const rirWarning = rirTrend === 'repeated-zero-rir'
+    ? 'Repeatedly reaching 0 RIR may indicate the current weight is near your limit for this rep range, insufficient recovery, or that this exercise has a higher difficulty profile. Interpret alongside ROM quality, failure patterns, and progression history.'
+    : null;
+
   return {
     currentWeight: maxW != null ? Math.min(committedWeight, maxW) : committedWeight,
     consecutiveQualifying,
@@ -863,6 +1099,10 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     weightAgreement,
     sessionType,
     classifierConfidence,
+    // ROM/RIR diagnostics (not consumed by controller)
+    romPattern, romValues, zeroRirCount,
+    recentRomSummaries, recentZeroRir,
+    romTrend, rirTrend, romWarning, rirWarning,
   };
 }
 
@@ -871,7 +1111,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
  * Used when input validation fails.
  * @private
  */
-function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null) {
+function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null, prevRomSummaries = [], prevZeroRir = []) {
   const cw = maxW != null && prevWeight != null ? Math.min(prevWeight, maxW) : prevWeight;
   return {
     currentWeight: cw,
@@ -890,6 +1130,12 @@ function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null)
     weightAgreement: null,
     sessionType: 'mixed',
     classifierConfidence: 0,
+    // ROM/RIR: carry windows unchanged
+    romPattern: 'mixed', romValues: [], zeroRirCount: 0,
+    recentRomSummaries: prevRomSummaries, recentZeroRir: prevZeroRir,
+    romTrend: analyzeRomTrend(prevRomSummaries),
+    rirTrend: analyzeRirTrend(prevZeroRir),
+    romWarning: null, rirWarning: null,
   };
 }
 

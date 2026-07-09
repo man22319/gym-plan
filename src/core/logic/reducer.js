@@ -528,6 +528,13 @@ export function dispatch(type, payload = {}) {
               sessionType:           updated.sessionType ?? 'mixed',
               classifierConfidence:  updated.classifierConfidence ?? 0,
               isAtMax:               updated.isAtMax ?? false,
+              // ROM/RIR: bounded-memory windows + display-convenience fields.
+              // Derived signals (romTrend, rirTrend, romWarning, rirWarning) are
+              // NOT persisted — recomputed fresh each call to prevent stale-state bugs.
+              romPattern:            updated.romPattern         ?? 'mixed',
+              zeroRirCount:          updated.zeroRirCount       ?? 0,
+              recentRomSummaries:    updated.recentRomSummaries ?? [],
+              recentZeroRir:         updated.recentZeroRir      ?? [],
             };
           } catch (err) {
             console.warn(`[FINISH_WORKOUT] Skipped progression for ${instanceId}:`, err);
@@ -638,6 +645,13 @@ export function rebuildAllProgressions(appState) {
           sessionType:           updated.sessionType ?? 'mixed',
           classifierConfidence:  updated.classifierConfidence ?? 0,
           isAtMax:               updated.isAtMax ?? false,
+          // ROM/RIR: bounded-memory windows + display-convenience fields.
+          // Derived signals (romTrend, rirTrend, romWarning, rirWarning) are
+          // NOT persisted — recomputed fresh each call to prevent stale-state bugs.
+          romPattern:            updated.romPattern         ?? 'mixed',
+          zeroRirCount:          updated.zeroRirCount       ?? 0,
+          recentRomSummaries:    updated.recentRomSummaries ?? [],
+          recentZeroRir:         updated.recentZeroRir      ?? [],
         };
       } catch (err) {
         console.warn(`[rebuildAllProgressions] Skipped ${instanceId} (entry ${entry.timestamp}):`, err);

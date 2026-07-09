@@ -518,6 +518,44 @@ export function buildDelta(weightDelta, repsDelta) {
   return parts.length ? `<span class="delta-group">${parts.join('')}</span>` : '';
 }
 
+// ── ROM / RIR trend helpers (rendering-layer only) ────────────────────────────
+// Mirror the logic from progression.js without importing private functions.
+// These are used in buildProgressionRow to derive trend labels from persisted
+// windows for the review-mode chips (the active-mode chips read directly from
+// the updateProgressionState() result which already includes romTrend/rirTrend).
+
+const _ROM_TREND_THRESHOLD = 2;
+const _RIR_TREND_THRESHOLD = 2;
+
+/**
+ * Derive ROM trend from a persisted recentRomSummaries window.
+ * Mirrors analyzeRomTrend() in progression.js.
+ *
+ * @param {string[]} recentRomSummaries
+ * @returns {'consistent-degradation'|'sustained-partial'|'stable'}
+ */
+function _deriveRomTrend(recentRomSummaries) {
+  if (!Array.isArray(recentRomSummaries) || recentRomSummaries.length === 0) return 'stable';
+  const degradingCount = recentRomSummaries.filter(p => p === 'degrading').length;
+  const partialCount   = recentRomSummaries.filter(p => p === 'consistent-partial').length;
+  if (degradingCount >= _ROM_TREND_THRESHOLD) return 'consistent-degradation';
+  if (partialCount   >= _ROM_TREND_THRESHOLD) return 'sustained-partial';
+  return 'stable';
+}
+
+/**
+ * Derive RIR trend from a persisted recentZeroRir window.
+ * Mirrors analyzeRirTrend() in progression.js.
+ *
+ * @param {number[]} recentZeroRir
+ * @returns {'repeated-zero-rir'|'normal'}
+ */
+function _deriveRirTrend(recentZeroRir) {
+  if (!Array.isArray(recentZeroRir) || recentZeroRir.length === 0) return 'normal';
+  const zeroCount = recentZeroRir.filter(c => c > 0).length;
+  return zeroCount >= _RIR_TREND_THRESHOLD ? 'repeated-zero-rir' : 'normal';
+}
+
 // ── Layer B: Live Progression Row ─────────────────────────────────────────────
 
 /**
@@ -649,6 +687,38 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       );
     }
 
+    // ROM quality chips (review mode)
+    // Derive ROM/RIR trend fresh from persisted windows (not persisted themselves).
+    if (ps.recentRomSummaries || ps.romPattern) {
+      const recentRomSummaries = ps.recentRomSummaries ?? [];
+      const prevWindow = recentRomSummaries.slice(0, -1);  // exclude current session entry
+      const romPattern = ps.romPattern ?? 'mixed';
+      const romTrend   = _deriveRomTrend(recentRomSummaries);
+      const hasRomWarning =
+        romTrend === 'consistent-degradation' ||
+        (romPattern === 'degrading' && prevWindow.some(p => p === 'degrading'));
+
+      if (hasRomWarning) {
+        chips.push(
+          `<span class="prog-chip prog-chip-warn" title="ROM is consistently decreasing across sets or sessions. Review your technique, maintain controlled ROM throughout each set, and consider reducing load if the weight is causing repeated ROM loss.">ROM DEGRADATION</span>`
+        );
+      } else if (romPattern === 'degrading') {
+        chips.push(
+          `<span class="prog-chip prog-chip-info" title="ROM decreased across sets this session. Watch for a recurring pattern.">ROM ↓</span>`
+        );
+      }
+    }
+
+    // RIR trend chip (review mode)
+    if (ps.recentZeroRir) {
+      const rirTrend = _deriveRirTrend(ps.recentZeroRir);
+      if (rirTrend === 'repeated-zero-rir') {
+        chips.push(
+          `<span class="prog-chip prog-chip-info" title="Repeatedly reaching 0 RIR may indicate the current weight is near your limit for this rep range, insufficient recovery, or that this exercise has a higher difficulty profile. Interpret alongside ROM quality, failure patterns, and progression history.">0 RIR TREND</span>`
+        );
+      }
+    }
+
   } else {
     // ── Active session: live computation ──
     const currentSets = appState.exercises[instanceId] || [];
@@ -722,6 +792,27 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
         );
       }
 
+      // ROM quality chips (live session)
+      // result.romWarning is a non-null string only when pattern is degrading
+      // AND there is prior degradation in the cross-session window.
+      if (result.romWarning) {
+        chips.push(
+          `<span class="prog-chip prog-chip-warn" title="${result.romWarning}">ROM DEGRADATION</span>`
+        );
+      } else if (result.romPattern === 'degrading') {
+        // Single degrading session — informational chip only
+        chips.push(
+          `<span class="prog-chip prog-chip-info" title="ROM decreased across sets this session. Watch for a recurring pattern.">ROM ↓</span>`
+        );
+      }
+
+      // RIR trend chip (live session)
+      if (result.rirWarning) {
+        chips.push(
+          `<span class="prog-chip prog-chip-info" title="${result.rirWarning}">0 RIR TREND</span>`
+        );
+      }
+
     } else if (prevPs.lastSuggested !== null && prevPs.lastSuggested !== undefined) {
       // No sets logged yet — show last committed suggestion as a target
       chips.push(
@@ -789,7 +880,10 @@ export function buildDot(exId, idx, setObj, readOnly = false, workingWeight = nu
   const rirVal = setObj.rir;
   const romVal = setObj.rom;
   let metaHtml = '';
-  if (readOnly && hasData && (s === 'done' || s === 'failed')) {
+  // Show RIR and partial-ROM metadata on done/failed sets in BOTH active and review modes.
+  // Previously only shown in readOnly. Extended to active sessions so the user
+  // gets immediate per-set ROM feedback as they log.
+  if (hasData && (s === 'done' || s === 'failed')) {
     const parts = [];
     if (rirVal !== null && rirVal !== undefined) parts.push(`r${rirVal}`);
     if (romVal && romVal !== 'full') parts.push(romVal);
