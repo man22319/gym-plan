@@ -66,20 +66,27 @@ export function setupExerciseEvents() {
       return;
     }
 
-    // ── Exercise header tap → history modal ──────────────
-    const exHeader = e.target.closest('.exercise-header[data-ex-id]');
-    if (exHeader && !e.target.closest('.set-dot') && !e.target.closest('.ex-edit-btn')) {
-      openHistoryModal(exHeader.dataset.exId);
+    // ── Exercise history button tap → history modal ──────
+    const historyBtn = e.target.closest('.ex-history-hint');
+    if (historyBtn) {
+      const exHeader = historyBtn.closest('.exercise-header[data-ex-id]');
+      if (exHeader) {
+        openHistoryModal(exHeader.dataset.exId);
+      }
+      return;
     }
   });
 
-  // ── Keyboard: exercise header accessibility ──────────
+  // ── Keyboard: history button accessibility ───────────
   document.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') {
-      const exHeader = e.target.closest('.exercise-header[data-ex-id]');
-      if (exHeader && !e.target.closest('.ex-edit-btn')) {
-        e.preventDefault();
-        openHistoryModal(exHeader.dataset.exId);
+      const historyBtn = e.target.closest('.ex-history-hint');
+      if (historyBtn) {
+        const exHeader = historyBtn.closest('.exercise-header[data-ex-id]');
+        if (exHeader) {
+          e.preventDefault();
+          openHistoryModal(exHeader.dataset.exId);
+        }
       }
     }
   });

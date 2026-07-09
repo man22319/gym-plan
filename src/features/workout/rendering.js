@@ -376,7 +376,7 @@ export function buildCard(ex, appState, readOnly = false) {
   const tolerance = effEx?.tolerance ?? 0.1;
 
   return `<div class="exercise-card ${cardClass}" data-ex-id="${instanceId}">
-    <div class="exercise-header" data-ex-id="${instanceId}" role="button" aria-label="View history for ${displayName}" tabindex="0" ${readOnly ? 'style="cursor: default; pointer-events: none;"' : ''}>
+    <div class="exercise-header" data-ex-id="${instanceId}">
       <div class="ex-letter">${ex.letter || ''}</div>
       <div class="ex-title-group">
         <div class="ex-name">
@@ -391,7 +391,7 @@ export function buildCard(ex, appState, readOnly = false) {
       </div>
       <div class="ex-header-right-actions">
         ${loggedBadgeHtml}
-        <div class="ex-history-hint" ${readOnly ? 'style="display:none;"' : ''}>HISTORY</div>
+        <div class="ex-history-hint" role="button" tabindex="0" aria-label="View history for ${displayName}" ${readOnly ? 'style="display:none;"' : ''}>HISTORY</div>
         ${editBtnHtml}
       </div>
     </div>

@@ -29,14 +29,26 @@
   backdrop-filter: blur(30px) saturate(150%) brightness(110%);
   box-shadow: var(--modal-glass-shadow);
 }
-.log-modal::before {
-  content: '';
-  display: block;
+.modal-drag-handle {
   width: 36px;
   height: 5px;
   border-radius: 2.5px;
   background: rgba(255, 255, 255, 0.2);
   margin: 0 auto 16px;
+  cursor: grab;
+  padding: 10px 20px;
+  background-clip: content-box;
+  box-sizing: content-box;
+  flex-shrink: 0;
+  touch-action: none;
+  transition: background 0.15s;
+}
+.modal-drag-handle:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+.modal-drag-handle:active {
+  cursor: grabbing;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .log-modal-title {
@@ -194,15 +206,7 @@
   padding-bottom: 36px;
   overscroll-behavior: contain;
 }
-.history-modal::before {
-  content: '';
-  display: block;
-  width: 36px;
-  height: 5px;
-  border-radius: 2.5px;
-  background: rgba(255, 255, 255, 0.2);
-  margin: 16px auto 0;
-}
+/* History modal handle is handled via the same reusable .modal-drag-handle class */
 .hist-header {
   display: flex;
   align-items: flex-start;

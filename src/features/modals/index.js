@@ -163,6 +163,7 @@ export function openHistoryModal(exId) {
   overlay.className = 'history-modal-overlay';
   overlay.innerHTML = `
     <div class="history-modal" role="dialog" aria-modal="true" aria-label="History for ${ex.name}">
+      <div class="modal-drag-handle" style="margin: 12px auto 4px;"></div>
       <div class="hist-header">
         <div>
           <div class="hist-title">${ex.name}</div>
@@ -184,6 +185,12 @@ export function openHistoryModal(exId) {
   overlay.addEventListener('click', e => { if (e.target === overlay) closeHistoryModal(); });
   overlay.querySelector('#hist-close').addEventListener('click', closeHistoryModal);
   overlay.addEventListener('keydown', e => { if (e.key === 'Escape') closeHistoryModal(); });
+
+  const modal = overlay.querySelector('.history-modal');
+  const handle = overlay.querySelector('.modal-drag-handle');
+  if (modal && handle) {
+    enableDragToDismiss(modal, handle, closeHistoryModal);
+  }
 }
 
 export function closeHistoryModal() {
@@ -320,6 +327,7 @@ export function openSessionSummaryModal(entry, appState, isCycleComplete = false
   overlay.className = 'summary-modal-overlay';
   overlay.innerHTML = `
     <div class="summary-modal" role="dialog" aria-modal="true" aria-label="Session Summary">
+      <div class="modal-drag-handle"></div>
       ${cycleCompleteHtml}
       <div class="summary-header">
         <div class="summary-title">SESSION COMPLETE</div>
@@ -337,6 +345,12 @@ export function openSessionSummaryModal(entry, appState, isCycleComplete = false
   overlay.addEventListener('click', e => { if (e.target === overlay) closeSessionSummaryModal(); });
   overlay.querySelector('#summary-close').addEventListener('click', closeSessionSummaryModal);
   overlay.addEventListener('keydown', e => { if (e.key === 'Escape') closeSessionSummaryModal(); });
+
+  const modal = overlay.querySelector('.summary-modal');
+  const handle = overlay.querySelector('.modal-drag-handle');
+  if (modal && handle) {
+    enableDragToDismiss(modal, handle, closeSessionSummaryModal);
+  }
 }
 
 export function closeSessionSummaryModal() {
@@ -405,6 +419,7 @@ export function openLogModal(exId, setIdx) {
   overlay.className = 'log-modal-overlay';
   overlay.innerHTML = `
     <div class="log-modal" role="dialog" aria-modal="true" aria-label="Log Set ${setIdx + 1}">
+      <div class="modal-drag-handle"></div>
       <div class="log-modal-title">${ex?.name ?? exId}</div>
       <div class="log-modal-sub">SET ${setIdx + 1} ${prevSet && (prevSet.w !== null || prevSet.r !== null)
         ? `<span class="log-modal-prev">· Last: ${prevSet.w ?? '?'}×${prevSet.r ?? '?'}</span>`
@@ -483,17 +498,19 @@ export function openLogModal(exId, setIdx) {
 
   setTimeout(() => weightInput?.focus(), 60);
 
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) {
-      const restoreY = activeModal?.scrollY ?? 0;
-      closeLogModal();
-      requestAnimationFrame(() => window.scrollTo(0, restoreY));
-    }
-  });
-  overlay.querySelector('#log-cancel').addEventListener('click', () => {
+  const closeCallback = () => {
     const restoreY = activeModal?.scrollY ?? 0;
     closeLogModal();
     requestAnimationFrame(() => window.scrollTo(0, restoreY));
+  };
+
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) {
+      closeCallback();
+    }
+  });
+  overlay.querySelector('#log-cancel').addEventListener('click', () => {
+    closeCallback();
   });
 
   overlay.querySelector('#log-save').addEventListener('click', () => {
@@ -502,20 +519,22 @@ export function openLogModal(exId, setIdx) {
     const n = noteInput.value.trim();
     const rir = rirInput.value !== '' ? parseInt(rirInput.value, 10) : null;
     const rom = selectedROM;
-    const restoreY = activeModal?.scrollY ?? 0;
-    closeLogModal();
+    closeCallback();
     dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r, note: n, rir, rom });
-    requestAnimationFrame(() => window.scrollTo(0, restoreY));
   });
 
   overlay.addEventListener('keydown', e => {
     if (e.key === 'Enter') overlay.querySelector('#log-save').click();
     if (e.key === 'Escape') {
-      const restoreY = activeModal?.scrollY ?? 0;
-      closeLogModal();
-      requestAnimationFrame(() => window.scrollTo(0, restoreY));
+      closeCallback();
     }
   });
+
+  const modal = overlay.querySelector('.log-modal');
+  const handle = overlay.querySelector('.modal-drag-handle');
+  if (modal && handle) {
+    enableDragToDismiss(modal, handle, closeCallback);
+  }
 }
 
 export function closeLogModal() {
@@ -603,5 +622,102 @@ export function showConfirmModal(title, body, onConfirm, opts = {}) {
     if (e.key === 'Escape') { document.removeEventListener('keydown', escHandler); doCancel(); }
   };
   document.addEventListener('keydown', escHandler);
+}
+
+function enableDragToDismiss(modalEl, handleEl, onClose) {
+  let startY = 0;
+  let currentY = 0;
+  let isDragging = false;
+  let dragOffset = 0;
+
+  handleEl.addEventListener('pointerdown', onPointerDown);
+
+  function onPointerDown(e) {
+    if (e.button !== 0) return;
+    startY = e.clientY;
+    isDragging = true;
+    handleEl.setPointerCapture(e.pointerId);
+    
+    modalEl.style.transition = 'none';
+    const overlayEl = modalEl.parentElement;
+    if (overlayEl) overlayEl.style.transition = 'none';
+
+    handleEl.addEventListener('pointermove', onPointerMove);
+    handleEl.addEventListener('pointerup', onPointerUp);
+    handleEl.addEventListener('pointercancel', onPointerCancel);
+  }
+
+  function onPointerMove(e) {
+    if (!isDragging) return;
+    currentY = e.clientY;
+    dragOffset = currentY - startY;
+
+    if (dragOffset > 0) {
+      modalEl.style.transform = `translateY(${dragOffset}px)`;
+      const overlayEl = modalEl.parentElement;
+      if (overlayEl) {
+        const maxDrag = modalEl.offsetHeight || 400;
+        const ratio = Math.max(0, 1 - (dragOffset / maxDrag));
+        overlayEl.style.opacity = ratio;
+      }
+    } else {
+      const resist = dragOffset * 0.15;
+      modalEl.style.transform = `translateY(${resist}px)`;
+    }
+  }
+
+  function onPointerUp(e) {
+    if (!isDragging) return;
+    cleanup();
+
+    const threshold = (modalEl.offsetHeight || 300) * 0.25;
+    const overlayEl = modalEl.parentElement;
+    
+    if (dragOffset > threshold) {
+      modalEl.style.transition = 'transform 0.18s ease-out';
+      modalEl.style.transform = 'translateY(100%)';
+      if (overlayEl) {
+        overlayEl.style.transition = 'opacity 0.18s ease-out';
+        overlayEl.style.opacity = '0';
+      }
+      setTimeout(() => {
+        onClose();
+      }, 180);
+    } else {
+      modalEl.style.transition = 'transform 0.2s cubic-bezier(0.25, 1, 0.5, 1)';
+      modalEl.style.transform = 'translateY(0)';
+      if (overlayEl) {
+        overlayEl.style.transition = 'opacity 0.2s ease';
+        overlayEl.style.opacity = '1';
+        setTimeout(() => {
+          overlayEl.style.removeProperty('opacity');
+          overlayEl.style.transition = '';
+        }, 200);
+      }
+      setTimeout(() => {
+        modalEl.style.transition = '';
+      }, 200);
+    }
+  }
+
+  function onPointerCancel(e) {
+    if (!isDragging) return;
+    cleanup();
+    modalEl.style.transition = 'transform 0.2s ease-out';
+    modalEl.style.transform = 'translateY(0)';
+    const overlayEl = modalEl.parentElement;
+    if (overlayEl) {
+      overlayEl.style.opacity = '';
+      overlayEl.style.transition = '';
+    }
+  }
+
+  function cleanup() {
+    isDragging = false;
+    handleEl.releasePointerCapture(handleEl.pointerId);
+    handleEl.removeEventListener('pointermove', onPointerMove);
+    handleEl.removeEventListener('pointerup', onPointerUp);
+    handleEl.removeEventListener('pointercancel', onPointerCancel);
+  }
 }
 
