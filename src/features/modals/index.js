@@ -411,7 +411,7 @@ export function openLogModal(exId, setIdx) {
           <label class="log-label" for="log-weight">WEIGHT</label>
           <div class="log-input-wrap">
             <input class="log-input" id="log-weight" type="number"
-              inputmode="decimal" min="0" step="2.5"
+              inputmode="decimal" min="0" step="${ex?.deltaW ?? 2.5}"
               placeholder="${placeholderW}" value="${prefillW}"/>
             <span class="log-unit">lbs</span>
           </div>

@@ -525,6 +525,8 @@ export function dispatch(type, payload = {}) {
               controllerDistance:    updated.controllerDistance,
               modeDominanceRatio:    updated.modeDominanceRatio,
               weightAgreement:       updated.weightAgreement,
+              sessionType:           updated.sessionType ?? 'mixed',
+              classifierConfidence:  updated.classifierConfidence ?? 0,
               isAtMax:               updated.isAtMax ?? false,
             };
           } catch (err) {
@@ -633,6 +635,8 @@ export function rebuildAllProgressions(appState) {
           controllerDistance:    updated.controllerDistance,
           modeDominanceRatio:    updated.modeDominanceRatio,
           weightAgreement:       updated.weightAgreement,
+          sessionType:           updated.sessionType ?? 'mixed',
+          classifierConfidence:  updated.classifierConfidence ?? 0,
           isAtMax:               updated.isAtMax ?? false,
         };
       } catch (err) {

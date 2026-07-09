@@ -314,6 +314,54 @@ function computeRestInflation(sets, prescribedRestSec) {
   return +(weightedSum / weightTotal).toFixed(4);
 }
 
+/**
+ * Classify the structural pattern of a set sequence.
+ *
+ * Uses execution order (sorted by completedAt, falling back to array index).
+ * Detects the four training patterns that affect working-weight inference:
+ *   straight       — all sets at one weight (mode = unambiguous working weight)
+ *   ramp           — strictly non-decreasing (mode = top of ramp, may be a test set)
+ *   topset_backoff — heavy opener followed by lighter work (mode = backoff weight)
+ *   mixed          — doesn't fit a clean pattern
+ *
+ * This is structural detection, not intent inference. It produces a signal
+ * for the confidence calculation — it does not make policy decisions.
+ *
+ * @param {Array<{w:number, completedAt?:number}>} done — completed sets (non-null w)
+ * @returns {'straight'|'ramp'|'topset_backoff'|'mixed'}
+ */
+function detectSessionType(done) {
+  if (!done.length) return 'mixed';
+
+  // Sort by completedAt for temporal ordering; fall back to array index.
+  const sorted = [...done].sort((a, b) => {
+    if (a.completedAt != null && b.completedAt != null) return a.completedAt - b.completedAt;
+    return 0;  // preserve insertion order if no timestamps
+  });
+
+  const weights = sorted.map(s => s.w);
+  const unique = new Set(weights);
+
+  // Straight: all sets at the same weight.
+  if (unique.size === 1) return 'straight';
+
+  // Ramp: each set weight is >= the previous (ascending, possibly with plateau at top).
+  let isRamp = true;
+  for (let i = 1; i < weights.length; i++) {
+    if (weights[i] < weights[i - 1]) { isRamp = false; break; }
+  }
+  if (isRamp) return 'ramp';
+
+  // Top-set + backoff: the heaviest weight appears early (index 0 or 1)
+  // and the majority of the remaining sets are lighter.
+  const maxW = Math.max(...weights);
+  const firstPeakIdx = weights.indexOf(maxW);
+  const lighterCount = weights.filter(w => w < maxW).length;
+  if (firstPeakIdx <= 1 && lighterCount >= 2) return 'topset_backoff';
+
+  return 'mixed';
+}
+
 // ── Session Classification ────────────────────────────────────────────────────
 
 /**
@@ -325,8 +373,8 @@ function computeRestInflation(sets, prescribedRestSec) {
  * For fixed-rep exercises (min === max), qualifying means every working set
  * hits exactly that rep count or higher.
  *
- * Returns distributional metadata (modeDominanceRatio, weightAgreement) that
- * the controller does not consume. These are infrastructure for a future
+ * Returns distributional metadata (modeDominanceRatio, weightAgreement, sessionType, classifierConfidence)
+ * that the controller does not consume. These are infrastructure for a future
  * belief-state layer — carried forward, not acted upon.
  *
  * @param {Array<{s:string, w:number|null, r:number|null}>} sets
@@ -340,6 +388,8 @@ function computeRestInflation(sets, prescribedRestSec) {
  *   topWeight:           number|null,
  *   modeDominanceRatio:  number,
  *   weightAgreement:     number|null,
+ *   sessionType:         'straight'|'ramp'|'topset_backoff'|'mixed',
+ *   classifierConfidence: number,
  * }}
  */
 export function classifySession(sets, repRange, currentWeight = null, restData = {}) {
@@ -352,8 +402,11 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
       classification: null, restInflationFactor: 0,
       workingWeight: null, topWeight: null,
       modeDominanceRatio: 0, weightAgreement: null,
+      sessionType: 'mixed', classifierConfidence: 0,
     };
   }
+
+  const sessionType = detectSessionType(done);
 
   // ── Working-weight identification ─────────────────────────────────────
   // Deterministic fallback chain:
@@ -388,13 +441,13 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
     if (s.w > topWeight) topWeight = s.w;
   }
 
-  // workingWeight: anchor if it has STRICTLY more sets than mode, mode
-  // otherwise.
+  // workingWeight: anchor if it has at least as many sets as mode, mode
+  // otherwise (mode has STRICTLY more sets than anchor).
   //
   // The anchor prevents warmups from hijacking the working-set filter.
   // But when the user does a check set at the anchor then works at a
   // higher weight, or ramps through multiple weights, the anchor has
-  // fewer or equal sets vs mode. In those cases mode wins — the user's
+  // fewer sets vs mode. In those cases mode wins — the user's
   // real work was at the higher weight.
   //
   // Combined with the mode tie-break (prefer higher weight on equal
@@ -405,11 +458,11 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   let workingWeight;
   if (anchorWeight != null) {
     const anchorCount = done.filter(s => s.w === anchorWeight).length;
-    if (anchorCount > maxCount) {
-      // Anchor has strictly more sets than any other weight → use anchor
+    if (anchorCount >= maxCount) {
+      // Anchor has equal or more sets than any other weight → use anchor
       workingWeight = anchorWeight;
     } else {
-      // Mode has equal or more sets → user mostly worked at mode weight
+      // Mode has strictly more sets → user mostly worked at mode weight
       workingWeight = modeWeight;
     }
   } else {
@@ -437,6 +490,30 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
     }
   }
 
+  // ── Classifier confidence ─────────────────────────────────────────────
+  // Measures how reliably modeWeight = the user's intended training weight.
+  //
+  // Base = modeDominanceRatio: fraction of all sets at the mode weight.
+  //   1.0 (straight sets)   → mode is unambiguous
+  //   0.5 (ramp, 2/4 sets)  → mode is the top of a ramp, may be a test set
+  //
+  // Ramp penalty: ramp sessions systematically produce a high mode weight
+  // even when only 1–2 sets were performed there. Penalize by RAMP_PENALTY.
+  //
+  // Agreement blend: if we have a prior anchor, weightAgreement already
+  // captures disagreement between the anchor and the inferred weight.
+  // Blend it in as a 40% weight to avoid double-counting modeDominanceRatio.
+  //
+  // This is a diagnostic scalar, not a probability. It feeds into bootstrap
+  // policy only — it does not influence the classifier or controller outputs.
+  const RAMP_PENALTY = 0.5;
+  let classifierConfidence = modeDominanceRatio;
+  if (sessionType === 'ramp') classifierConfidence *= RAMP_PENALTY;
+  if (weightAgreement !== null) {
+    classifierConfidence = 0.6 * classifierConfidence + 0.4 * weightAgreement;
+  }
+  classifierConfidence = +Math.min(1, Math.max(0, classifierConfidence)).toFixed(4);
+
   // Filter to only working sets (sets at the working weight).
   // This excludes warm-up sets, ramp sets, and back-off sets.
   const workingSets = done.filter(s => s.w === workingWeight);
@@ -446,6 +523,7 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
       classification: null, restInflationFactor: 0,
       workingWeight, topWeight,
       modeDominanceRatio, weightAgreement,
+      sessionType, classifierConfidence,
     };
   }
 
@@ -479,6 +557,7 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   return {
     classification, restInflationFactor, workingWeight, topWeight,
     modeDominanceRatio, weightAgreement,
+    sessionType, classifierConfidence,
   };
 }
 
@@ -511,6 +590,8 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   controllerDistance:    { qualifyingNeeded: number, failingCapacity: number },
  *   modeDominanceRatio:    number,
  *   weightAgreement:       number|null,
+ *   sessionType:           'straight'|'ramp'|'topset_backoff'|'mixed',
+ *   classifierConfidence:  number,
  * }}
  */
 export function updateProgressionState(prev = {}, sets = [], opts = {}) {
@@ -543,6 +624,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     topWeight,
     modeDominanceRatio,
     weightAgreement,
+    sessionType,
+    classifierConfidence,
   } = classifySession(sets, repRange, prevWeight, {
     prescribedRestSec: opts.prescribedRestSec ?? 0,
     prescribedWeight: opts.prescribedWeight ?? null,
@@ -565,28 +648,45 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       controllerDistance: computeControllerDistance({ consecutiveQualifying: prevConsecutive, recentOutcomes: prevOutcomes }),
       modeDominanceRatio,
       weightAgreement,
+      sessionType: sessionType ?? 'mixed',
+      classifierConfidence: classifierConfidence ?? 0,
     };
   }
 
-  // Initialize currentWeight:
-  //   persisted state > observed working weight (on bootstrap) > program seed
+  // ── Bootstrap policy: commit vs. retain ─────────────────────────────────
   //
-  // On the FIRST session (prevWeight is null / bootstrap), the observed
-  // working weight is always the anchor — regardless of classification.
-  // The prescribedWeight (load min) is a seed for UI display before any
-  // data exists; once we have a real session, reality takes precedence.
-  // This prevents the load-min seed from anchoring the controller below
-  // the user's actual working level (e.g., user works at 80, fails, but
-  // the seed is 60 → controller would wrongly hold at 60 instead of
-  // regressing from 80 to 70).
+  // On the first session (no prior state), the observed working weight is
+  // inferred statistically (mode of set weights). That inference is reliable
+  // for straight-set sessions but unreliable for ramps, where the mode is
+  // the top of the ramp and may represent a test set rather than the
+  // programmed working weight.
   //
-  // On subsequent sessions (prevWeight exists), persisted state is
-  // authoritative. The overreach guard below only applies here.
+  // Policy:
+  //   High confidence (>= BOOTSTRAP_CONFIDENCE_THRESHOLD):
+  //     Commit observed weight — classifier has clear evidence.
+  //   Low confidence (< threshold):
+  //     Retain prescribed seed — ambiguous session structure; let the user
+  //     progress from the seed organically after straight-set confirmation.
+  //
+  // This separates classification (what weight did the mode computation
+  // produce?) from policy (should we trust that inference as a baseline?).
+  //
+  // The threshold is a named constant — change it here if calibration is
+  // needed after observing real data.
+  const BOOTSTRAP_CONFIDENCE_THRESHOLD = 0.75;
+
   const isBootstrap = prevWeight == null;
   let currentWeight;
   if (isBootstrap) {
-    // Bootstrap: observed reality > program seed > null
-    currentWeight = sessionWorkingWeight ?? opts.prescribedWeight ?? null;
+    if (classifierConfidence >= BOOTSTRAP_CONFIDENCE_THRESHOLD) {
+      // Classifier is confident: adopt inferred working weight.
+      currentWeight = sessionWorkingWeight ?? opts.prescribedWeight ?? null;
+    } else {
+      // Classifier is uncertain (ramp, mixed pattern): anchor to prescribed
+      // seed so the controller doesn't commit an ambiguous top-set as baseline.
+      // Falls back to sessionWorkingWeight only when no seed exists.
+      currentWeight = opts.prescribedWeight ?? sessionWorkingWeight ?? null;
+    }
   } else {
     currentWeight = prevWeight;
   }
@@ -709,6 +809,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     controllerDistance,
     modeDominanceRatio,
     weightAgreement,
+    sessionType,
+    classifierConfidence,
   };
 }
 
@@ -734,6 +836,8 @@ function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null)
     controllerDistance: computeControllerDistance({ consecutiveQualifying: prevConsecutive, recentOutcomes: prevOutcomes }),
     modeDominanceRatio: 0,
     weightAgreement: null,
+    sessionType: 'mixed',
+    classifierConfidence: 0,
   };
 }
 

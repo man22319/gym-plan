@@ -421,7 +421,7 @@ export function buildEditPanel(ex, appState) {
     <div class="ex-edit-field">
       <label for="edit-weight-${instanceId}">Working Weight</label>
       <div class="ex-edit-input-wrap">
-        <input type="number" class="ex-edit-input" id="edit-weight-${instanceId}" step="2.5" min="0" value="${currentWW ?? ''}" placeholder="Auto from progression" />
+        <input type="number" class="ex-edit-input" id="edit-weight-${instanceId}" step="${effEx?.deltaW ?? 2.5}" min="0" value="${currentWW ?? ''}" placeholder="Auto from progression" />
         <span class="ex-edit-unit">lbs</span>
       </div>
     </div>`;
@@ -497,14 +497,20 @@ export function buildPrevRow(prevSets, currSets) {
 export function buildDelta(weightDelta, repsDelta) {
   const parts = [];
   if (weightDelta !== null && weightDelta !== 0) {
-    const cls = weightDelta > 0 ? 'delta-up' : 'delta-down';
-    const sign = weightDelta > 0 ? '+' : '';
-    parts.push(`<span class="delta ${cls}">${sign}${weightDelta}lb</span>`);
+    const rounded = Math.round(weightDelta * 2) / 2; // snap to 0.5 lb
+    if (rounded !== 0) {
+      const cls = rounded > 0 ? 'delta-up' : 'delta-down';
+      const sign = rounded > 0 ? '+' : '';
+      parts.push(`<span class="delta ${cls}">${sign}${rounded}lb</span>`);
+    }
   }
   if (repsDelta !== null && repsDelta !== 0) {
-    const cls = repsDelta > 0 ? 'delta-up' : 'delta-down';
-    const sign = repsDelta > 0 ? '+' : '';
-    parts.push(`<span class="delta ${cls}">${sign}${repsDelta}rep</span>`);
+    const rounded = Math.round(repsDelta); // snap to whole reps
+    if (rounded !== 0) {
+      const cls = rounded > 0 ? 'delta-up' : 'delta-down';
+      const sign = rounded > 0 ? '+' : '';
+      parts.push(`<span class="delta ${cls}">${sign}${rounded}rep</span>`);
+    }
   }
   return parts.length ? `<span class="delta-group">${parts.join('')}</span>` : '';
 }

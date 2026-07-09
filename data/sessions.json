@@ -42,7 +42,7 @@
         {
           "label": "Back Thickness + Shoulders",
           "exercises": [
-            { "exerciseRef": "row_dumbbell", "letter": "A" },
+            { "exerciseRef": "row_machine", "letter": "A" },
             { "exerciseRef": "lateral_raise_machine", "letter": "B" },
             { "exerciseRef": "arnold_press", "letter": "C" },
             { "exerciseRef": "reverse_pd", "letter": "D" }
@@ -88,7 +88,7 @@
           "label": "Arms",
           "exercises": [
             { "exerciseRef": "barbell_curl", "letter": "A" },
-            { "exerciseRef": "skull_crushers", "letter": "B" }
+            { "exerciseRef": "tri_press", "letter": "B" }
           ]
         },
         {
