@@ -30,6 +30,27 @@ export function startRestTimer(duration = REST_DURATION) {
   startRestTimerLoop();
 }
 
+/**
+ * Start a rest timer with fatigue-aware scaling.
+ *
+ * As the user progresses through sets, rest periods grow proportionally
+ * to compensate for accumulated fatigue. The scaling is linear:
+ *   scaledDuration = baseDuration × (1 + scalingFactor × repProgress)
+ *
+ * @param {number} baseDuration     — base rest duration (seconds)
+ * @param {number} repProgress      — progress through the exercise ∈ [0, 1]
+ *                                    where 0 = first set, 1 = last set
+ * @param {number} [scalingFactor]  — maximum fractional increase (default 0.5 = +50%)
+ */
+export function startRestTimerWithScaling(baseDuration, repProgress, scalingFactor = 0.5) {
+  const restMultiplier = 1 + scalingFactor * Math.max(0, Math.min(1, repProgress));
+  const scaledDuration = Math.min(
+    Math.round(baseDuration * restMultiplier),
+    MAX_REST_DURATION
+  );
+  startRestTimer(scaledDuration);
+}
+
 export function startRestTimerLoop() {
   clearInterval(restTimerId);
   // Track the real wall-clock start so the countdown is immune to browser

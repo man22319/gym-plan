@@ -630,6 +630,7 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
   let startTime = 0;
   let isDragging = false;
   let dragOffset = 0;
+  let activePointerId = null;
 
   handleEl.addEventListener('pointerdown', onPointerDown);
 
@@ -638,7 +639,8 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
     startY = e.clientY;
     startTime = Date.now();
     isDragging = true;
-    handleEl.setPointerCapture(e.pointerId);
+    activePointerId = e.pointerId;
+    handleEl.setPointerCapture(activePointerId);
     
     modalEl.style.transition = 'none';
     modalEl.style.willChange = 'transform';
@@ -671,13 +673,14 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
 
   function onPointerUp(e) {
     if (!isDragging) return;
-    cleanup();
 
     const dragDuration = (Date.now() - startTime) / 1000; // in seconds
     const velocity = dragDuration > 0 ? dragOffset / dragDuration : 0;
-    const threshold = (modalEl.offsetHeight || 300) * 0.35;
+    const threshold = (modalEl.offsetHeight || 300) * 0.5;
     const overlayEl = modalEl.parentElement;
     
+    cleanup();
+
     if (dragOffset > threshold || velocity > 800) {
       modalEl.style.transition = 'transform 0.25s ease-out';
       modalEl.style.transform = 'translateY(100%)';
@@ -724,7 +727,10 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
 
   function cleanup() {
     isDragging = false;
-    handleEl.releasePointerCapture(handleEl.pointerId);
+    if (activePointerId !== null) {
+      try { handleEl.releasePointerCapture(activePointerId); } catch (e) {}
+      activePointerId = null;
+    }
     handleEl.removeEventListener('pointermove', onPointerMove);
     handleEl.removeEventListener('pointerup', onPointerUp);
     handleEl.removeEventListener('pointercancel', onPointerCancel);

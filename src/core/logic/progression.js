@@ -277,6 +277,25 @@ const ROM_TREND_THRESHOLD  = 2;  // qualifying-degradation sessions needed
 const RIR_TREND_WINDOW     = 3;
 const RIR_TREND_THRESHOLD  = 2;
 
+// ── F3: DOMS Adaptation Constants ─────────────────────────────────────────────
+// During the first 2 exposures to an exercise, large weight drops from anchor
+// are treated as expected DOMS variance rather than true regression signals.
+const DOMS_MAX_EXPOSURE      = 2;    // sessions in the adaptation window
+const DOMS_DROP_THRESHOLD    = 0.30; // fractional drop from anchor to trigger DOMS logic
+
+// ── F4: Adaptive Evidence Constants ───────────────────────────────────────────
+// Statistical model for evidence requirement scaling.
+// δ = detectable fraction, CV = coefficient of variation.
+const EVIDENCE_DELTA         = 0.5;
+const CV_DEFAULT             = 0.08;
+
+// ── F5: Unsafe Jump Prevention Constants ──────────────────────────────────────
+const SAFETY_FACTOR          = 1.15; // max allowable working weight = recommendedMax × SAFETY_FACTOR
+
+// ── F6: Deconditioning Decay Constants ────────────────────────────────────────
+const DECONDITIONING_THRESHOLD_DAYS = 7;    // gap before decay kicks in
+const DECAY_LAMBDA                  = 0.01; // exponential decay rate (per day)
+
 // ── ROM / RIR Quality Analysis (DIAGNOSTIC ONLY — not consumed by controller) ──
 
 /**
@@ -422,6 +441,104 @@ function epleyE1RM(w, r) {
 function workingTarget(T, targetReps) {
   if (!targetReps || targetReps <= 0) return T;
   return T / (1 + targetReps / 30);
+}
+
+// ── F4: Adaptive Evidence Requirement ─────────────────────────────────────────
+
+/**
+ * Compute the number of qualifying sessions required to approve a weight jump.
+ *
+ * Based on the fractional jump r = ΔW / W and the exercise's coefficient
+ * of variation (CV). Uses a statistical power model:
+ *   E_req = ⌈(z(q*) / (δ − r/CV))²⌉
+ *
+ * Three regions:
+ *   Region 1 (Normal):    0 ≤ r < CVδ − ε → compute E_req (≥ 2, capped at 5)
+ *   Region 2 (Boundary):  CVδ − ε ≤ r < CVδ → reject, recommend intermediate
+ *   Region 3 (Invalid):   r ≥ CVδ → reject immediately
+ *
+ * @param {number} r   — fractional jump ΔW / W
+ * @param {number} [cv] — coefficient of variation (default CV_DEFAULT)
+ * @returns {{ requiredEvidence: number, reject: boolean, recommendIntermediate: boolean }}
+ */
+function computeRequiredEvidence(r, cv = CV_DEFAULT) {
+  const epsilon  = 0.001;
+  const boundary = cv * EVIDENCE_DELTA;
+
+  // Region 3: jump exceeds detectable fraction — reject
+  if (r >= boundary) {
+    return { requiredEvidence: Infinity, reject: true, recommendIntermediate: false };
+  }
+
+  // Region 2: boundary zone — reject with intermediate recommendation
+  if (r >= boundary - epsilon) {
+    return { requiredEvidence: Infinity, reject: false, recommendIntermediate: true };
+  }
+
+  // Region 1: normal — compute required evidence
+  // z(0.85) ≈ 1.0364 (inverse normal CDF)
+  const zStar = 1.0364;
+  const denominator = EVIDENCE_DELTA - r / cv;
+  const eReq = Math.ceil(Math.pow(zStar / denominator, 2));
+
+  // Clamp to [2, 5] — never fewer than 2 (minimum streak), never more than 5
+  // (diminishing returns, user patience)
+  return {
+    requiredEvidence: Math.max(2, Math.min(5, eReq)),
+    reject: false,
+    recommendIntermediate: false,
+  };
+}
+
+// ── F5: Unsafe Jump Prevention ────────────────────────────────────────────────
+
+/**
+ * Validate that a proposed weight increase is safe given recent performance.
+ *
+ * Estimates 1RM from recent working sets using Epley, then computes the
+ * maximum allowable working weight at the target rep ceiling. Any proposed
+ * weight exceeding this by SAFETY_FACTOR is clamped.
+ *
+ * @param {number} proposedWeight   — the weight the controller wants to suggest
+ * @param {{min:number, max:number}} repRange — prescribed rep range
+ * @param {Array<{s:string, w:number|null, r:number|null}>} sets — recent session sets
+ * @returns {{ safe: boolean, clampedWeight: number, estimatedE1RM: number|null }}
+ */
+function validateProposedLoad(proposedWeight, repRange, sets) {
+  const done = (sets || []).filter(
+    s => s.s === 'done' && s.w !== null && s.r !== null && s.w > 0 && s.r > 0
+  );
+
+  if (done.length === 0) {
+    // No data to estimate from — allow the jump (fail open on insufficient data)
+    return { safe: true, clampedWeight: proposedWeight, estimatedE1RM: null };
+  }
+
+  // Compute e1RM from each working set and take the maximum
+  let maxE1RM = 0;
+  for (const s of done) {
+    const e1rm = epleyE1RM(s.w, s.r);
+    if (e1rm !== null && e1rm > maxE1RM) maxE1RM = e1rm;
+  }
+
+  if (maxE1RM <= 0) {
+    return { safe: true, clampedWeight: proposedWeight, estimatedE1RM: null };
+  }
+
+  // Epley inverse at rep ceiling: the weight you'd need to do repRange.max reps
+  const targetRepMax = repRange.max ?? repRange.min ?? 8;
+  const recommendedMaxWorkingWeight = workingTarget(maxE1RM, targetRepMax);
+  const absoluteMax = recommendedMaxWorkingWeight * SAFETY_FACTOR;
+
+  if (proposedWeight > absoluteMax) {
+    return {
+      safe: false,
+      clampedWeight: Math.round(absoluteMax * 2) / 2, // round to nearest 0.5
+      estimatedE1RM: maxE1RM,
+    };
+  }
+
+  return { safe: true, clampedWeight: proposedWeight, estimatedE1RM: maxE1RM };
 }
 
 // ── Rest-Inflation Detection ──────────────────────────────────────────────────
@@ -835,18 +952,58 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const prevRomSummaries = Array.isArray(prev.recentRomSummaries) ? [...prev.recentRomSummaries] : [];
   const prevZeroRir      = Array.isArray(prev.recentZeroRir)      ? [...prev.recentZeroRir]      : [];
 
+  // ── F3: DOMS adaptation state ───────────────────────────────────────────
+  const prevExposureCount = prev.exposureCount ?? 0;
+  const exposureCount = prevExposureCount + 1;
+
+  // ── F6: Deconditioning decay ────────────────────────────────────────────
+  // Compute gap since last session. If > 7 days, decay latent capability.
+  const prevTimestamp = prev.lastSessionTimestamp ?? null;
+  const nowTimestamp = opts.sessionTimestamp ?? Date.now();
+  let latentCapability = null;
+  let deconditioningApplied = false;
+  let deconditioningDays = 0;
+
+  if (prevWeight != null && prevTimestamp != null) {
+    const gapMs = nowTimestamp - prevTimestamp;
+    const gapDays = gapMs / (1000 * 60 * 60 * 24);
+    if (gapDays > DECONDITIONING_THRESHOLD_DAYS) {
+      // Exponential decay: latentCapability = currentWeight × e^(-λ·Δt)
+      // Does NOT mutate historical currentWeight — only affects suggestion.
+      latentCapability = prevWeight * Math.exp(-DECAY_LAMBDA * gapDays);
+      deconditioningApplied = true;
+      deconditioningDays = gapDays;
+    }
+  }
+
+  // ── F7: Evidence invalidation on weight change ──────────────────────────
+  const prevValidatedWeight = prev.validatedWorkingWeight ?? prevWeight;
+  let effectiveConsecutive = prevConsecutive;
+  let evidenceInvalidated = false;
+
+  if (prevWeight != null && prevValidatedWeight != null && prevWeight !== prevValidatedWeight) {
+    // Weight changed since evidence was last validated — reset streak
+    effectiveConsecutive = 0;
+    evidenceInvalidated = true;
+  }
+
+  // F6: deconditioning also invalidates evidence
+  if (deconditioningApplied) {
+    effectiveConsecutive = 0;
+  }
+
   // ── Input validation (fail closed) ──────────────────────────────────────
   // Invalid inputs → return previous state unchanged with decision 'hold'.
   // This prevents the controller from producing garbage-shaped certainty
   // on malformed configuration.
   if (repRange.min != null && repRange.max != null && repRange.min > repRange.max) {
-    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
   }
   if (dw === undefined || dw === null || isNaN(dw) || dw <= 0) {
-    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
   }
   if (opts.prescribedRestSec != null && opts.prescribedRestSec < 0) {
-    return _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
   }
 
   // Classify this session
@@ -872,7 +1029,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   if (classification === null) {
     return {
       currentWeight: prevWeight,
-      consecutiveQualifying: prevConsecutive,
+      consecutiveQualifying: effectiveConsecutive,
       recentOutcomes: prevOutcomes,
       dw,
       suggestedWeight: prevWeight,
@@ -881,7 +1038,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       sessionClassification: null,
       topWeight: topWeight ?? null,
       restInflationFactor: 0,
-      controllerDistance: computeControllerDistance({ consecutiveQualifying: prevConsecutive, recentOutcomes: prevOutcomes }),
+      controllerDistance: computeControllerDistance({ consecutiveQualifying: effectiveConsecutive, recentOutcomes: prevOutcomes }),
       modeDominanceRatio,
       weightAgreement,
       sessionType: sessionType ?? 'mixed',
@@ -892,6 +1049,12 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       romTrend: analyzeRomTrend(prevRomSummaries),
       rirTrend: analyzeRirTrend(prevZeroRir),
       romWarning: null, rirWarning: null,
+      // F3/F6/F7 state — carry forward unchanged
+      exposureCount,
+      domsAdjustmentWindow: false,
+      validatedWorkingWeight: prevValidatedWeight,
+      plannedJump: prev.plannedJump ?? null,
+      requiredEvidence: prev.requiredEvidence ?? DEFAULTS.qualifyThreshold,
     };
   }
 
@@ -954,22 +1117,63 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     currentWeight = sessionWorkingWeight;
   }
 
+  // ── F3: DOMS adaptation — suppress regression during early exposures ────
+  let domsAdjustmentWindow = false;
+  if (exposureCount <= DOMS_MAX_EXPOSURE && prevWeight != null && sessionWorkingWeight != null) {
+    const dropFraction = (prevWeight - sessionWorkingWeight) / prevWeight;
+    if (dropFraction > DOMS_DROP_THRESHOLD) {
+      domsAdjustmentWindow = true;
+      // During DOMS window: treat the drop as expected variance.
+      // Suppress regression by not counting this as a failing session for
+      // the purposes of the regress threshold. The classification itself
+      // is unchanged (still 'failing' in the record for transparency).
+    }
+  }
+
   // Update consecutive qualifying counter.
   // Only failing resets the streak — adequate preserves it.
   // This means Q → A → Q still satisfies the progression threshold.
   let consecutiveQualifying;
   if (classification === 'qualifying') {
-    consecutiveQualifying = prevConsecutive + 1;
+    consecutiveQualifying = effectiveConsecutive + 1;
   } else if (classification === 'failing') {
     consecutiveQualifying = 0;
   } else {
     // adequate: preserve current streak
-    consecutiveQualifying = prevConsecutive;
+    consecutiveQualifying = effectiveConsecutive;
   }
 
   // Update recent outcomes (capped to regressWindow)
   const recentOutcomes = [...prevOutcomes, classification]
     .slice(-DEFAULTS.regressWindow);
+
+  // ── F4: Adaptive evidence requirement ───────────────────────────────────
+  // Replace fixed qualifyThreshold with dynamic computation based on the
+  // fractional size of the planned jump.
+  let requiredEvidence = prev.requiredEvidence ?? DEFAULTS.qualifyThreshold;
+  let plannedJump = prev.plannedJump ?? null;
+  let jumpRejected = false;
+  let recommendIntermediate = false;
+
+  // Recompute evidence requirement only when the planned jump changes
+  // (i.e., the currentWeight changed, or no prior planned jump exists)
+  if (currentWeight != null && currentWeight > 0) {
+    const nextDw = _getDeltaW(dwConfig, currentWeight);
+    const proposedJump = nextDw ?? dw;
+    if (proposedJump > 0 && proposedJump !== plannedJump) {
+      const r = proposedJump / currentWeight;
+      const evidenceResult = computeRequiredEvidence(r);
+      if (evidenceResult.reject) {
+        jumpRejected = true;
+      } else if (evidenceResult.recommendIntermediate) {
+        recommendIntermediate = true;
+        jumpRejected = true;
+      } else {
+        requiredEvidence = evidenceResult.requiredEvidence;
+      }
+      plannedJump = proposedJump;
+    }
+  }
 
   // ── Controller distance (pre-decision) ─────────────────────────────────
   // Computed BEFORE the decision/reset below so it reflects the distance
@@ -977,6 +1181,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const controllerDistance = computeControllerDistance({
     consecutiveQualifying,
     recentOutcomes,
+    // F4: use adaptive threshold for distance computation
+    qualifyThreshold: requiredEvidence,
   });
 
   // ── Controller output ──────────────────────────────────────────────────
@@ -991,9 +1197,15 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // Count failing sessions in the recent window
   const failingCount = recentOutcomes.filter(o => o === 'failing').length;
 
+  // F3: DOMS adjustment — don't count this session toward regression
+  const effectiveFailingCount = domsAdjustmentWindow
+    ? Math.max(0, failingCount - 1)  // discount the DOMS-affected session
+    : failingCount;
+
   // Progression: evidence accumulation (consecutive streak, low-frequency)
   // Checked FIRST — takes precedence over regression. See § Decision rules.
-  if (consecutiveQualifying >= DEFAULTS.qualifyThreshold) {
+  // F4: use adaptive requiredEvidence instead of fixed qualifyThreshold
+  if (!jumpRejected && consecutiveQualifying >= requiredEvidence) {
     decision = 'progress';
     const progressDw = _getDeltaW(dwConfig, currentWeight);
     if (progressDw === undefined || progressDw === null || isNaN(progressDw) || progressDw <= 0) {
@@ -1001,6 +1213,13 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       suggestedWeight = currentWeight;
     } else {
       suggestedWeight = currentWeight + progressDw;
+
+      // F5: Unsafe jump prevention — clamp if exceeding safety threshold
+      const validation = validateProposedLoad(suggestedWeight, repRange, sets);
+      if (!validation.safe) {
+        suggestedWeight = validation.clampedWeight;
+      }
+
       consecutiveQualifying = 0;  // Reset after progression
     }
   // Regression: risk detection (window density, high-frequency)
@@ -1010,9 +1229,13 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // sessions in the window should not override the most recent evidence.
   // This prevents the "double regression on recovery" bug where a user
   // recovers from illness (Q after F,F) and gets regressed anyway.
+  //
+  // F3: DOMS adjustment — use effectiveFailingCount which discounts
+  // the DOMS-affected session during the adaptation window.
   } else if (
-    failingCount >= DEFAULTS.regressThreshold &&
-    classification === 'failing'
+    effectiveFailingCount >= DEFAULTS.regressThreshold &&
+    classification === 'failing' &&
+    !domsAdjustmentWindow  // F3: never regress during DOMS window
   ) {
     decision = 'regress';
     // For regression, resolve dw at currentWeight - 0.1 to handle boundary step size transitions
@@ -1028,6 +1251,14 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     // Hold: keep working at current weight
     decision = 'hold';
     suggestedWeight = currentWeight;
+  }
+
+  // F6: Deconditioning — if a long gap was detected, derive suggestedWeight
+  // from the decayed latent capability instead of the historical record.
+  // The historical currentWeight is NOT mutated.
+  if (deconditioningApplied && latentCapability != null && decision === 'hold') {
+    suggestedWeight = latentCapability;
+    // Evidence from pre-break is already invalidated above (effectiveConsecutive = 0)
   }
 
   // Discretize suggested weight to nearest dw step
@@ -1047,6 +1278,11 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const committedWeight = decision === 'progress' ? suggestedWeight
                         : decision === 'regress'  ? suggestedWeight
                         : currentWeight;
+
+  // F7: Update validatedWorkingWeight on progression/regression decisions
+  const validatedWorkingWeight = (decision === 'progress' || decision === 'regress')
+    ? suggestedWeight
+    : (evidenceInvalidated ? currentWeight : prevValidatedWeight);
 
   // isFirstSession is a UI-layer concern, not a controller state.
   // The controller always returns its true decision (progress/hold/regress).
@@ -1103,6 +1339,16 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     romPattern, romValues, zeroRirCount,
     recentRomSummaries, recentZeroRir,
     romTrend, rirTrend, romWarning, rirWarning,
+    // F3: DOMS adaptation state
+    exposureCount,
+    domsAdjustmentWindow,
+    // F4: Adaptive evidence
+    requiredEvidence,
+    plannedJump,
+    // F6: Deconditioning
+    deconditioningApplied,
+    // F7: Evidence invalidation
+    validatedWorkingWeight,
   };
 }
 
@@ -1197,8 +1443,11 @@ export function computeControllerDistance(state = {}) {
     ? state.recentOutcomes
     : [];
 
+  // F4: use adaptive threshold when provided, fall back to default
+  const qualifyThreshold = state.qualifyThreshold ?? DEFAULTS.qualifyThreshold;
+
   // Distance to progression: how many more consecutive qualifying sessions needed
-  const qualifyingNeeded = Math.max(0, DEFAULTS.qualifyThreshold - consecutiveQualifying);
+  const qualifyingNeeded = Math.max(0, qualifyThreshold - consecutiveQualifying);
 
   // Distance to regression: how many more failing sessions the window can absorb
   const failingInWindow = recentOutcomes.filter(o => o === 'failing').length;

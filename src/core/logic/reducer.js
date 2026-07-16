@@ -2,7 +2,7 @@ import { DEV_MODE, REST_DURATION, makeSet, makeCardio, makeDefaultExercises, cre
 import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from '../utils/helpers.js';
-import { startRestTimer, skipRestTimer } from '../utils/restTimer.js';
+import { startRestTimer, startRestTimerWithScaling, skipRestTimer } from '../utils/restTimer.js';
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
 import { updateProgressionState } from './progression.js';
 import { expandImport } from '../../io/compactFormat.js';
@@ -157,7 +157,26 @@ export function reducer(currentState, action) {
           runtimeOverrides[exId] = merged;
         }
       }
-      return { ...currentState, runtimeOverrides };
+
+      // F7: Evidence invalidation on manual weight edit.
+      // If the user changed the working weight, immediately reset
+      // consecutiveQualifying and update validatedWorkingWeight so
+      // stale evidence from the old weight never triggers progression.
+      let nextProgState = currentState.progressionState;
+      if (fields && fields.workingWeight !== undefined && fields.workingWeight !== null) {
+        const progCopy = { ...(currentState.progressionState || {}) };
+        const prevProg = progCopy[exId] || {};
+        if (prevProg.currentWeight !== fields.workingWeight) {
+          progCopy[exId] = {
+            ...prevProg,
+            consecutiveQualifying: 0,
+            validatedWorkingWeight: fields.workingWeight,
+          };
+          nextProgState = progCopy;
+        }
+      }
+
+      return { ...currentState, runtimeOverrides, progressionState: nextProgState };
     }
 
     case 'RESET_SESSION': {
@@ -459,8 +478,19 @@ export function dispatch(type, payload = {}) {
           restDuration = isLastSet
             ? (ex.restBetweenExercises ?? REST_DURATION)
             : (ex.restBetweenSets      ?? REST_DURATION);
+
+          // F1: Dynamic rest scaling — later sets get proportionally longer
+          // rest to compensate for accumulated fatigue. Only applies to
+          // intra-exercise rest (not the last set's inter-exercise rest).
+          if (!isLastSet && ex.sets > 1) {
+            const repProgress = idx / (ex.sets - 1);
+            startRestTimerWithScaling(restDuration, repProgress);
+          } else {
+            startRestTimer(restDuration);
+          }
+        } else {
+          startRestTimer(restDuration);
         }
-        startRestTimer(restDuration);
       }
     }
 
@@ -510,6 +540,7 @@ export function dispatch(type, payload = {}) {
               prescribedRestSec,
               prescribedWeight: ex.baseWeight ?? null,
               maxW: ex.maxW ?? null,
+              sessionTimestamp: currentTimestamp,
             });
             newProgState[instanceId] = {
               currentWeight:         updated.currentWeight,
@@ -535,6 +566,14 @@ export function dispatch(type, payload = {}) {
               zeroRirCount:          updated.zeroRirCount       ?? 0,
               recentRomSummaries:    updated.recentRomSummaries ?? [],
               recentZeroRir:         updated.recentZeroRir      ?? [],
+              // F3: DOMS adaptation state
+              exposureCount:         updated.exposureCount      ?? 0,
+              domsAdjustmentWindow:  updated.domsAdjustmentWindow ?? false,
+              // F4: Adaptive evidence
+              requiredEvidence:      updated.requiredEvidence   ?? 2,
+              plannedJump:           updated.plannedJump        ?? null,
+              // F7: Evidence invalidation
+              validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
             };
           } catch (err) {
             console.warn(`[FINISH_WORKOUT] Skipped progression for ${instanceId}:`, err);
@@ -627,6 +666,7 @@ export function rebuildAllProgressions(appState) {
           prescribedRestSec,
           prescribedWeight: ex.baseWeight ?? null,
           maxW: ex.maxW ?? null,
+          sessionTimestamp: currentTimestamp,
         });
         newProgState[instanceId] = {
           currentWeight:         updated.currentWeight,
@@ -652,6 +692,14 @@ export function rebuildAllProgressions(appState) {
           zeroRirCount:          updated.zeroRirCount       ?? 0,
           recentRomSummaries:    updated.recentRomSummaries ?? [],
           recentZeroRir:         updated.recentZeroRir      ?? [],
+          // F3: DOMS adaptation state
+          exposureCount:         updated.exposureCount      ?? 0,
+          domsAdjustmentWindow:  updated.domsAdjustmentWindow ?? false,
+          // F4: Adaptive evidence
+          requiredEvidence:      updated.requiredEvidence   ?? 2,
+          plannedJump:           updated.plannedJump        ?? null,
+          // F7: Evidence invalidation
+          validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
         };
       } catch (err) {
         console.warn(`[rebuildAllProgressions] Skipped ${instanceId} (entry ${entry.timestamp}):`, err);
