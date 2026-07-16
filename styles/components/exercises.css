@@ -132,7 +132,11 @@
 .ex-metadata-sets-reps {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.6875rem;
-  color: var(--muted);
+  color: var(--dim);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 .ex-metadata-weight-tag {
   font-family: 'IBM Plex Mono', monospace;
@@ -477,11 +481,11 @@
   color: rgba(200, 185, 160, 0.85);
 }
 
-/* Informational chip — muted blue-teal, distinct from warning orange */
+/* Informational chip — yellow/amber for RIR and warnings */
 .prog-chip-info {
-  border-color: rgba(100, 180, 200, 0.25);
-  background: rgba(100, 180, 200, 0.05);
-  color: rgba(120, 190, 210, 0.85);
+  border-color: rgba(253, 216, 53, 0.25);
+  background: rgba(253, 216, 53, 0.05);
+  color: rgba(253, 216, 53, 0.85);
 }
 
 
@@ -627,6 +631,9 @@
 }
 .set-dot.done .dot-num {
   color: #000;
+}
+.set-dot.done .dot-meta {
+  font-size: 0.4rem;
 }
 .dot-data {
   display: flex;

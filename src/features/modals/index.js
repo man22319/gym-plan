@@ -3,7 +3,7 @@ import { query } from '../../core/logic/queries.js';
 import { dispatch, registerStartWorkoutModal } from '../../core/logic/reducer.js';
 import { makeSet } from '../../core/state/state.js';
 import { lowerBound, resolveWeight, getDeltaW } from '../../core/utils/helpers.js';
-import { formatDate, formatTime, formatDuration } from '../workout/rendering.js';
+import { formatDate, formatTime, formatDuration, formatWeight, formatReps } from '../workout/rendering.js';
 
 
 export let activeHistoryModal = null;
@@ -627,6 +627,7 @@ export function showConfirmModal(title, body, onConfirm, opts = {}) {
 function enableDragToDismiss(modalEl, handleEl, onClose) {
   let startY = 0;
   let currentY = 0;
+  let startTime = 0;
   let isDragging = false;
   let dragOffset = 0;
 
@@ -635,10 +636,12 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
   function onPointerDown(e) {
     if (e.button !== 0) return;
     startY = e.clientY;
+    startTime = Date.now();
     isDragging = true;
     handleEl.setPointerCapture(e.pointerId);
     
     modalEl.style.transition = 'none';
+    modalEl.style.willChange = 'transform';
     const overlayEl = modalEl.parentElement;
     if (overlayEl) overlayEl.style.transition = 'none';
 
@@ -670,19 +673,22 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
     if (!isDragging) return;
     cleanup();
 
-    const threshold = (modalEl.offsetHeight || 300) * 0.25;
+    const dragDuration = (Date.now() - startTime) / 1000; // in seconds
+    const velocity = dragDuration > 0 ? dragOffset / dragDuration : 0;
+    const threshold = (modalEl.offsetHeight || 300) * 0.35;
     const overlayEl = modalEl.parentElement;
     
-    if (dragOffset > threshold) {
-      modalEl.style.transition = 'transform 0.18s ease-out';
+    if (dragOffset > threshold || velocity > 800) {
+      modalEl.style.transition = 'transform 0.25s ease-out';
       modalEl.style.transform = 'translateY(100%)';
       if (overlayEl) {
-        overlayEl.style.transition = 'opacity 0.18s ease-out';
+        overlayEl.style.pointerEvents = 'none';
+        overlayEl.style.transition = 'opacity 0.25s ease-out';
         overlayEl.style.opacity = '0';
       }
       setTimeout(() => {
         onClose();
-      }, 180);
+      }, 250);
     } else {
       modalEl.style.transition = 'transform 0.2s cubic-bezier(0.25, 1, 0.5, 1)';
       modalEl.style.transform = 'translateY(0)';
@@ -696,6 +702,7 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
       }
       setTimeout(() => {
         modalEl.style.transition = '';
+        modalEl.style.removeProperty('will-change');
       }, 200);
     }
   }
@@ -710,6 +717,9 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
       overlayEl.style.opacity = '';
       overlayEl.style.transition = '';
     }
+    setTimeout(() => {
+      modalEl.style.removeProperty('will-change');
+    }, 200);
   }
 
   function cleanup() {

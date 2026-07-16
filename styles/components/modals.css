@@ -36,12 +36,18 @@
   background: rgba(255, 255, 255, 0.2);
   margin: 0 auto 16px;
   cursor: grab;
-  padding: 10px 20px;
-  background-clip: content-box;
-  box-sizing: content-box;
   flex-shrink: 0;
   touch-action: none;
   transition: background 0.15s;
+  position: relative;
+}
+.modal-drag-handle::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  bottom: -15px;
+  left: -20px;
+  right: -20px;
 }
 .modal-drag-handle:hover {
   background: rgba(255, 255, 255, 0.35);

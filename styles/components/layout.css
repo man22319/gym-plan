@@ -932,6 +932,9 @@ header {
   margin-top: 1px;
   text-transform: uppercase;
   color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* RIR in LAST row */
