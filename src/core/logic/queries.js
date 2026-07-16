@@ -407,17 +407,70 @@ export const query = {
         return diff === 0 ? 0 : diff;
       }
 
-      let best = unfinished[0];
-      let bestDist = daysUntil(best);
+      // ── Fresh-cycle guard ──────────────────────────────────────────────
+      // When the cycle just reset, ALL sessions appear unfinished.  The
+      // calendar logic below would pick the session whose day matches
+      // today — which is the one the user just completed.  Detect this
+      // case and fall through to Step 3 (rotation) instead.
+      if (unfinished.length === workouts.length) {
+        const history = this.chronological(appState);
+        if (history.length) {
+          const lastEntry = history[history.length - 1];
+          const lastDate  = new Date(lastEntry.timestamp);
+          const now       = new Date();
+          const sameDay   = lastDate.getFullYear() === now.getFullYear()
+                         && lastDate.getMonth()    === now.getMonth()
+                         && lastDate.getDate()     === now.getDate();
 
-      for (let i = 1; i < unfinished.length; i++) {
-        const dist = daysUntil(unfinished[i]);
-        if (dist < bestDist) {
-          best = unfinished[i];
-          bestDist = dist;
+          if (sameDay) {
+            // Compute which session the calendar logic *would* pick
+            let calendarBest = unfinished[0];
+            let calendarDist = daysUntil(calendarBest);
+            for (let i = 1; i < unfinished.length; i++) {
+              const dist = daysUntil(unfinished[i]);
+              if (dist < calendarDist) {
+                calendarBest = unfinished[i];
+                calendarDist = dist;
+              }
+            }
+
+            // If the calendar would re-pick today's just-completed session,
+            // skip calendar logic and let Step 3 handle rotation.
+            if (calendarBest.id === lastEntry.sessionId) {
+              // Fall through to Step 3 below
+            } else {
+              return calendarBest.id;
+            }
+          } else {
+            // Last workout was on a different day — normal calendar logic
+            let best = unfinished[0];
+            let bestDist = daysUntil(best);
+            for (let i = 1; i < unfinished.length; i++) {
+              const dist = daysUntil(unfinished[i]);
+              if (dist < bestDist) {
+                best = unfinished[i];
+                bestDist = dist;
+              }
+            }
+            return best.id;
+          }
+        } else {
+          return workouts[0].id;
         }
+      } else {
+        // Mid-cycle: normal calendar-based selection
+        let best = unfinished[0];
+        let bestDist = daysUntil(best);
+
+        for (let i = 1; i < unfinished.length; i++) {
+          const dist = daysUntil(unfinished[i]);
+          if (dist < bestDist) {
+            best = unfinished[i];
+            bestDist = dist;
+          }
+        }
+        return best.id;
       }
-      return best.id;
     }
 
     // 3. All sessions finished this cycle — fall back to next-in-cycle
