@@ -55,14 +55,14 @@ export function buildSparkline(volumes) {
         <svg class="sparkline-svg" width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
           <defs>
             <linearGradient id="sparkline-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="var(--blue)" stop-opacity="0.0"/>
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.1"/>
+              <stop offset="100%" stop-color="#ffffff" stop-opacity="0.0"/>
             </linearGradient>
           </defs>
           <path d="${areaPathData}" fill="url(#sparkline-gradient)" />
-          <path d="${pathData}" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          <circle cx="${lastCoord.x.toFixed(1)}" cy="${lastCoord.y.toFixed(1)}" r="3.5" fill="var(--white)" />
-          <circle cx="${lastCoord.x.toFixed(1)}" cy="${lastCoord.y.toFixed(1)}" r="7" fill="var(--blue)" fill-opacity="0.4" />
+          <path d="${pathData}" fill="none" stroke="rgba(255, 255, 255, 0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="${lastCoord.x.toFixed(1)}" cy="${lastCoord.y.toFixed(1)}" r="3" fill="rgba(255, 255, 255, 0.6)" />
+          <circle cx="${lastCoord.x.toFixed(1)}" cy="${lastCoord.y.toFixed(1)}" r="6" fill="rgba(255, 255, 255, 0.15)" />
         </svg>
       </div>
     </div>
@@ -135,7 +135,7 @@ export function openHistoryModal(exId) {
     if (first > 0) {
       const pctChange = (((last - first) / first) * 100).toFixed(1);
       const isUp = last >= first;
-      volumeTrendHtml = `<div style="padding: 0 20px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; color: var(--dim);">
+      volumeTrendHtml = `<div style="padding: 0 20px 24px; font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; color: var(--muted);">
         Volume: <span style="color: ${isUp ? 'var(--green)' : 'var(--red)'}; font-weight: 500;">${isUp ? '+' : ''}${pctChange}%</span> over ${volumes.length} sessions
       </div>`;
     }
@@ -174,7 +174,7 @@ export function openHistoryModal(exId) {
       ${prHtml}
       ${sparklineHtml}
       ${volumeTrendHtml}
-      ${hasHistory ? `<div class="hist-section-label" style="padding: 0 20px 8px;">SESSION LOG</div>` : ''}
+      ${hasHistory ? `<div class="hist-section-label" style="padding: 24px 20px 12px;">SESSION LOG</div>` : ''}
       ${tableHtml}
       ${notesHistoryHtml}
     </div>`;
