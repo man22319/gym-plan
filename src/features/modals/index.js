@@ -8,21 +8,25 @@ import { formatDate, formatTime, formatDuration, formatWeight, formatReps } from
 
 export let activeHistoryModal = null;
 
-export function buildSparkline(volumes) {
+export function buildSparkline(volumes, limit = 3) {
   if (volumes.length < 2) return '';
 
-  const points = volumes.slice(-10);
-  const width = 280;
+  const points = limit === 'all' ? volumes : volumes.slice(-limit);
+  const validPoints = points.length < 2 ? volumes.slice(-2) : points;
+
+  const pointSpacing = 40;
+  const computedWidth = validPoints.length * pointSpacing;
+  const width = limit === 'all' && computedWidth > 280 ? computedWidth : 280;
   const height = 40;
   const padding = 4;
 
-  const maxVal = Math.max(...points);
-  const minVal = Math.min(...points);
+  const maxVal = Math.max(...validPoints);
+  const minVal = Math.min(...validPoints);
   const range = maxVal - minVal;
 
-  const xStep = (width - padding * 2) / (points.length - 1);
+  const xStep = (width - padding * 2) / (validPoints.length - 1);
 
-  const coords = points.map((val, idx) => {
+  const coords = validPoints.map((val, idx) => {
     const x = padding + idx * xStep;
     const y = range === 0
       ? height / 2
@@ -40,19 +44,25 @@ export function buildSparkline(volumes) {
   `;
 
   const lastCoord = coords[coords.length - 1];
-  const delta = points[points.length - 1] - points[0];
+  const delta = validPoints[validPoints.length - 1] - validPoints[0];
   const isUp = delta >= 0;
 
   return `
-    <div class="sparkline-container">
-      <div class="sparkline-header">
-        <span class="sparkline-title">Volume Trend (Last ${points.length} Sessions)</span>
-        <span class="sparkline-delta ${isUp ? 'up' : 'down'}">
+    <div class="sparkline-container" style="padding: 12px 20px;">
+      <div class="sparkline-header" style="text-align: center; margin-bottom: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span class="sparkline-title" style="font-size: 0.85rem; font-weight: 500; color: var(--white);">Volume Trend</span>
+          <select class="sparkline-limit-select" style="background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--white); font-family: inherit; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; cursor: pointer; outline: none;">
+            <option value="3" ${limit === 3 ? 'selected' : ''}>Last 3</option>
+            <option value="all" ${limit === 'all' ? 'selected' : ''}>All</option>
+          </select>
+        </div>
+        <span class="sparkline-delta" style="font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; font-weight: 500; color: ${isUp ? 'var(--green)' : 'var(--red)'};">
           ${isUp ? '▲' : '▼'} ${Math.abs(delta).toLocaleString()} lbs
         </span>
       </div>
-      <div class="sparkline-svg-wrap">
-        <svg class="sparkline-svg" width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+      <div class="sparkline-svg-wrap" style="overflow-x: auto; overflow-y: hidden; text-align: center; padding-bottom: 4px;">
+        <svg class="sparkline-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display: inline-block;">
           <defs>
             <linearGradient id="sparkline-gradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="#ffffff" stop-opacity="0.1"/>
@@ -126,20 +136,30 @@ export function openHistoryModal(exId) {
     const doneSets = entry.sets.filter(s => s.s === 'done' && s.w !== null && s.r !== null);
     return doneSets.reduce((sum, s) => sum + s.w * s.r, 0);
   });
-  const sparklineHtml = buildSparkline(volumes);
+  let currentLimit = 3;
 
-  let volumeTrendHtml = '';
-  if (volumes.length >= 2) {
-    const first = volumes[0];
-    const last = volumes[volumes.length - 1];
-    if (first > 0) {
-      const pctChange = (((last - first) / first) * 100).toFixed(1);
-      const isUp = last >= first;
-      volumeTrendHtml = `<div style="padding: 0 20px 24px; font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; color: var(--muted);">
-        Volume: <span style="color: ${isUp ? 'var(--green)' : 'var(--red)'}; font-weight: 500;">${isUp ? '+' : ''}${pctChange}%</span> over ${volumes.length} sessions
-      </div>`;
+  function renderTrendSection() {
+    const sparklineHtml = buildSparkline(volumes, currentLimit);
+    
+    let volumeTrendHtml = '';
+    const validVolumes = currentLimit === 'all' ? volumes : volumes.slice(-currentLimit);
+    const useVolumes = validVolumes.length >= 2 ? validVolumes : volumes.slice(-2);
+    
+    if (useVolumes.length >= 2) {
+      const first = useVolumes[0];
+      const last = useVolumes[useVolumes.length - 1];
+      if (first > 0) {
+        const pctChange = (((last - first) / first) * 100).toFixed(1);
+        const isUp = last >= first;
+        volumeTrendHtml = `<div style="padding: 0 20px 24px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 0.55rem; color: var(--muted);">
+          Volume: <span style="color: ${isUp ? 'var(--green)' : 'var(--red)'}; font-weight: 500;">${isUp ? '+' : ''}${pctChange}%</span> over ${useVolumes.length} sessions
+        </div>`;
+      }
     }
+    return sparklineHtml + volumeTrendHtml;
   }
+
+  const trendHtml = `<div id="trend-section-wrapper">${renderTrendSection()}</div>`;
 
   const notesHistoryHtml = buildNotesHistory(history);
 
@@ -172,8 +192,7 @@ export function openHistoryModal(exId) {
         <button class="hist-close" id="hist-close" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       ${prHtml}
-      ${sparklineHtml}
-      ${volumeTrendHtml}
+      ${trendHtml}
       ${hasHistory ? `<div class="hist-section-label" style="padding: 24px 20px 12px;">SESSION LOG</div>` : ''}
       ${tableHtml}
       ${notesHistoryHtml}
@@ -191,6 +210,14 @@ export function openHistoryModal(exId) {
   if (modal && handle) {
     enableDragToDismiss(modal, handle, closeHistoryModal);
   }
+
+  overlay.addEventListener('change', e => {
+    if (e.target.classList.contains('sparkline-limit-select')) {
+      currentLimit = e.target.value === 'all' ? 'all' : parseInt(e.target.value, 10);
+      const wrapper = overlay.querySelector('#trend-section-wrapper');
+      if (wrapper) wrapper.innerHTML = renderTrendSection();
+    }
+  });
 }
 
 export function closeHistoryModal() {
