@@ -14,11 +14,11 @@ export function buildSparkline(volumes, limit = 3) {
   const points = limit === 'all' ? volumes : volumes.slice(-limit);
   const validPoints = points.length < 2 ? volumes.slice(-2) : points;
 
-  const pointSpacing = 40;
+  const pointSpacing = 50;
   const computedWidth = validPoints.length * pointSpacing;
-  const width = limit === 'all' && computedWidth > 280 ? computedWidth : 280;
-  const height = 40;
-  const padding = 4;
+  const width = limit === 'all' && computedWidth > 320 ? computedWidth : 320;
+  const height = 64;
+  const padding = 6;
 
   const maxVal = Math.max(...validPoints);
   const minVal = Math.min(...validPoints);
