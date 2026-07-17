@@ -47,11 +47,16 @@ const DEFAULT_OVERHEAD_MS = 180_000;// 3 min — default post-workout overhead b
 function computeEWMA(intervals) {
   if (!intervals.length) return { ewma: 0, variance: 0, count: 0 };
 
-  let ewma = intervals[0];
-  let ewmaVar = 0;
-  let count = 1;
+  let ewma, ewmaVar = 0, count, startIdx;
+  if (intervals.length >= 2) {
+    ewma = (intervals[0] + intervals[1]) / 2;
+    count = 2; startIdx = 2;
+  } else {
+    ewma = intervals[0];
+    count = 1; startIdx = 1;
+  }
 
-  for (let i = 1; i < intervals.length; i++) {
+  for (let i = startIdx; i < intervals.length; i++) {
     let x = intervals[i];
 
     // Outlier clipping: bound by whichever is tighter — the adaptive
@@ -59,7 +64,7 @@ function computeEWMA(intervals) {
     // Math.min ensures the adaptive threshold actually fires in the
     // normal operating range (EWMA 30s–3min → clip at 90s–9min).
     const upperBound = Math.min(ewma * OUTLIER_MULTIPLIER, MAX_INTERVAL_MS);
-    if (x > upperBound) x = ewma; // replace with current estimate
+    if (x > upperBound) x = upperBound; // winsorize toward the bound, not reject to ewma
     if (x < MIN_INTERVAL_MS) x = ewma; // too fast — likely misfire
 
     const diff = x - ewma;
@@ -216,6 +221,8 @@ function estimateBlockIntervalFromPrescription(block) {
 
 // ── Historical session pace ──────────────────────────────────────────────────
 
+const MAX_PLAUSIBLE_SESSION_MS = 4 * 3600_000; // sanity-check against real data before shipping
+
 /**
  * Compute average session duration from history for a given session ID.
  *
@@ -232,11 +239,15 @@ function historicalSessionDuration(appState, sessionId) {
       const endTs = e.lastSetTimestamp || e.timestamp;
       return endTs - e.startTimestamp;
     })
-    .filter(d => d > 0);
+    .filter(d => d > 0 && d < MAX_PLAUSIBLE_SESSION_MS);
 
-  return durations.length > 0
-    ? durations.reduce((sum, d) => sum + d, 0) / durations.length
-    : null;
+  if (durations.length === 0) return null;
+
+  let ewma = durations[0];
+  for (let i = 1; i < durations.length; i++) {
+    ewma = ewma + 0.4 * (durations[i] - ewma);
+  }
+  return ewma;
 }
 
 /**
@@ -279,7 +290,9 @@ function historicalOverhead(appState, sessionId) {
  * point estimate.  "High" means ±15% or less.  This mechanically connects
  * confidence to the estimator — unlike additive feature scoring, the
  * confidence output is derived from the same variance that drives the
- * point estimate.
+ * point estimate. (Caveat: this is only strictly true when session EWMA
+ * dominates the estimate, not when block-local EWMA, prescription priors,
+ * or historical blends are heavily weighted.)
  *
  * Limitation: EWMA variance is locally meaningful but not stationary.
  * Confidence can be artificially high right before a regime shift (block
@@ -300,9 +313,11 @@ function computeConfidence(sessionEWMA, totalRemainingMs, completedSets, totalSe
   let relativeUncertainty;
 
   if (sessionEWMA.count >= 4 && sessionEWMA.ewma > 0) {
-    // Variance-based: CV × √(remaining sets) gives interval half-width
-    // as a fraction of the point estimate.  More remaining work → wider.
-    // Requires count ≥ 4 (three EWMA updates) for variance to begin converging.
+    // Heuristic: uncertainty grows with remaining sets, used as a proxy for
+    // regime-shift exposure over the forecast horizon. This is NOT a
+    // calibrated propagation of sampling variance — that quantity would
+    // shrink, not grow, with more remaining sets (CV of a sum ~ cv/√n).
+    // Treat this as a monotonic risk signal, not a rigorous interval.
     const cv = Math.sqrt(sessionEWMA.variance) / sessionEWMA.ewma;
     const remainingSets = totalSets - completedSets;
     relativeUncertainty = cv * Math.sqrt(remainingSets);
@@ -386,9 +401,12 @@ export function calculateETA(appState, sessionDef) {
   if (historicalDuration && completedSets > 0 && completedSets < blendWindow) {
     const alpha = Math.min(1, completedSets / blendWindow);
 
-    const currentPace = elapsedMs / completedSets;
-    const historicalPace = historicalDuration / totalSets;
-    const paceRatio = Math.max(0.5, Math.min(2.0, currentPace / historicalPace));
+    let paceRatio = 1; // neutral default — no data-driven adjustment yet
+    if (sessionIntervals.length > 0) {
+      const currentPace = sessionIntervals.reduce((a, b) => a + b, 0) / sessionIntervals.length;
+      const historicalPace = historicalDuration / totalSets;
+      paceRatio = Math.max(0.5, Math.min(2.0, currentPace / historicalPace));
+    }
 
     const rawHistoricalRemaining = Math.max(0, historicalDuration - elapsedMs);
     const historicalRemaining = rawHistoricalRemaining * paceRatio;
