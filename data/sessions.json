@@ -16,7 +16,7 @@
           "label": "Upper Chest + Side Delts",
           "exercises": [
             { "exerciseRef": "bench_db_incline", "letter": "A" },
-            { "exerciseRef": "lat_raise", "letter": "B" }
+            { "exerciseRef": "lateral_raise_machine", "letter": "B" }
           ]
         },
         {

@@ -574,6 +574,7 @@ export function dispatch(type, payload = {}) {
               plannedJump:           updated.plannedJump        ?? null,
               // F7: Evidence invalidation
               validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
+              lastPerformedWeight:    updated.lastPerformedWeight    ?? null,
             };
           } catch (err) {
             console.warn(`[FINISH_WORKOUT] Skipped progression for ${instanceId}:`, err);
@@ -700,6 +701,7 @@ export function rebuildAllProgressions(appState) {
           plannedJump:           updated.plannedJump        ?? null,
           // F7: Evidence invalidation
           validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
+          lastPerformedWeight:    updated.lastPerformedWeight    ?? null,
         };
       } catch (err) {
         console.warn(`[rebuildAllProgressions] Skipped ${instanceId} (entry ${entry.timestamp}):`, err);

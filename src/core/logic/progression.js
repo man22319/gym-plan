@@ -940,6 +940,7 @@ function _getDeltaW(deltaWConfig, currentWeight) {
 export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const dwConfig = opts.deltaW ?? prev.dw;
   const prevWeight = prev.currentWeight ?? null;
+  const prevPerformedWeight = prev.lastPerformedWeight ?? null;
   const initialWeight = prevWeight ?? opts.prescribedWeight ?? 0;
   const dw = dwConfig !== undefined && dwConfig !== null ? _getDeltaW(dwConfig, initialWeight) : undefined;
 
@@ -1096,25 +1097,78 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     currentWeight = prevWeight;
   }
 
-  // ── Reality tracking: upward weight acknowledgment ──────────────────
-  // If the user lifted at a weight ABOVE the controller's state AND
-  // didn't fail, update currentWeight to match observed reality.
-  // This is not progression — it's acknowledging what the user proved.
-  // The streak/window logic still controls when the weight advances.
-  //
-  // Failing at a self-selected higher weight does NOT update — the user
-  // overreached, and the controller should not penalize by regressing
-  // from the higher weight. Only qualifying/adequate prove capacity.
-  //
-  // This guard only applies to ESTABLISHED baselines (non-bootstrap).
-  // On bootstrap, the observed weight was already set above.
-  if (
-    !isBootstrap &&
-    classification !== 'failing' &&
-    sessionWorkingWeight != null &&
-    sessionWorkingWeight > currentWeight
-  ) {
-    currentWeight = sessionWorkingWeight;
+  // ── F4: Adaptive evidence requirement ───────────────────────────────────
+  // Evaluate the evidence requirement dynamically based on the current weight
+  // and proposed step size.
+  let requiredEvidence = DEFAULTS.qualifyThreshold;
+  let plannedJump = null;
+  let jumpRejected = false;
+  let recommendIntermediate = false;
+
+  if (currentWeight != null && currentWeight > 0) {
+    const nextDw = _getDeltaW(dwConfig, currentWeight);
+    const proposedJump = nextDw ?? dw;
+    if (proposedJump > 0) {
+      const r = proposedJump / currentWeight;
+      const evidenceResult = computeRequiredEvidence(r);
+      if (evidenceResult.reject) {
+        jumpRejected = true;
+      } else if (evidenceResult.recommendIntermediate) {
+        recommendIntermediate = true;
+        jumpRejected = true;
+      } else {
+        requiredEvidence = evidenceResult.requiredEvidence;
+      }
+      plannedJump = proposedJump;
+    }
+  }
+
+  // ── Weight alignment & reality tracking ──────────────────────────────
+  // We track the target weight (currentWeight) and the actual performed weight
+  // (sessionWorkingWeight). 
+  let weightChanged = false;
+  let consecutiveQualifying;
+  
+  if (!isBootstrap && sessionWorkingWeight != null && sessionWorkingWeight !== currentWeight) {
+    if (sessionWorkingWeight > currentWeight) {
+      // User performed a higher weight than recommended.
+      if (sessionWorkingWeight === prevPerformedWeight) {
+        // Continuing attempt at higher weight: update streak based on classification.
+        if (classification === 'qualifying') {
+          consecutiveQualifying = effectiveConsecutive + 1;
+        } else if (classification === 'failing') {
+          consecutiveQualifying = 0;
+        } else {
+          consecutiveQualifying = effectiveConsecutive;
+        }
+        
+        // If they have confirmed this weight across requiredEvidence qualifying sessions,
+        // promote it to the official baseline.
+        if (consecutiveQualifying >= requiredEvidence) {
+          currentWeight = sessionWorkingWeight;
+          weightChanged = true;
+        }
+      } else {
+        // First attempt at this specific higher weight: require confirmation next session.
+        consecutiveQualifying = classification === 'qualifying' ? 1 : 0;
+        evidenceInvalidated = true;
+      }
+    } else {
+      // User performed a lower weight than recommended: hold target weight but reset streak.
+      consecutiveQualifying = 0;
+      evidenceInvalidated = true;
+    }
+  } else if (!isBootstrap && sessionWorkingWeight != null && sessionWorkingWeight === currentWeight) {
+    // User performed target weight: normal streak logic.
+    if (classification === 'qualifying') {
+      consecutiveQualifying = effectiveConsecutive + 1;
+    } else if (classification === 'failing') {
+      consecutiveQualifying = 0;
+    } else {
+      consecutiveQualifying = effectiveConsecutive;
+    }
+  } else {
+    consecutiveQualifying = effectiveConsecutive;
   }
 
   // ── F3: DOMS adaptation — suppress regression during early exposures ────
@@ -1130,50 +1184,9 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     }
   }
 
-  // Update consecutive qualifying counter.
-  // Only failing resets the streak — adequate preserves it.
-  // This means Q → A → Q still satisfies the progression threshold.
-  let consecutiveQualifying;
-  if (classification === 'qualifying') {
-    consecutiveQualifying = effectiveConsecutive + 1;
-  } else if (classification === 'failing') {
-    consecutiveQualifying = 0;
-  } else {
-    // adequate: preserve current streak
-    consecutiveQualifying = effectiveConsecutive;
-  }
-
   // Update recent outcomes (capped to regressWindow)
   const recentOutcomes = [...prevOutcomes, classification]
     .slice(-DEFAULTS.regressWindow);
-
-  // ── F4: Adaptive evidence requirement ───────────────────────────────────
-  // Replace fixed qualifyThreshold with dynamic computation based on the
-  // fractional size of the planned jump.
-  let requiredEvidence = prev.requiredEvidence ?? DEFAULTS.qualifyThreshold;
-  let plannedJump = prev.plannedJump ?? null;
-  let jumpRejected = false;
-  let recommendIntermediate = false;
-
-  // Recompute evidence requirement only when the planned jump changes
-  // (i.e., the currentWeight changed, or no prior planned jump exists)
-  if (currentWeight != null && currentWeight > 0) {
-    const nextDw = _getDeltaW(dwConfig, currentWeight);
-    const proposedJump = nextDw ?? dw;
-    if (proposedJump > 0 && proposedJump !== plannedJump) {
-      const r = proposedJump / currentWeight;
-      const evidenceResult = computeRequiredEvidence(r);
-      if (evidenceResult.reject) {
-        jumpRejected = true;
-      } else if (evidenceResult.recommendIntermediate) {
-        recommendIntermediate = true;
-        jumpRejected = true;
-      } else {
-        requiredEvidence = evidenceResult.requiredEvidence;
-      }
-      plannedJump = proposedJump;
-    }
-  }
 
   // ── Controller distance (pre-decision) ─────────────────────────────────
   // Computed BEFORE the decision/reset below so it reflects the distance
@@ -1248,9 +1261,13 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       consecutiveQualifying = 0;  // Reset after regression
     }
   } else {
-    // Hold: keep working at current weight
+    // Hold: keep working at current weight, or candidate weight if confirming
     decision = 'hold';
-    suggestedWeight = currentWeight;
+    if (sessionWorkingWeight != null && sessionWorkingWeight > currentWeight && classification !== 'failing') {
+      suggestedWeight = sessionWorkingWeight;
+    } else {
+      suggestedWeight = currentWeight;
+    }
   }
 
   // F6: Deconditioning — if a long gap was detected, derive suggestedWeight
@@ -1349,6 +1366,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     deconditioningApplied,
     // F7: Evidence invalidation
     validatedWorkingWeight,
+    lastPerformedWeight: sessionWorkingWeight,
   };
 }
 
