@@ -46,7 +46,7 @@
       "name": "Barbell Curl",
       "equipmentType": "barbell",
       "sets": 3,
-      "reps": { "min": 8, "max": 12 },
+      "reps": { "min": 8, "max": 10 },
       "baseWeight": 40,
       "maxW": 500,
       "deltaW": 10,
@@ -100,11 +100,11 @@
       "deltaW": [
         {
           "until": 100,
-          "step": 10
+          "step": 5
         },
         {
           "until": 300,
-          "step": 20
+          "step": 10
         }
       ],
       "restBetweenSets": 60,
@@ -154,7 +154,7 @@
       "reps": { "min": 10, "max": 12 },
       "baseWeight": 25,
       "maxW": 160,
-      "deltaW": 15,
+      "deltaW": 5,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
       "notes": "Controlled reps only. Keep constant tension, stop at shoulder height, no shrugging. Stay in the rep range even on fatigued days."
@@ -190,7 +190,7 @@
       "reps": { "min": 10, "max": 12 },
       "baseWeight": 160,
       "maxW": 240,
-      "deltaW": 20,
+      "deltaW": 10,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
       "notes": "Push smoothly. Control depth. Do not lift hips. Knees track over toes, lower to 90\u00b0."
@@ -247,7 +247,7 @@
       "name": "Triceps Press Machine",
       "equipmentType": "machine",
       "sets": 3,
-      "reps": { "min": 10, "max": 12 },
+      "reps": { "min": 12, "max": 15 },
       "baseWeight": 110,
       "maxW": 240,
       "deltaW": 10,
