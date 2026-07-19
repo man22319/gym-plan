@@ -2,7 +2,7 @@
 // ─── CONSTANTS ───
 // ==========================================
 
-export const STORAGE_KEY   = 'pf_tracker_v9';
+export const STORAGE_KEY   = 'training_state';
 export const REST_DURATION = 90; // seconds
 export const MAX_REST_DURATION = 180; // 3 minutes — hard cap
 export const DEV_MODE      = typeof window !== 'undefined' ? ['localhost', '127.0.0.1', ''].includes(window.location.hostname) : true;
