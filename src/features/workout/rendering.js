@@ -579,9 +579,8 @@ function buildDistanceChips(dist) {
   const chips = [];
   const { qualifyingNeeded = 0, failingCapacity = 0 } = dist;
 
-  // Show progress distance when the user has made some headway
-  // (qualifyingNeeded < threshold) but hasn't triggered yet
-  if (qualifyingNeeded > 0 && qualifyingNeeded < 2) {
+  // Show progress distance until progression is triggered
+  if (qualifyingNeeded > 0) {
     const label = `${qualifyingNeeded} TO ↑`;
     chips.push(
       `<span class="prog-chip prog-chip-distance prog-chip-dist-progress"
