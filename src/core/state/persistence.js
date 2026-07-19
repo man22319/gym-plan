@@ -128,6 +128,8 @@ export function normalize(appState) {
     sessionStarted:    appState.sessionStarted ?? null,   // preserve active session timestamp
     completedWorkouts: appState.completedWorkouts ?? 0,
     progressionState,
+    adaptiveRecoveryState: appState.adaptiveRecoveryState ?? {},
+    activeRecoveryState:   appState.activeRecoveryState ?? {},
   };
 }
 

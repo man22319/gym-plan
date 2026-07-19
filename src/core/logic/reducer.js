@@ -2,7 +2,8 @@ import { DEV_MODE, REST_DURATION, makeSet, makeCardio, makeDefaultExercises, cre
 import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
 import { resolveWeight, resolveReps } from '../utils/helpers.js';
-import { startRestTimer, startRestTimerWithScaling, skipRestTimer } from '../utils/restTimer.js';
+import { startRestTimer, skipRestTimer } from '../utils/restTimer.js';
+import { updateFatigueAndTau, calculateRecommendedRest } from '../utils/adaptiveRecovery.js';
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
 import { updateProgressionState } from './progression.js';
 import { expandImport } from '../../io/compactFormat.js';
@@ -113,7 +114,8 @@ export function reducer(currentState, action) {
 
       const sets    = [...(currentState.exercises[exId] || [])];
       const existing = sets[idx] || makeSet();
-      sets[idx] = {
+      
+      const newSet = {
         ...existing,
         s:   'done',
         w:   resolvedWeight,
@@ -123,9 +125,33 @@ export function reducer(currentState, action) {
         rom: payload.rom ?? 'full',
         completedAt: Date.now()
       };
+      sets[idx] = newSet;
+
+      const persistentRecovery = currentState.adaptiveRecoveryState?.[exId] || {
+        tau: 55, priorTau: 55, observationCount: 0, lastUpdated: 0
+      };
+      
+      let runtimeRecovery = currentState.activeRecoveryState?.[exId];
+      if (!runtimeRecovery || idx === 0) {
+        runtimeRecovery = { fatigueDebt: 0, firstSetReps: null, previousRestSec: null };
+      }
+
+      const previousSet = idx > 0 ? sets[idx - 1] : null;
+
+      const { newPersistent, newRuntime } = updateFatigueAndTau(
+        persistentRecovery,
+        runtimeRecovery,
+        newSet,
+        previousSet,
+        'unknown',
+        null
+      );
+
       return {
         ...currentState,
-        exercises: { ...currentState.exercises, [exId]: sets }
+        exercises: { ...currentState.exercises, [exId]: sets },
+        adaptiveRecoveryState: { ...(currentState.adaptiveRecoveryState || {}), [exId]: newPersistent },
+        activeRecoveryState: { ...(currentState.activeRecoveryState || {}), [exId]: newRuntime }
       };
     }
 
@@ -190,6 +216,7 @@ export function reducer(currentState, action) {
         history:           currentState.history          ?? [],
         completedWorkouts: currentState.completedWorkouts ?? 0,
         progressionState:  currentState.progressionState ?? {},
+        adaptiveRecoveryState: currentState.adaptiveRecoveryState ?? {},
       };
     }
 
@@ -322,7 +349,8 @@ export function reducer(currentState, action) {
         history,
         cardio:            null,
         sessionStarted:    null,
-        completedWorkouts: nextCompleted
+        completedWorkouts: nextCompleted,
+        activeRecoveryState: {} // Clear transient runtime state between workouts
       };
 
       const spw = currentState.sessionsPerWeek ?? 3;
@@ -479,12 +507,37 @@ export function dispatch(type, payload = {}) {
             ? (ex.restBetweenExercises ?? REST_DURATION)
             : (ex.restBetweenSets      ?? REST_DURATION);
 
-          // F1: Dynamic rest scaling — later sets get proportionally longer
-          // rest to compensate for accumulated fatigue. Only applies to
-          // intra-exercise rest (not the last set's inter-exercise rest).
+          // F1: Dynamic rest scaling using adaptive recovery
           if (!isLastSet && ex.sets > 1) {
-            const repProgress = idx / (ex.sets - 1);
-            startRestTimerWithScaling(restDuration, repProgress);
+            const recoveryState = nextState.adaptiveRecoveryState?.[exId];
+            const runtimeState = nextState.activeRecoveryState?.[exId];
+            
+            if (recoveryState && runtimeState) {
+              const repProgress = idx / (ex.sets - 1);
+              const restMultiplier = 1 + 0.5 * Math.max(0, Math.min(1, repProgress));
+              const legacyRest = Math.min(Math.round(restDuration * restMultiplier), 180);
+              
+              const recommendedRest = calculateRecommendedRest(
+                runtimeState.fatigueDebt,
+                recoveryState.tau,
+                recoveryState.observationCount,
+                legacyRest,
+                runtimeState.previousRestSec,
+                restDuration
+              );
+              
+              nextState.activeRecoveryState = {
+                ...(nextState.activeRecoveryState || {}),
+                [exId]: {
+                  ...runtimeState,
+                  previousRestSec: recommendedRest
+                }
+              };
+              
+              startRestTimer(recommendedRest);
+            } else {
+              startRestTimer(restDuration);
+            }
           } else {
             startRestTimer(restDuration);
           }

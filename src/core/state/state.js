@@ -85,6 +85,8 @@ export function createDefaultState(workoutsData) {
     completedWorkouts: 0,
     sessionStarted:   null,
     cardio: null,
-    progressionState: {}
+    progressionState: {},
+    adaptiveRecoveryState: {},
+    activeRecoveryState: {}
   };
 }
