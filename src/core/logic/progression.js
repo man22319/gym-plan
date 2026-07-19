@@ -704,7 +704,17 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   // Anchoring to a known weight prevents warmups and back-offs from
   // hijacking the working-set filter. Mode inference is only used
   // when no prescribed context is available.
-  const anchorWeight = currentWeight ?? restData.prescribedWeight ?? null;
+  
+  // Only use prescribedWeight as anchor if it actually appears in the logged sets
+  let validPrescribedWeight = null;
+  if (restData.prescribedWeight != null) {
+    const hasPrescribed = done.some(s => s.w === restData.prescribedWeight);
+    if (hasPrescribed) {
+      validPrescribedWeight = restData.prescribedWeight;
+    }
+  }
+  
+  const anchorWeight = currentWeight ?? validPrescribedWeight ?? null;
 
   // Always compute mode for distributional metadata, regardless of anchor.
   const weightCounts = {};
@@ -1084,14 +1094,44 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const isBootstrap = prevWeight == null;
   let currentWeight;
   if (isBootstrap) {
+    const hasPerformedPrescribed = (sets || []).some(s => s.s === 'done' && s.w === opts.prescribedWeight);
+    const safePrescribed = hasPerformedPrescribed ? opts.prescribedWeight : null;
+
     if (classifierConfidence >= BOOTSTRAP_CONFIDENCE_THRESHOLD) {
       // Classifier is confident: adopt inferred working weight.
-      currentWeight = sessionWorkingWeight ?? opts.prescribedWeight ?? null;
+      currentWeight = sessionWorkingWeight ?? safePrescribed ?? null;
     } else {
       // Classifier is uncertain (ramp, mixed pattern): anchor to prescribed
       // seed so the controller doesn't commit an ambiguous top-set as baseline.
-      // Falls back to sessionWorkingWeight only when no seed exists.
-      currentWeight = opts.prescribedWeight ?? sessionWorkingWeight ?? null;
+      // Only use prescribed weight if it was actually performed.
+      currentWeight = safePrescribed ?? sessionWorkingWeight ?? null;
+    }
+
+    // State reconstruction must preserve the highest successful working weight.
+    // A weight never performed by the user cannot override logged successful performance.
+    const minRequired = repRange?.min ?? 1;
+    let highestValidWorkingWeight = null;
+    for (const s of (sets || [])) {
+      if (s.s === 'done' && s.w != null && s.r != null && s.r >= minRequired) {
+        if (highestValidWorkingWeight === null || s.w > highestValidWorkingWeight) {
+          highestValidWorkingWeight = s.w;
+        }
+      }
+    }
+
+    if (highestValidWorkingWeight !== null) {
+      if (currentWeight !== null && currentWeight < highestValidWorkingWeight) {
+        console.error(
+          "Invariant violation: currentWeight below historical performance",
+          {
+            currentWeight,
+            highestValidWorkingWeight
+          }
+        );
+      }
+      if (currentWeight == null || currentWeight < highestValidWorkingWeight) {
+        currentWeight = highestValidWorkingWeight;
+      }
     }
   } else {
     currentWeight = prevWeight;
