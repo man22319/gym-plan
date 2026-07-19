@@ -48,7 +48,7 @@
       "sets": 3,
       "reps": { "min": 8, "max": 10 },
       "baseWeight": 40,
-      "maxW": 500,
+      "maxW": 70,
       "deltaW": 10,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
