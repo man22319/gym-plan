@@ -74,7 +74,7 @@
           "label": "Back Volume",
           "exercises": [
             { "exerciseRef": "lat_pull", "letter": "A" },
-            { "exerciseRef": "row_dumbbell", "letter": "B" }
+            { "exerciseRef": "row_machine", "letter": "B" }
           ]
         },
         {
