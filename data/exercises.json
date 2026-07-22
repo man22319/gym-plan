@@ -13,7 +13,7 @@
       "reps": { "min": 10, "max": 12 },
       "baseWeight": 25,
       "maxW": 75,
-      "deltaW": 2.5,
+      "deltaW": 5,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
       "notes": "Hinge at hips, soft knee, lower until hamstring stretch, drive hips forward to return."
@@ -154,7 +154,16 @@
       "reps": { "min": 10, "max": 12 },
       "baseWeight": 25,
       "maxW": 160,
-      "deltaW": 5,
+      "deltaW": [
+        {
+          "until": 50,
+          "step": 2.5
+        },
+        {
+          "until": 160,
+          "step": 5
+        }
+      ],
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
       "notes": "Controlled reps only. Keep constant tension, stop at shoulder height, no shrugging. Stay in the rep range even on fatigued days."
@@ -250,10 +259,85 @@
       "reps": { "min": 12, "max": 15 },
       "baseWeight": 110,
       "maxW": 240,
-      "deltaW": 10,
+      "deltaW": [
+        {
+          "until": 150,
+          "step": 5
+        },
+        {
+          "until": 240,
+          "step": 10
+        }
+      ],
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
       "notes": "Push down and lock out. Keep elbows in place, controlled return."
+    },
+    "shoulder_press_machine": {
+      "name": "Shoulder Press Machine",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": { "min": 8, "max": 12},
+      "baseWeight": 100,
+      "maxW": 240,
+      "deltaW": [
+        {
+          "until": 120,
+          "step": 5
+        },
+        {
+          "until": 240,
+          "step": 10
+        }
+      ],
+      "restBetweenSets": 90,
+      "restBetweenExercises": 60,
+      "notes": "Press overhead smoothly. Keep elbows slightly forward, avoid shrugging, and control the return."
+    },
+    "chest_press_machine": {
+      "name": "Chest Press Machine",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": { "min": 8, "max": 12 },
+      "baseWeight": 100,
+      "maxW": 240,
+      "deltaW": [
+        {
+          "until": 120,
+          "step": 5
+        },
+        {
+          "until": 240,
+          "step": 10
+        }
+      ],
+      "restBetweenSets": 90,
+      "restBetweenExercises": 60,
+      "notes": "Press smoothly. Keep shoulders down and back. Control the return."
+    },
+    "reverse_curl": {
+      "name": "Reverse Curl",
+      "equipmentType": "barbell",
+      "sets": 3,
+      "reps": { "min": 10, "max": 15 },
+      "baseWeight": 30,
+      "maxW": 70,
+      "deltaW": 10,
+      "restBetweenSets": 60,
+      "restBetweenExercises": 60,
+      "notes": "Keep palms down. Curl without swinging. Control the lowering."
+    },
+    "db_shrug": {
+      "name": "Dumbbell Shrug",
+      "equipmentType": "dumbbell",
+      "sets": 3,
+      "reps": { "min": 10, "max": 15 },
+      "baseWeight": 35,
+      "maxW": 75,
+      "deltaW": 5,
+      "restBetweenSets": 60,
+      "restBetweenExercises": 60,
+      "notes": "Shrug straight up. Pause briefly. Lower under control."
     }
   }
 }

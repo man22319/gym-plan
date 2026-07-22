@@ -44,9 +44,11 @@
           "label": "Back Thickness + Shoulders",
           "exercises": [
             { "exerciseRef": "row_machine", "letter": "A" },
-            { "exerciseRef": "lateral_raise_machine", "letter": "B" },
-            { "exerciseRef": "arnold_press", "letter": "C" },
-            { "exerciseRef": "reverse_pd", "letter": "D" }
+            { "exerciseRef": "arnold_press", "letter": "B" },
+            { "exerciseRef": "shoulder_press_machine", "letter": "C" },
+            { "exerciseRef": "lateral_raise_machine", "letter": "D" },
+            { "exerciseRef": "reverse_pd", "letter": "E" },
+            { "exerciseRef": "db_shrug", "letter": "F" }
           ]
         },
         {
@@ -74,7 +76,7 @@
           "label": "Back Volume",
           "exercises": [
             { "exerciseRef": "lat_pull", "letter": "A" },
-            { "exerciseRef": "row_dumbbell", "letter": "B" }
+            { "exerciseRef": "row_machine", "letter": "B" }
           ]
         },
         {
@@ -82,14 +84,16 @@
           "exercises": [
             { "exerciseRef": "lateral_raise_machine", "letter": "A" },
             { "exerciseRef": "reverse_pd", "letter": "B" },
-            { "exerciseRef": "bench_db_incline", "letter": "C" }
+            { "exerciseRef": "bench_db_incline", "letter": "C" },
+            { "exerciseRef": "chest_press_machine", "letter": "D" }
           ]
         },
         {
           "label": "Arms",
           "exercises": [
             { "exerciseRef": "barbell_curl", "letter": "A" },
-            { "exerciseRef": "tri_press", "letter": "B" }
+            { "exerciseRef": "reverse_curl", "letter": "B" },
+            { "exerciseRef": "tri_press", "letter": "C" }
           ]
         },
         {
@@ -97,6 +101,12 @@
           "exercises": [
             { "exerciseRef": "leg_press", "letter": "A" },
             { "exerciseRef": "leg_curl", "letter": "B" }
+          ]
+        },
+        {
+          "label": "Core",
+          "exercises": [
+            { "exerciseRef": "abdominal_crunch", "letter": "A" }
           ]
         }
       ]
