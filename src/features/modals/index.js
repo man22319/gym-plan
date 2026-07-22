@@ -455,7 +455,7 @@ export function openLogModal(exId, setIdx) {
           ? `<span class="log-modal-prev">· Last: ${prevSet.w ?? '?'}×${prevSet.r ?? '?'}</span>`
           : ''}</div>
         <label for="log-deload" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 700; letter-spacing: 1.5px; color: var(--white); text-transform: uppercase;">DELOAD</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 500; letter-spacing: 1.5px; color: var(--white); text-transform: uppercase;">DELOAD</span>
           <input type="checkbox" id="log-deload" class="modal-toggle" ${setObj.deload ? 'checked' : ''}/>
         </label>
       </div>
