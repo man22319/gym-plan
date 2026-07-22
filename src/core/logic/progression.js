@@ -991,16 +991,19 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const prevValidatedWeight = prev.validatedWorkingWeight ?? prevWeight;
   let effectiveConsecutive = prevConsecutive;
   let evidenceInvalidated = false;
+  let effectiveOutcomes = prevOutcomes; // Option C: Weight-scoped history
 
   if (prevWeight != null && prevValidatedWeight != null && prevWeight !== prevValidatedWeight) {
     // Weight changed since evidence was last validated — reset streak
     effectiveConsecutive = 0;
+    effectiveOutcomes = []; // Option C: Clear outcomes on weight change
     evidenceInvalidated = true;
   }
 
   // F6: deconditioning also invalidates evidence
   if (deconditioningApplied) {
     effectiveConsecutive = 0;
+    effectiveOutcomes = []; // Option C: Clear outcomes on deconditioning
   }
 
   // ── Input validation (fail closed) ──────────────────────────────────────
@@ -1063,7 +1066,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       // F3/F6/F7 state — carry forward unchanged
       exposureCount,
       domsAdjustmentWindow: false,
-      validatedWorkingWeight: prevValidatedWeight,
+      validatedWorkingWeight: evidenceInvalidated ? prevWeight : prevValidatedWeight,
       plannedJump: prev.plannedJump ?? null,
       requiredEvidence: prev.requiredEvidence ?? DEFAULTS.qualifyThreshold,
     };
@@ -1225,8 +1228,16 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   }
 
   // Update recent outcomes (capped to regressWindow)
-  const recentOutcomes = [...prevOutcomes, classification]
+  let recentOutcomes = [...effectiveOutcomes, classification]
     .slice(-DEFAULTS.regressWindow);
+
+  // Count failing sessions in the recent window
+  const failingCount = recentOutcomes.filter(o => o === 'failing').length;
+
+  // F3: DOMS adjustment — don't count this session toward regression
+  const effectiveFailingCount = domsAdjustmentWindow
+    ? Math.max(0, failingCount - 1)  // discount the DOMS-affected session
+    : failingCount;
 
   // ── Controller distance (pre-decision) ─────────────────────────────────
   // Computed BEFORE the decision/reset below so it reflects the distance
@@ -1236,6 +1247,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     recentOutcomes,
     // F4: use adaptive threshold for distance computation
     qualifyThreshold: requiredEvidence,
+    failingCountOverride: effectiveFailingCount,
   });
 
   // ── Controller output ──────────────────────────────────────────────────
@@ -1246,14 +1258,6 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // in the window. See file header § Decision rules for full rationale.
   let decision;
   let suggestedWeight;
-
-  // Count failing sessions in the recent window
-  const failingCount = recentOutcomes.filter(o => o === 'failing').length;
-
-  // F3: DOMS adjustment — don't count this session toward regression
-  const effectiveFailingCount = domsAdjustmentWindow
-    ? Math.max(0, failingCount - 1)  // discount the DOMS-affected session
-    : failingCount;
 
   // Progression: evidence accumulation (consecutive streak, low-frequency)
   // Checked FIRST — takes precedence over regression. See § Decision rules.
@@ -1274,6 +1278,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       }
 
       consecutiveQualifying = 0;  // Reset after progression
+      recentOutcomes = [];        // Option C: Weight-scoped history
     }
   // Regression: risk detection (window density, high-frequency)
   // Additional precondition: the most recent session must be failing.
@@ -1299,6 +1304,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     } else {
       suggestedWeight = Math.max(0, currentWeight - regressDw);
       consecutiveQualifying = 0;  // Reset after regression
+      recentOutcomes = [];        // Option C: Weight-scoped history
     }
   } else {
     // Hold: keep working at current weight, or candidate weight if confirming
@@ -1325,21 +1331,24 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     suggestedWeight = Math.max(0, step * Math.round(suggestedWeight / step));
   }
 
+  let committedWeight = decision === 'progress' ? suggestedWeight
+                      : decision === 'regress'  ? suggestedWeight
+                      : currentWeight;
+
   // ── maxW clamp (SINGLE location) ──────────────────────────────────
   // Equipment ceiling supersedes the deltaW grid.
   // Applied once, after all computation is final.
+  if (maxW != null && committedWeight > maxW) {
+    committedWeight = maxW;
+  }
   if (maxW != null && suggestedWeight > maxW) {
     suggestedWeight = maxW;
   }
 
-  const committedWeight = decision === 'progress' ? suggestedWeight
-                        : decision === 'regress'  ? suggestedWeight
-                        : currentWeight;
-
   // F7: Update validatedWorkingWeight on progression/regression decisions
-  const validatedWorkingWeight = (decision === 'progress' || decision === 'regress')
-    ? suggestedWeight
-    : (evidenceInvalidated ? currentWeight : prevValidatedWeight);
+  const validatedWorkingWeight = (decision === 'progress' || decision === 'regress' || weightChanged)
+    ? committedWeight
+    : (evidenceInvalidated ? committedWeight : prevValidatedWeight);
 
   // isFirstSession is a UI-layer concern, not a controller state.
   // The controller always returns its true decision (progress/hold/regress).
@@ -1376,7 +1385,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     : null;
 
   return {
-    currentWeight: maxW != null ? Math.min(committedWeight, maxW) : committedWeight,
+    currentWeight: committedWeight,
     consecutiveQualifying,
     recentOutcomes,
     dw: _getDeltaW(dwConfig, committedWeight),
@@ -1508,7 +1517,7 @@ export function computeControllerDistance(state = {}) {
   const qualifyingNeeded = Math.max(0, qualifyThreshold - consecutiveQualifying);
 
   // Distance to regression: how many more failing sessions the window can absorb
-  const failingInWindow = recentOutcomes.filter(o => o === 'failing').length;
+  const failingInWindow = state.failingCountOverride ?? recentOutcomes.filter(o => o === 'failing').length;
   const failingCapacity = Math.max(0, DEFAULTS.regressThreshold - failingInWindow);
 
   return { qualifyingNeeded, failingCapacity };
