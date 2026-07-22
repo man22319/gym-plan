@@ -564,39 +564,6 @@ function validateProposedLoad(proposedWeight, repRange, sets) {
  * @param {number} prescribedRestSec  — expected rest between sets (seconds)
  * @returns {number}  ∈ [0, 1], 0 = no inflation, 1 = all gaps at saturation
  */
-function computeRestInflation(sets, prescribedRestSec) {
-  if (!prescribedRestSec || prescribedRestSec <= 0) return 0;
-
-  const completedSets = (sets || []).filter(
-    s => s.s === 'done' && s.completedAt !== null && s.completedAt > 0
-  );
-
-  if (completedSets.length < 2) return 0;
-
-  // Sort by completedAt to handle any ordering issues
-  const sorted = [...completedSets].sort((a, b) => a.completedAt - b.completedAt);
-
-  const prescribedMs = prescribedRestSec * 1000;
-  const lnMax = Math.log(REST_SATURATION_RATIO);
-  const totalGaps = sorted.length - 1;
-
-  let weightedSum = 0;
-  let weightTotal = 0;
-
-  for (let i = 1; i < sorted.length; i++) {
-    const restMs = sorted[i].completedAt - sorted[i - 1].completedAt;
-    const ratio = restMs / prescribedMs;
-    // Clipped log transform: sub-prescribed rest → 0, ≥ SAT_RATIO → 1
-    const inflation = Math.max(0, Math.min(1, Math.log(ratio) / lnMax));
-
-    // Positional weight: later gaps weighted more (fatigue-relevant)
-    const posWeight = i;  // 1, 2, 3, ...
-    weightedSum += posWeight * inflation;
-    weightTotal += posWeight;
-  }
-
-  return +(weightedSum / weightTotal).toFixed(4);
-}
 
 /**
  * Classify the structural pattern of a set sequence.
@@ -667,7 +634,6 @@ function detectSessionType(done) {
  * @param {{prescribedRestSec:number, dw:number}} restData — rest and step config
  * @returns {{
  *   classification:      'qualifying'|'adequate'|'failing'|null,
- *   restInflationFactor: number,
  *   workingWeight:       number|null,
  *   topWeight:           number|null,
  *   modeDominanceRatio:  number,
@@ -681,12 +647,12 @@ function detectSessionType(done) {
  */
 export function classifySession(sets, repRange, currentWeight = null, restData = {}) {
   const done = (sets || []).filter(
-    s => s.s === 'done' && s.w !== null && s.r !== null
+    s => s.s === 'done' && s.w !== null && s.r !== null && !s.deload
   );
 
   if (!done.length) {
     return {
-      classification: null, restInflationFactor: 0,
+      classification: null,
       workingWeight: null, topWeight: null,
       modeDominanceRatio: 0, weightAgreement: null,
       sessionType: 'mixed', classifierConfidence: 0,
@@ -831,9 +797,6 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   const min = repRange?.min ?? 1;
   const max = repRange?.max ?? min;
 
-  // Compute rest inflation (continuous scalar)
-  const restInflationFactor = computeRestInflation(sets, restData.prescribedRestSec ?? 0);
-
   // Classify based on working set reps vs rep range ONLY.
   // Classification is purely performance-based. Rest inflation, e1RM,
   // and other contextual variables are diagnostic — they do not
@@ -867,15 +830,17 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
     s => s.rir !== null && s.rir !== undefined && s.rir === 0
   ).length;
 
+  const isDeload = (sets || []).some(s => s.deload === true);
+
   return {
-    classification, restInflationFactor, workingWeight, topWeight,
+    classification, workingWeight, topWeight,
     modeDominanceRatio, weightAgreement,
     sessionType, classifierConfidence,
     romPattern, romValues, zeroRirCount,
+    isDeload,
   };
 }
 
-// ── Full Session Update ───────────────────────────────────────────────────────
 
 /**
  * Process one completed session for an exercise and return the next
@@ -901,10 +866,6 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   isFirstSession:        boolean,
  *   sessionClassification: 'qualifying'|'adequate'|'failing'|null,
  *   topWeight:             number|null,
- *   restInflationFactor:   number,
- *   controllerDistance:    { qualifyingNeeded: number, failingCapacity: number },
- *   modeDominanceRatio:    number,
- *   weightAgreement:       number|null,
  *   sessionType:           'straight'|'ramp'|'topset_backoff'|'mixed',
  *   classifierConfidence:  number,
  *   romPattern:            string,
@@ -916,6 +877,7 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
  *   rirTrend:              'repeated-zero-rir'|'normal',
  *   romWarning:            string|null,
  *   rirWarning:            string|null,
+ *   deloadStreak:          number,
  * }}
  */
 /**
@@ -1011,19 +973,28 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // This prevents the controller from producing garbage-shaped certainty
   // on malformed configuration.
   if (repRange.min != null && repRange.max != null && repRange.min > repRange.max) {
-    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight);
   }
   if (dw === undefined || dw === null || isNaN(dw) || dw <= 0) {
-    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight);
   }
   if (opts.prescribedRestSec != null && opts.prescribedRestSec < 0) {
-    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight);
+  }
+
+  const completedSets = (sets || []).filter(s => s.s === 'done');
+  let currentDeloadStreak = prev.deloadStreak || 0;
+  if (completedSets.length > 0) {
+    if (completedSets.every(s => s.deload)) {
+      currentDeloadStreak++;
+    } else {
+      currentDeloadStreak = 0;
+    }
   }
 
   // Classify this session
   const {
     classification,
-    restInflationFactor,
     workingWeight: sessionWorkingWeight,
     topWeight,
     modeDominanceRatio,
@@ -1051,7 +1022,6 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       isFirstSession: prevWeight === null,
       sessionClassification: null,
       topWeight: topWeight ?? null,
-      restInflationFactor: 0,
       controllerDistance: computeControllerDistance({ consecutiveQualifying: effectiveConsecutive, recentOutcomes: prevOutcomes }),
       modeDominanceRatio,
       weightAgreement,
@@ -1063,10 +1033,12 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       romTrend: analyzeRomTrend(prevRomSummaries),
       rirTrend: analyzeRirTrend(prevZeroRir),
       romWarning: null, rirWarning: null,
+      deloadStreak: currentDeloadStreak,
       // F3/F6/F7 state — carry forward unchanged
       exposureCount,
       domsAdjustmentWindow: false,
       validatedWorkingWeight: evidenceInvalidated ? prevWeight : prevValidatedWeight,
+      lastPerformedWeight: prevPerformedWeight,
       plannedJump: prev.plannedJump ?? null,
       requiredEvidence: prev.requiredEvidence ?? DEFAULTS.qualifyThreshold,
     };
@@ -1395,7 +1367,6 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     isAtMax: maxW != null && committedWeight >= maxW,
     sessionClassification: classification,
     topWeight: topWeight ?? null,
-    restInflationFactor,
     controllerDistance,
     modeDominanceRatio,
     weightAgreement,
@@ -1416,6 +1387,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     // F7: Evidence invalidation
     validatedWorkingWeight,
     lastPerformedWeight: sessionWorkingWeight,
+    deloadStreak: currentDeloadStreak,
   };
 }
 
@@ -1424,7 +1396,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
  * Used when input validation fails.
  * @private
  */
-function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null, prevRomSummaries = [], prevZeroRir = []) {
+function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null, prevRomSummaries = [], prevZeroRir = [], prevDeloadStreak = 0, prevLastPerformedWeight = null) {
   const cw = maxW != null && prevWeight != null ? Math.min(prevWeight, maxW) : prevWeight;
   return {
     currentWeight: cw,
@@ -1437,7 +1409,6 @@ function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null,
     isAtMax: maxW != null && cw != null && cw >= maxW,
     sessionClassification: null,
     topWeight: null,
-    restInflationFactor: 0,
     controllerDistance: computeControllerDistance({ consecutiveQualifying: prevConsecutive, recentOutcomes: prevOutcomes }),
     modeDominanceRatio: 0,
     weightAgreement: null,
@@ -1449,6 +1420,8 @@ function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null,
     romTrend: analyzeRomTrend(prevRomSummaries),
     rirTrend: analyzeRirTrend(prevZeroRir),
     romWarning: null, rirWarning: null,
+    deloadStreak: prevDeloadStreak,
+    lastPerformedWeight: prevLastPerformedWeight,
   };
 }
 
@@ -1466,18 +1439,7 @@ function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null,
  * @param {Array<{s:string, w:number|null, r:number|null}>} sets
  * @returns {number|null}  ∈ [-∞, 1], increasing = more fatigue; negative = strength increase within session
  */
-function computeFatigueIndex(sets) {
-  const done = (sets || []).filter(s => s.s === 'done' && s.w !== null && s.r !== null);
-  if (done.length < 2) return null;
 
-  const getPerf = s => s.w * s.r;
-
-  const firstPerf = getPerf(done[0]);
-  const lastPerf  = getPerf(done[done.length - 1]);
-
-  if (firstPerf === 0) return null;
-  return +(1 - lastPerf / firstPerf).toFixed(3);
-}
 
 // ── Controller Distance (exact, no statistics) ───────────────────────────────
 
@@ -1532,5 +1494,4 @@ export function computeControllerDistance(state = {}) {
 export const diagnostics = {
   epleyE1RM,
   workingTarget,
-  computeFatigueIndex,
 };

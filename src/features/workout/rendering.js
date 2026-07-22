@@ -487,7 +487,8 @@ export function buildPrevRow(prevSets, currSets) {
     const r = s.r !== null ? s.r : '—';
     const fail = s.s === 'failed' ? ' <span class="prev-x">X</span>' : '';
     const rir = (s.rir !== null && s.rir !== undefined) ? `<span class="prev-rir">(r${s.rir})</span>` : '';
-    return `<span class="prev-set">S${i + 1} <span class="prev-nums">${w}&times;${r}</span>${rir}${fail}</span>`;
+    const deload = s.deload ? ' <span class="prev-deload" style="font-size:0.5rem; color:var(--muted); background:rgba(255,255,255,0.1); padding:1px 3px; border-radius:2px; margin-left:2px;" title="Deload set">DL</span>' : '';
+    return `<span class="prev-set">S${i + 1} <span class="prev-nums">${w}&times;${r}</span>${rir}${fail}${deload}</span>`;
   }).join('');
 
   const deltaHtml = buildDelta(weightDelta, repsDelta);
@@ -679,13 +680,6 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       chips.push(...buildDistanceChips(ps.controllerDistance));
     }
 
-    // Rest-inflation warning (scalar threshold)
-    if (restInflationFactor > 0.5) {
-      chips.push(
-        `<span class="prog-chip prog-chip-warn" title="Extended rest detected (inflation: ${(restInflationFactor * 100).toFixed(0)}%) — reps may not reflect true capacity">REST-INFLATED</span>`
-      );
-    }
-
     // ROM quality chips (review mode)
     // Derive ROM/RIR trend fresh from persisted windows (not persisted themselves).
     if (ps.recentRomSummaries || ps.romPattern) {
@@ -784,10 +778,9 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
         chips.push(...buildDistanceChips(result.controllerDistance));
       }
 
-      // Rest-inflation warning (scalar threshold)
-      if (result.restInflationFactor > 0.5) {
+      if (result.isDeload) {
         chips.push(
-          `<span class="prog-chip prog-chip-warn" title="Extended rest between sets detected (inflation: ${(result.restInflationFactor * 100).toFixed(0)}%) — reps may overstate readiness">REST-INFLATED</span>`
+          `<span class="prog-chip prog-chip-info" title="Deload sets are excluded from progression evidence">DELOAD</span>`
         );
       }
 

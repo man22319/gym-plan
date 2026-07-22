@@ -123,14 +123,11 @@ export function reducer(currentState, action) {
         n:   resolvedNote,
         rir: resolvedRIR,
         rom: payload.rom ?? 'full',
+        deload: payload.deload ?? false,
         completedAt: Date.now()
       };
       sets[idx] = newSet;
 
-      const persistentRecovery = currentState.adaptiveRecoveryState?.[exId] || {
-        tau: 55, priorTau: 55, observationCount: 0, lastUpdated: 0
-      };
-      
       let runtimeRecovery = currentState.activeRecoveryState?.[exId];
       if (!runtimeRecovery || idx === 0) {
         runtimeRecovery = { fatigueDebt: 0, firstSetReps: null, previousRestSec: null };
@@ -138,8 +135,7 @@ export function reducer(currentState, action) {
 
       const previousSet = idx > 0 ? sets[idx - 1] : null;
 
-      const { newPersistent, newRuntime } = updateFatigueAndTau(
-        persistentRecovery,
+      const newRuntime = updateFatigueAndTau(
         runtimeRecovery,
         newSet,
         previousSet,
@@ -150,7 +146,6 @@ export function reducer(currentState, action) {
       return {
         ...currentState,
         exercises: { ...currentState.exercises, [exId]: sets },
-        adaptiveRecoveryState: { ...(currentState.adaptiveRecoveryState || {}), [exId]: newPersistent },
         activeRecoveryState: { ...(currentState.activeRecoveryState || {}), [exId]: newRuntime }
       };
     }
@@ -507,20 +502,17 @@ export function dispatch(type, payload = {}) {
             ? (ex.restBetweenExercises ?? REST_DURATION)
             : (ex.restBetweenSets      ?? REST_DURATION);
 
-          // F1: Dynamic rest scaling using adaptive recovery
+          // F1: Dynamic rest scaling using active recovery
           if (!isLastSet && ex.sets > 1) {
-            const recoveryState = nextState.adaptiveRecoveryState?.[exId];
             const runtimeState = nextState.activeRecoveryState?.[exId];
             
-            if (recoveryState && runtimeState) {
+            if (runtimeState) {
               const repProgress = idx / (ex.sets - 1);
               const restMultiplier = 1 + 0.5 * Math.max(0, Math.min(1, repProgress));
               const legacyRest = Math.min(Math.round(restDuration * restMultiplier), 180);
               
               const recommendedRest = calculateRecommendedRest(
                 runtimeState.fatigueDebt,
-                recoveryState.tau,
-                recoveryState.observationCount,
                 legacyRest,
                 runtimeState.previousRestSec,
                 restDuration

@@ -22,8 +22,8 @@ export const DEV_MODE      = typeof window !== 'undefined' ? ['localhost', '127.
  * rir: Reps In Reserve  ∈ {0,1,2,…} | null (optional per §10/§20)
  * rom: full Range of Motion flag (boolean, default true per §10)
  */
-export function makeSet(s = '', w = null, r = null, n = '', rir = null) {
-  return { s, w, r, n, rir, rom: 'full', completedAt: null };
+export function makeSet(s = '', w = null, r = null, n = '', rir = null, deload = false) {
+  return { s, w, r, n, rir, rom: 'full', deload, completedAt: null };
 }
 
 /**
@@ -86,7 +86,6 @@ export function createDefaultState(workoutsData) {
     sessionStarted:   null,
     cardio: null,
     progressionState: {},
-    adaptiveRecoveryState: {},
     activeRecoveryState: {}
   };
 }

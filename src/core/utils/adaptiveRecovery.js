@@ -12,6 +12,10 @@ const GAMMA = 0.15; // base adaptation rate
 const LOG_CLIP = 0.4; // max log(performanceRatio) magnitude per update
 const CONFIDENCE_K = 10; // rate constant for confidence growth
 
+// Constant tau (fatigue decay rate) for the session (in seconds).
+// Previously this was learned per-exercise, but long-term fatigue tracking is removed.
+const CONSTANT_TAU = 55;
+
 /**
  * Categorical priors for relative intensity if 1RM is unknown.
  */
@@ -41,18 +45,13 @@ export function computeRelativeIntensity(weight, estimated1RM, category = 'unkno
   return CATEGORY_PRIORS[category] || CATEGORY_PRIORS.unknown;
 }
 
-/**
- * Calculates new fatigue state after completing a set.
- */
 export function updateFatigueAndTau(
-  persistentState, 
   runtimeState, 
   currentSet, 
   previousSet, 
   category = 'unknown',
   estimated1RM = null
 ) {
-  let { tau, priorTau, observationCount } = persistentState;
   let { fatigueDebt, firstSetReps, previousRestSec } = runtimeState;
 
   const actualReps = currentSet.r ?? 0;
@@ -67,31 +66,7 @@ export function updateFatigueAndTau(
   let F = fatigueDebt;
   if (previousSet && previousSet.completedAt != null && currentSet.completedAt != null) {
     const intervalSec = Math.max(0, (currentSet.completedAt - previousSet.completedAt) / 1000);
-    F = F * Math.exp(-intervalSec / tau);
-    
-    // Evaluate performance and update tau (only if not the first set)
-    if (firstSetReps > 0) {
-      // capacity right before this set
-      const predictedCapacity = Math.exp(-F);
-      const predictedReps = firstSetReps * predictedCapacity;
-      
-      if (predictedReps > 0 && actualReps > 0) {
-        const performanceRatio = actualReps / predictedReps;
-        let logRatio = Math.log(performanceRatio);
-        // clip logRatio
-        logRatio = Math.max(-LOG_CLIP, Math.min(LOG_CLIP, logRatio));
-        
-        // update tau
-        // Scale adaptation rate by confidence so early noise doesn't yank the model
-        const confidence = 1 - Math.exp(-observationCount / CONFIDENCE_K);
-        const effectiveGamma = GAMMA * confidence;
-        tau = tau * (1 - effectiveGamma * logRatio);
-        
-        // Enforce tau bounds
-        tau = Math.max(0.4 * priorTau, Math.min(2.5 * priorTau, tau));
-        observationCount++;
-      }
-    }
+    F = F * Math.exp(-intervalSec / CONSTANT_TAU);
   }
 
   // 2. Add new fatigue dose
@@ -102,18 +77,10 @@ export function updateFatigueAndTau(
   F = F + dose;
 
   return {
-    newPersistent: {
-      ...persistentState,
-      tau,
-      observationCount,
-      lastUpdated: Date.now()
-    },
-    newRuntime: {
-      ...runtimeState,
-      fatigueDebt: F,
-      firstSetReps,
-      previousRestSec
-    }
+    ...runtimeState,
+    fatigueDebt: F,
+    firstSetReps,
+    previousRestSec
   };
 }
 
@@ -122,8 +89,6 @@ export function updateFatigueAndTau(
  */
 export function calculateRecommendedRest(
   fatigueDebt, 
-  tau, 
-  observationCount, 
   legacyRest,
   previousRecommendation = null,
   minRest = REST_DURATION,
@@ -136,14 +101,14 @@ export function calculateRecommendedRest(
   let adaptiveRest = 0;
   
   if (fatigueDebt > targetF) {
-    adaptiveRest = tau * Math.log(fatigueDebt / targetF);
+    adaptiveRest = CONSTANT_TAU * Math.log(fatigueDebt / targetF);
   } else {
     adaptiveRest = minRest;
   }
 
-  // Confidence blending - exponential approach to full trust
-  const confidence = 1 - Math.exp(-observationCount / CONFIDENCE_K);
-  let finalRest = confidence * adaptiveRest + (1 - confidence) * legacyRest;
+  // Without persistent observation counts, we trust the adaptive rest fully,
+  // but we can blend it 50/50 with legacy rest to prevent wild swings.
+  let finalRest = 0.5 * adaptiveRest + 0.5 * legacyRest;
 
   // Apply stability constraints
   if (previousRecommendation !== null) {

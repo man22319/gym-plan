@@ -497,6 +497,15 @@ export function openLogModal(exId, setIdx) {
             <button type="button" class="segment-btn${prefillROM === 'none' ? ' active' : ''}" data-rom="none">None</button>
           </div>
         </div>
+        <div class="log-field log-field-deload" style="align-items: center; flex-direction: row; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <label class="log-label" for="log-deload" style="margin-bottom: 0; color: var(--muted); display: flex; align-items: center; gap: 6px;">
+            <span>DELOAD SET</span>
+            <span style="font-size: 0.55rem; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px;">Exclude from progression</span>
+          </label>
+          <div class="log-input-wrap" style="width: auto;">
+            <input type="checkbox" id="log-deload" style="width: 20px; height: 20px; accent-color: var(--primary);" ${setObj.deload ? 'checked' : ''}/>
+          </div>
+        </div>
       </div>
       <div class="log-modal-actions">
         <button class="log-btn log-btn-cancel" id="log-cancel">Cancel</button>
@@ -512,6 +521,7 @@ export function openLogModal(exId, setIdx) {
   const noteInput   = overlay.querySelector('#log-note');
   const rirInput    = overlay.querySelector('#log-rir');
   const romControl  = overlay.querySelector('#log-rom');
+  const deloadCheck = overlay.querySelector('#log-deload');
 
   // ROM segmented control interaction
   let selectedROM = prefillROM;
@@ -546,8 +556,9 @@ export function openLogModal(exId, setIdx) {
     const n = noteInput.value.trim();
     const rir = rirInput.value !== '' ? parseInt(rirInput.value, 10) : null;
     const rom = selectedROM;
+    const deload = deloadCheck ? deloadCheck.checked : false;
     closeCallback();
-    dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r, note: n, rir, rom });
+    dispatch('LOG_AND_MARK_DONE', { exId, idx: setIdx, weight: w, reps: r, note: n, rir, rom, deload });
   });
 
   overlay.addEventListener('keydown', e => {
