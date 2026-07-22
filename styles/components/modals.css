@@ -278,14 +278,14 @@
 .pr-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .secondary-pr-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 8px;
 }
 
 @media (min-width: 768px) {
@@ -301,8 +301,8 @@
 .hero-pr {
   background: #242428;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 20px;
-  border-radius: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -315,8 +315,8 @@
 .secondary-pr {
   background: #1E1E22;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 14px;
-  border-radius: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -327,47 +327,47 @@
 }
 
 .hero-pr-label {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 500;
   text-transform: uppercase;
   color: #B0B0B0;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
   font-family: 'IBM Plex Mono', monospace;
   letter-spacing: 1px;
 }
 
 .hero-pr-val {
-  font-size: 30px;
-  font-weight: 700;
-  color: #FFFFFF;
-  margin-bottom: 4px;
-}
-
-.hero-pr-date {
-  font-size: 12px;
-  font-weight: 400;
-  color: #808080;
-}
-
-.secondary-pr-label {
-  font-size: 12px;
-  font-weight: 500;
-  text-transform: uppercase;
-  color: #B0B0B0;
-  margin-bottom: 4px;
-  font-family: 'IBM Plex Mono', monospace;
-  letter-spacing: 0.5px;
-}
-
-.secondary-pr-val {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: #FFFFFF;
   margin-bottom: 2px;
 }
 
+.hero-pr-date {
+  font-size: 10px;
+  font-weight: 400;
+  color: #808080;
+}
+
+.secondary-pr-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: #B0B0B0;
+  margin-bottom: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.5px;
+}
+
+.secondary-pr-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-bottom: 1px;
+}
+
 .secondary-pr-date {
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 400;
   color: #808080;
 }
