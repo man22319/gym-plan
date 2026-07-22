@@ -17,7 +17,7 @@ export function buildSparkline(volumes, limit = 3) {
   const pointSpacing = 50;
   const computedWidth = validPoints.length * pointSpacing;
   const width = limit === 'all' && computedWidth > 320 ? computedWidth : 320;
-  const height = 64;
+  const height = 120;
   const padding = 6;
 
   const maxVal = Math.max(...validPoints);
@@ -48,7 +48,7 @@ export function buildSparkline(volumes, limit = 3) {
   const isUp = delta >= 0;
 
   return `
-    <div class="sparkline-container" style="padding: 12px 20px;">
+    <div class="sparkline-container" style="padding: 24px 20px;">
       <div class="sparkline-header" style="text-align: center; margin-bottom: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
         <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
           <span class="sparkline-title" style="font-size: 0.85rem; font-weight: 500; color: var(--white);">Volume Trend</span>
@@ -169,7 +169,7 @@ export function openHistoryModal(exId) {
         <thead>
           <tr>
             <th>DATE</th>
-            <th>SETS</th>
+            <th style="text-align: center;">SETS</th>
             <th>VOL (lbs)</th>
             <th>EST 1RM</th>
           </tr>
@@ -184,16 +184,18 @@ export function openHistoryModal(exId) {
   overlay.innerHTML = `
     <div class="history-modal" role="dialog" aria-modal="true" aria-label="History for ${ex.name}">
       <div class="modal-drag-handle" style="margin: 12px auto 4px;"></div>
-      <div class="hist-header">
-        <div>
-          <div class="hist-title">${ex.name}</div>
-          <div class="hist-subtitle">${ex.sets} × ${formatReps(ex.reps)}${ex.weight ? ' · ' + formatWeight(ex.weight) : ''}</div>
+      <div class="hist-sticky-top">
+        <div class="hist-header">
+          <div>
+            <div class="hist-title">${ex.name}</div>
+            <div class="hist-subtitle">${ex.sets} × ${formatReps(ex.reps)}${ex.weight ? ' · ' + formatWeight(ex.weight) : ''}</div>
+          </div>
+          <button class="hist-close" id="hist-close" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
-        <button class="hist-close" id="hist-close" aria-label="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        ${prHtml}
       </div>
-      ${prHtml}
       ${trendHtml}
-      ${hasHistory ? `<div class="hist-section-label" style="padding: 24px 20px 12px;">SESSION LOG</div>` : ''}
+      ${hasHistory ? `<div class="hist-section-label" style="padding: 24px 20px 12px; text-align: center;">SESSION LOG</div>` : ''}
       ${tableHtml}
       ${notesHistoryHtml}
     </div>`;
@@ -448,9 +450,15 @@ export function openLogModal(exId, setIdx) {
     <div class="log-modal" role="dialog" aria-modal="true" aria-label="Log Set ${setIdx + 1}">
       <div class="modal-drag-handle"></div>
       <div class="log-modal-title">${ex?.name ?? exId}</div>
-      <div class="log-modal-sub">SET ${setIdx + 1} ${prevSet && (prevSet.w !== null || prevSet.r !== null)
-        ? `<span class="log-modal-prev">· Last: ${prevSet.w ?? '?'}×${prevSet.r ?? '?'}</span>`
-        : ''}</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div class="log-modal-sub" style="margin-bottom: 0;">SET ${setIdx + 1} ${prevSet && (prevSet.w !== null || prevSet.r !== null)
+          ? `<span class="log-modal-prev">· Last: ${prevSet.w ?? '?'}×${prevSet.r ?? '?'}</span>`
+          : ''}</div>
+        <label for="log-deload" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; font-weight: 500; letter-spacing: 1px; color: #ef5350; text-transform: uppercase;">DELOAD</span>
+          <input type="checkbox" id="log-deload" class="modal-toggle" ${setObj.deload ? 'checked' : ''}/>
+        </label>
+      </div>
       <div class="log-fields">
         <div class="log-field">
           <label class="log-label" for="log-weight">WEIGHT</label>
@@ -495,15 +503,6 @@ export function openLogModal(exId, setIdx) {
             <button type="button" class="segment-btn${prefillROM === 'full' ? ' active' : ''}" data-rom="full">Full</button>
             <button type="button" class="segment-btn${prefillROM === 'partial' ? ' active' : ''}" data-rom="partial">Partial</button>
             <button type="button" class="segment-btn${prefillROM === 'none' ? ' active' : ''}" data-rom="none">None</button>
-          </div>
-        </div>
-        <div class="log-field log-field-deload" style="align-items: center; flex-direction: row; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
-          <label class="log-label" for="log-deload" style="margin-bottom: 0; color: var(--muted); display: flex; align-items: center; gap: 6px;">
-            <span>DELOAD SET</span>
-            <span style="font-size: 0.55rem; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px;">Exclude from progression</span>
-          </label>
-          <div class="log-input-wrap" style="width: auto;">
-            <input type="checkbox" id="log-deload" style="width: 20px; height: 20px; accent-color: var(--primary);" ${setObj.deload ? 'checked' : ''}/>
           </div>
         </div>
       </div>

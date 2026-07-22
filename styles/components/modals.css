@@ -30,9 +30,9 @@
   box-shadow: var(--modal-glass-shadow);
 }
 .modal-drag-handle {
-  width: 36px;
-  height: 5px;
-  border-radius: 2.5px;
+  width: 48px;
+  height: 6px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.2);
   margin: 0 auto 16px;
   cursor: grab;
@@ -212,17 +212,30 @@
   padding-bottom: 36px;
   overscroll-behavior: contain;
 }
+.history-modal::-webkit-scrollbar {
+  width: 6px;
+}
+.history-modal::-webkit-scrollbar-track {
+  background: transparent;
+  margin-top: 20px;
+}
+.history-modal::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
 /* History modal handle is handled via the same reusable .modal-drag-handle class */
+.hist-sticky-top {
+  position: sticky;
+  top: 0;
+  background: #1c1c1e;
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+}
 .hist-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   padding: 24px 20px 16px;
-  position: sticky;
-  top: 0;
-  background: #1c1c1e;
-  border-bottom: 1px solid var(--border);
-  z-index: 1;
 }
 .hist-title {
   font-size: 1rem;
@@ -260,8 +273,7 @@
   text-transform: uppercase;
 }
 .hist-pr-section {
-  padding: 24px 20px;
-  margin-bottom: 12px;
+  padding: 0 20px 24px;
 }
 .hist-pr-list {
   display: flex;
@@ -287,13 +299,20 @@
   font-weight: 600;
   color: var(--white);
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .pr-item-date {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.6rem;
   color: var(--muted);
-  margin-left: 6px;
-  font-weight: 400;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
 }
 
 .hist-table-wrap {
@@ -323,7 +342,7 @@
 }
 .hist-table tr:last-child td { border-bottom: none; }
 .hist-date { color: var(--muted); white-space: nowrap; }
-.hist-sets { display: flex; flex-wrap: wrap; gap: 4px; }
+.hist-sets { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
 .hist-vol, .hist-1rm { color: var(--muted); white-space: nowrap; }
 .hist-set-done {
   background: rgba(255,255,255,0.07);
@@ -465,7 +484,7 @@
   display: flex;
   background: var(--bg3);
   border: 1px solid var(--border-hi);
-  border-radius: 8px;
+  border-radius: 100px;
   padding: 2px;
   position: relative;
   width: 100%;
@@ -480,7 +499,7 @@
   font-size: 0.6875rem;
   font-weight: 500;
   padding: 8px 4px;
-  border-radius: 12px;
+  border-radius: 100px;
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
@@ -495,6 +514,41 @@
   background: rgba(255, 255, 255, 0.12);
   color: var(--white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Toggle Switch ── */
+.modal-toggle {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+  margin: 0;
+}
+.modal-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s;
+}
+.modal-toggle:checked {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.modal-toggle:checked::after {
+  transform: translateX(16px);
+  background: var(--white);
 }
 
 /* ── Confirm Modal (destructive-action guard) ── */
