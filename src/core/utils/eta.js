@@ -136,9 +136,11 @@ function blockSetCounts(block, exercises) {
   let total = 0, completed = 0;
   for (const inst of block.exercises) {
     const exSets = inst.sets ?? EXERCISE_INDEX[inst.instanceId]?.sets ?? 3;
-    total += exSets;
     const sets = exercises[inst.instanceId] || [];
-    completed += sets.filter(s => s.s === 'done' || s.s === 'failed').length;
+    const instCompleted = sets.filter(s => s.s === 'done' || s.s === 'failed').length;
+    
+    total += Math.max(exSets, instCompleted);
+    completed += instCompleted;
   }
   return { total, completed, remaining: total - completed };
 }
@@ -209,7 +211,8 @@ function estimateBlockIntervalFromPrescription(block) {
   let maxRest = 0;
   for (const inst of block.exercises) {
     const ex = EXERCISE_INDEX[inst.instanceId];
-    const rest = (ex?.restBetweenSets ?? DEFAULT_REST_MS / 1000) * 1000;
+    // restBetweenSets is in seconds
+    const rest = ex?.restBetweenSets != null ? ex.restBetweenSets * 1000 : DEFAULT_REST_MS;
     if (rest > maxRest) maxRest = rest;
   }
 
@@ -313,14 +316,12 @@ function computeConfidence(sessionEWMA, totalRemainingMs, completedSets, totalSe
   let relativeUncertainty;
 
   if (sessionEWMA.count >= 4 && sessionEWMA.ewma > 0) {
-    // Heuristic: uncertainty grows with remaining sets, used as a proxy for
-    // regime-shift exposure over the forecast horizon. This is NOT a
-    // calibrated propagation of sampling variance — that quantity would
-    // shrink, not grow, with more remaining sets (CV of a sum ~ cv/√n).
-    // Treat this as a monotonic risk signal, not a rigorous interval.
+    // Heuristic: uncertainty shrinks with remaining sets, reflecting the 
+    // statistical law of large numbers (CV of a sum ~ cv/√n) where more 
+    // remaining sets lead to more averaging and relatively less variance.
     const cv = Math.sqrt(sessionEWMA.variance) / sessionEWMA.ewma;
     const remainingSets = totalSets - completedSets;
-    relativeUncertainty = cv * Math.sqrt(remainingSets);
+    relativeUncertainty = cv / Math.sqrt(Math.max(1, remainingSets));
   } else {
     // Sparse data: high base uncertainty, decaying with observations
     relativeUncertainty = 1.0 - (sessionEWMA.count * 0.15);
@@ -394,9 +395,9 @@ export function calculateETA(appState, sessionDef) {
   // dominating.
   const historicalDuration = historicalSessionDuration(appState, sessionDef.id);
 
-  // Blend window: smaller of 6 sets or 20% of session, so short sessions
-  // hand off quickly and long sessions don't cut over too early.
-  const blendWindow = Math.min(6, Math.ceil(totalSets * 0.2));
+  // Blend window: min 3, max 6, or 20% of session. This ensures that
+  // short sessions still receive some blending instead of cutting over instantly.
+  const blendWindow = Math.max(3, Math.min(6, Math.ceil(totalSets * 0.2)));
 
   if (historicalDuration && completedSets > 0 && completedSets < blendWindow) {
     const alpha = Math.min(1, completedSets / blendWindow);
