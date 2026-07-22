@@ -125,11 +125,50 @@ export function openHistoryModal(exId) {
   const pr = query.personalRecords(state, exId);
   let prHtml = '';
   if (pr.heaviestSet || pr.highestVolume) {
-    const prItems = [];
-    if (pr.heaviestSet) prItems.push(`<div class="pr-item"><span class="pr-icon">MAX</span><div><div class="pr-item-label">Heaviest Set</div><div class="pr-item-val">${pr.heaviestSet.w} lbs × ${pr.heaviestSet.r} reps <span class="pr-item-date">${formatDate(pr.heaviestSet.date)}</span></div></div></div>`);
-    if (pr.highestVolume) prItems.push(`<div class="pr-item"><span class="pr-icon">VOL</span><div><div class="pr-item-label">Best Volume</div><div class="pr-item-val">${pr.highestVolume.volume.toLocaleString()} lbs <span class="pr-item-date">${formatDate(pr.highestVolume.date)}</span></div></div></div>`);
-    if (pr.mostReps) prItems.push(`<div class="pr-item"><span class="pr-icon">REP</span><div><div class="pr-item-label">Most Reps</div><div class="pr-item-val">${pr.mostReps.r} reps @ ${pr.mostReps.w} lbs <span class="pr-item-date">${formatDate(pr.mostReps.date)}</span></div></div></div>`);
-    prHtml = `<div class="hist-pr-section"><div class="hist-section-label">PERSONAL RECORDS</div><div class="hist-pr-list">${prItems.join('')}</div></div>`;
+    let heroHtml = '';
+    let secondaryHtml = '';
+    
+    function formatYearDate(ts) {
+      const d = new Date(ts);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    }
+
+    if (pr.heaviestSet) {
+      heroHtml = `
+        <div class="hero-pr">
+          <div class="hero-pr-label">HEAVIEST SET</div>
+          <div class="hero-pr-val">${pr.heaviestSet.w} lbs × ${pr.heaviestSet.r}</div>
+          <div class="hero-pr-date">${formatYearDate(pr.heaviestSet.date)}</div>
+        </div>
+      `;
+    }
+    
+    const secondaryItems = [];
+    if (pr.highestVolume) {
+      secondaryItems.push(`
+        <div class="secondary-pr">
+          <div class="secondary-pr-label">BEST VOLUME</div>
+          <div class="secondary-pr-val">${pr.highestVolume.volume.toLocaleString()} lbs</div>
+          <div class="secondary-pr-date">${formatDate(pr.highestVolume.date)}</div>
+        </div>
+      `);
+    }
+    if (pr.mostReps) {
+      secondaryItems.push(`
+        <div class="secondary-pr">
+          <div class="secondary-pr-label">MOST REPS</div>
+          <div class="secondary-pr-val">${pr.mostReps.r} reps</div>
+          <div class="secondary-pr-date">${formatDate(pr.mostReps.date)}</div>
+        </div>
+      `);
+    }
+
+    if (secondaryItems.length > 0) {
+      secondaryHtml = `<div class="secondary-pr-grid">${secondaryItems.join('')}</div>`;
+    }
+    
+    prHtml = `<div class="hist-pr-section"><div class="hist-section-label">PERSONAL RECORDS</div><div class="pr-container">${heroHtml}${secondaryHtml}</div></div>`;
   }
 
   const volumes = history.map(entry => {
