@@ -327,7 +327,7 @@
 }
 
 .hero-pr-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   text-transform: uppercase;
   color: #B0B0B0;
@@ -337,20 +337,20 @@
 }
 
 .hero-pr-val {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   color: #FFFFFF;
   margin-bottom: 2px;
 }
 
 .hero-pr-date {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 400;
   color: #808080;
 }
 
 .secondary-pr-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
   text-transform: uppercase;
   color: #B0B0B0;
@@ -360,14 +360,14 @@
 }
 
 .secondary-pr-val {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: #FFFFFF;
   margin-bottom: 1px;
 }
 
 .secondary-pr-date {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 400;
   color: #808080;
 }

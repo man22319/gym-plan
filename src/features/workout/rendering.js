@@ -347,6 +347,7 @@ export function buildCard(ex, appState, readOnly = false) {
   const isOverridden = !!appState?.runtimeOverrides?.[instanceId]?.workingWeight;
 
   const wStr = formatWeight(workingWeight);
+  const stepVal = getDeltaW(effEx?.deltaW, workingWeight);
   const prs = query.currentSetPRs(appState, instanceId);
   const hasPR = prs.length > 0;
 
@@ -386,6 +387,7 @@ export function buildCard(ex, appState, readOnly = false) {
         <div class="ex-info-group ex-metadata-row-sub">
           <span class="ex-metadata-sets-reps">${effEx?.sets ?? '?'} × ${formatReps(effEx?.reps)}</span>
           ${wStr ? `<span class="ex-metadata-weight-tag ${isOverriddenClass}">${wStr}${overrideIndicator}</span>` : ''}
+          ${stepVal !== undefined ? `<span class="ex-metadata-type-badge">ΔW = ${stepVal}</span>` : ''}
           ${effEx?.equipmentType ? `<span class="ex-metadata-type-badge">${effEx.equipmentType}</span>` : ''}
         </div>
       </div>
