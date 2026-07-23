@@ -1,4 +1,5 @@
 *.md
 *.txt
 /tests
+/FIXME
 gym-plan-backup_*.json
