@@ -1081,33 +1081,6 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       // Only use prescribed weight if it was actually performed.
       currentWeight = safePrescribed ?? sessionWorkingWeight ?? null;
     }
-
-    // State reconstruction must preserve the highest successful working weight.
-    // A weight never performed by the user cannot override logged successful performance.
-    const minRequired = repRange?.min ?? 1;
-    let highestValidWorkingWeight = null;
-    for (const s of (sets || [])) {
-      if (s.s === 'done' && s.w != null && s.r != null && s.r >= minRequired) {
-        if (highestValidWorkingWeight === null || s.w > highestValidWorkingWeight) {
-          highestValidWorkingWeight = s.w;
-        }
-      }
-    }
-
-    if (highestValidWorkingWeight !== null) {
-      if (currentWeight !== null && currentWeight < highestValidWorkingWeight) {
-        console.error(
-          "Invariant violation: currentWeight below historical performance",
-          {
-            currentWeight,
-            highestValidWorkingWeight
-          }
-        );
-      }
-      if (currentWeight == null || currentWeight < highestValidWorkingWeight) {
-        currentWeight = highestValidWorkingWeight;
-      }
-    }
   } else {
     currentWeight = prevWeight;
   }
@@ -1306,6 +1279,32 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   let committedWeight = decision === 'progress' ? suggestedWeight
                       : decision === 'regress'  ? suggestedWeight
                       : currentWeight;
+
+  // ── GLOBAL INVARIANT: PRESERVE HISTORICAL PERFORMANCE ──────────
+  // A user should never be assigned a starting weight below a previously 
+  // completed successful working weight. This prevents stale defaults from
+  // trapping the user at a lower weight due to confirmation logic.
+  const minRequired = repRange?.min ?? 1;
+  let highestValidWorkingWeight = null;
+  for (const s of (sets || [])) {
+    if (s.s === 'done' && s.w != null && s.r != null && s.r >= minRequired) {
+      if (highestValidWorkingWeight === null || s.w > highestValidWorkingWeight) {
+        highestValidWorkingWeight = s.w;
+      }
+    }
+  }
+
+  if (highestValidWorkingWeight !== null) {
+    if (committedWeight !== null && committedWeight < highestValidWorkingWeight) {
+      console.warn(
+        "Invariant violation: committedWeight below historical performance. Forcing up.",
+        { committedWeight, highestValidWorkingWeight }
+      );
+      committedWeight = highestValidWorkingWeight;
+    } else if (committedWeight == null) {
+      committedWeight = highestValidWorkingWeight;
+    }
+  }
 
   // ── maxW clamp (SINGLE location) ──────────────────────────────────
   // Equipment ceiling supersedes the deltaW grid.
