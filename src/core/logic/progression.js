@@ -1301,8 +1301,15 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
         { committedWeight, highestValidWorkingWeight }
       );
       committedWeight = highestValidWorkingWeight;
+      if (suggestedWeight !== null && suggestedWeight < highestValidWorkingWeight) {
+        suggestedWeight = highestValidWorkingWeight;
+      }
+      decision = 'progress';
     } else if (committedWeight == null) {
       committedWeight = highestValidWorkingWeight;
+      if (suggestedWeight == null || suggestedWeight < highestValidWorkingWeight) {
+        suggestedWeight = highestValidWorkingWeight;
+      }
     }
   }
 
