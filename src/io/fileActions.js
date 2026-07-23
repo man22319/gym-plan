@@ -49,7 +49,7 @@ export function exportData() {
     const yy = String(d.getFullYear()).slice(-2);
     const filename = `gym-plan-backup_${mm}${dd}${yy}.json`;
 
-    const blob = new Blob([JSON.stringify(compactExport(state), null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(compactExport(state), null, 2)], { type: 'application/json;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
     const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
     document.body.appendChild(a);
@@ -80,7 +80,7 @@ export function importData() {
         dispatch('IMPORT_STATE', { data: parsed });
       } catch (err) { alert('Import failed: ' + err.message); }
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
   };
   input.click();
 }

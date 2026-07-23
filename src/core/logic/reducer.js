@@ -96,7 +96,9 @@ export function reducer(currentState, action) {
       }
 
       sets[idx] = { ...existing, s: nextStatus, w: nextW, r: nextR, n: nextN,
-                     completedAt: nextStatus === 'done' ? Date.now() : null };
+                     completedAt: nextStatus === 'done'
+                       ? (existing.completedAt ?? Date.now())
+                       : null };
       return {
         ...currentState,
         exercises: { ...currentState.exercises, [exId]: sets }
@@ -124,7 +126,7 @@ export function reducer(currentState, action) {
         rir: resolvedRIR,
         rom: payload.rom ?? 'full',
         deload: payload.deload ?? false,
-        completedAt: Date.now()
+        completedAt: existing.completedAt ?? Date.now()
       };
       sets[idx] = newSet;
 
