@@ -648,22 +648,13 @@ export function dispatch(type, payload = {}) {
           }
         }
 
-        // ── Bug 1: advance activeSessionId ────────────────────────────
-        // Computed against the fully updated state (progression +
-        // cleaned overrides) so DUE badge and activeSessionId always
-        // agree. Uses query.getSuggestedSessionId — the same function
-        // that buildTabs uses for the badge.
-        const stateWithUpdates = {
+        // ── Stay on the current session after finishing ────────────────
+        // The UI no longer auto-advances to the next suggested day;
+        // the user stays on the tab they just completed.
+        nextState = {
           ...nextState,
           progressionState: newProgState,
           runtimeOverrides: cleanedOverrides,
-        };
-        const nextActiveId = query.getSuggestedSessionId(stateWithUpdates);
-
-        // ── ONE merged object. ONE setState. ONE persist. ─────────────
-        nextState = {
-          ...stateWithUpdates,
-          activeSessionId: nextActiveId ?? stateWithUpdates.activeSessionId,
         };
       }
 

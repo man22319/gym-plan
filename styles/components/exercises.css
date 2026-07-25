@@ -126,6 +126,7 @@
 .ex-metadata-row-sub {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
 }
@@ -137,6 +138,8 @@
   background: rgba(255, 255, 255, 0.02);
   padding: 1px 6px;
   border-radius: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .ex-metadata-weight-tag {
   font-family: 'IBM Plex Mono', monospace;
@@ -146,6 +149,8 @@
   background: rgba(255, 255, 255, 0.02);
   padding: 1px 6px;
   border-radius: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .ex-metadata-weight-tag.overridden {
   color: #fdd835;
@@ -162,6 +167,8 @@
   border-radius: 3px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .ex-header-right-actions {
   display: flex;
