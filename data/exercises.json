@@ -318,7 +318,7 @@
     "reverse_curl": {
       "name": "Reverse Curl",
       "equipmentType": "barbell",
-      "sets": 3,
+      "sets": 4,
       "reps": { "min": 10, "max": 15 },
       "baseWeight": 30,
       "maxW": 70,
@@ -330,7 +330,7 @@
     "db_shrug": {
       "name": "Dumbbell Shrug",
       "equipmentType": "dumbbell",
-      "sets": 3,
+      "sets": 4,
       "reps": { "min": 10, "max": 15 },
       "baseWeight": 35,
       "maxW": 75,

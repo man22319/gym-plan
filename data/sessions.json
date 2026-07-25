@@ -41,14 +41,15 @@
       "sessionLabel": "Session 2",
       "blocks": [
         {
-          "label": "Back Thickness + Shoulders",
+          "label": "Back Thickness + Shoulders + Traps + Forearms",
           "exercises": [
             { "exerciseRef": "row_machine", "letter": "A" },
             { "exerciseRef": "arnold_press", "letter": "B" },
             { "exerciseRef": "shoulder_press_machine", "letter": "C" },
             { "exerciseRef": "lateral_raise_machine", "letter": "D" },
             { "exerciseRef": "reverse_pd", "letter": "E" },
-            { "exerciseRef": "db_shrug", "letter": "F" }
+            { "exerciseRef": "db_shrug", "letter": "F" },
+            { "exerciseRef": "reverse_curl", "letter": "G" }
           ]
         },
         {
@@ -73,10 +74,11 @@
       "sessionLabel": "Session 3",
       "blocks": [
         {
-          "label": "Back Volume",
+          "label": "Back Volume + Traps",
           "exercises": [
             { "exerciseRef": "lat_pull", "letter": "A" },
-            { "exerciseRef": "row_machine", "letter": "B" }
+            { "exerciseRef": "row_machine", "letter": "B" },
+            { "exerciseRef": "db_shrug", "letter": "C" }
           ]
         },
         {
