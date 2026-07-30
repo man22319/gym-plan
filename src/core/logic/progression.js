@@ -462,31 +462,16 @@ function workingTarget(T, targetReps) {
  * @returns {{ requiredEvidence: number, reject: boolean, recommendIntermediate: boolean }}
  */
 function computeRequiredEvidence(r, cv = CV_DEFAULT) {
-  const epsilon  = 0.001;
-  const boundary = cv * EVIDENCE_DELTA;
-
-  // Region 3: jump exceeds detectable fraction — reject
-  if (r >= boundary) {
-    return { requiredEvidence: Infinity, reject: true, recommendIntermediate: false };
-  }
-
-  // Region 2: boundary zone — reject with intermediate recommendation
-  if (r >= boundary - epsilon) {
-    return { requiredEvidence: Infinity, reject: false, recommendIntermediate: true };
-  }
-
-  // Region 1: normal — compute required evidence
-  // z(0.85) ≈ 1.0364 (inverse normal CDF)
+  // Scale evidence requirement with fractional jump size.
+  // Larger jumps need more confirmation; never reject outright.
+  // Equipment constraints may make intermediate weights impossible.
   const zStar = 1.0364;
-  const denominator = EVIDENCE_DELTA - r / cv;
+  const denominator = Math.max(EVIDENCE_DELTA - r / cv, 0.01);
   const eReq = Math.ceil(Math.pow(zStar / denominator, 2));
-
-  // Clamp to [2, 5] — never fewer than 2 (minimum streak), never more than 5
-  // (diminishing returns, user patience)
   return {
     requiredEvidence: Math.max(2, Math.min(5, eReq)),
     reject: false,
-    recommendIntermediate: false,
+    recommendIntermediate: r > cv * EVIDENCE_DELTA,
   };
 }
 
@@ -1090,7 +1075,6 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // and proposed step size.
   let requiredEvidence = DEFAULTS.qualifyThreshold;
   let plannedJump = null;
-  let jumpRejected = false;
   let recommendIntermediate = false;
 
   if (currentWeight != null && currentWeight > 0) {
@@ -1099,14 +1083,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     if (proposedJump > 0) {
       const r = proposedJump / currentWeight;
       const evidenceResult = computeRequiredEvidence(r);
-      if (evidenceResult.reject) {
-        jumpRejected = true;
-      } else if (evidenceResult.recommendIntermediate) {
-        recommendIntermediate = true;
-        jumpRejected = true;
-      } else {
-        requiredEvidence = evidenceResult.requiredEvidence;
-      }
+      requiredEvidence = evidenceResult.requiredEvidence;
+      recommendIntermediate = evidenceResult.recommendIntermediate;
       plannedJump = proposedJump;
     }
   }
@@ -1207,7 +1185,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // Progression: evidence accumulation (consecutive streak, low-frequency)
   // Checked FIRST — takes precedence over regression. See § Decision rules.
   // F4: use adaptive requiredEvidence instead of fixed qualifyThreshold
-  if (!jumpRejected && consecutiveQualifying >= requiredEvidence) {
+  if (consecutiveQualifying >= requiredEvidence) {
     decision = 'progress';
     const progressDw = _getDeltaW(dwConfig, currentWeight);
     if (progressDw === undefined || progressDw === null || isNaN(progressDw) || progressDw <= 0) {
@@ -1305,6 +1283,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
         suggestedWeight = highestValidWorkingWeight;
       }
       decision = 'progress';
+      consecutiveQualifying = 0;
+      recentOutcomes = [];
     } else if (committedWeight == null) {
       committedWeight = highestValidWorkingWeight;
       if (suggestedWeight == null || suggestedWeight < highestValidWorkingWeight) {
@@ -1388,6 +1368,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     // F4: Adaptive evidence
     requiredEvidence,
     plannedJump,
+    recommendIntermediate,
     // F6: Deconditioning
     deconditioningApplied,
     // F7: Evidence invalidation

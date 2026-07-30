@@ -740,6 +740,7 @@ export function rebuildAllProgressions(appState) {
           // F7: Evidence invalidation
           validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
           lastPerformedWeight:    updated.lastPerformedWeight    ?? null,
+          deloadStreak:           updated.deloadStreak           ?? 0,
         };
       } catch (err) {
         console.warn(`[rebuildAllProgressions] Skipped ${instanceId} (entry ${entry.timestamp}):`, err);
