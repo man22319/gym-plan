@@ -124,51 +124,53 @@
   justify-content: center;
 }
 .ex-metadata-row-sub {
+  display: none; /* Deprecated */
+}
+
+/* ── Hero Section ── */
+.ex-hero {
   display: flex;
+  flex-direction: column;
+  padding: 4px 16px 16px;
+  gap: 12px;
+}
+.ex-hero-target {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--white);
+  letter-spacing: -0.5px;
+}
+.ex-metadata-grid {
+  display: grid;
+  gap: 8px;
+}
+.ex-meta-pill {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
-.ex-metadata-sets-reps {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.6875rem;
-  color: var(--dim);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
-  padding: 1px 6px;
-  border-radius: 4px;
-  flex-shrink: 0;
+  border-radius: 6px;
+  padding: 6px 4px;
+}
+.ex-meta-val {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--white);
   white-space: nowrap;
 }
-.ex-metadata-weight-tag {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.6875rem;
-  color: var(--dim);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.02);
-  padding: 1px 6px;
-  border-radius: 4px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-.ex-metadata-weight-tag.overridden {
+.ex-meta-val.overridden {
   color: #fdd835;
-  border-color: rgba(253, 216, 53, 0.15);
-  background: rgba(253, 216, 53, 0.03);
 }
-.ex-metadata-type-badge {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.6rem;
+.ex-meta-lbl {
+  font-size: 0.55rem;
   color: var(--dim);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.02);
-  padding: 1px 4px;
-  border-radius: 3px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  flex-shrink: 0;
-  white-space: nowrap;
+  letter-spacing: 1px;
+  margin-top: 2px;
 }
 .ex-header-right-actions {
   display: flex;
@@ -216,13 +218,8 @@
 }
 
 /* ── Exercise Meta (notes) — display only ── */
-.ex-meta-row {
-  padding: 0 16px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.ex-notes {
+.ex-inline-form-cue {
+  padding: 0 16px 12px;
   font-size: 0.72rem;
   color: var(--muted);
   line-height: 1.5;
@@ -551,13 +548,15 @@
 
 
 /* ── Previous Session Data ── */
-.prev-data {
+.prev-data-container {
+  display: flex;
+  flex-direction: column;
+}
+.prev-data-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 16px 10px;
-  flex-wrap: wrap;
-  overflow: hidden;
+  padding: 0 16px 8px;
 }
 .prev-label {
   font-family: 'IBM Plex Mono', monospace;
@@ -567,6 +566,11 @@
   text-transform: uppercase;
   flex-shrink: 0;
 }
+.prev-set-grid {
+  display: grid;
+  padding: 0 16px 10px;
+  gap: 10px;
+}
 .prev-set {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.6rem;
@@ -574,8 +578,12 @@
   background: var(--bg3);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 2px 6px;
-  white-space: nowrap;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 .prev-nums {
   color: var(--muted);
@@ -587,14 +595,13 @@
 
 /* ── Set Dots ── */
 .set-row {
-  display: flex;
+  display: grid;
   padding: 0 16px 14px;
   gap: 10px;
-  flex-wrap: wrap;
 }
 .set-dot {
-  width: 52px;
-  height: 52px;
+  width: 100%;
+  aspect-ratio: 1;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(20, 20, 20, 0.6);

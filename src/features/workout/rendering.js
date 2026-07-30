@@ -371,10 +371,23 @@ export function buildCard(ex, appState, readOnly = false) {
   const cardClass = readOnly ? 'session-done-card' : (complete ? 'completed' : '');
 
   // Layer B: live progression row (active) or review row (finished)
-  const progressionRowHtml = buildProgressionRow(instanceId, appState, readOnly);
+  const progressionData = buildProgressionRow(instanceId, appState, readOnly);
+  const progressionRowHtml = progressionData.html;
+  const dist = progressionData.distance;
 
   // Tolerance for dot feedback (per-exercise or default 10%)
   const tolerance = effEx?.tolerance ?? 0.1;
+
+  let stepLabel = '—';
+  if (dist) {
+    if (dist.qualifyingNeeded > 0) stepLabel = `${dist.qualifyingNeeded} TO ↑`;
+    else if (dist.failingCapacity > 0 && dist.failingCapacity <= 1) stepLabel = `${dist.failingCapacity} TO ↓`;
+  }
+
+  const hasDeltaW = stepVal !== undefined;
+  
+  // Inline form cue (plain italic text)
+  const formCueHtml = buildNotesRow(ex, appState);
 
   return `<div class="exercise-card ${cardClass}" data-ex-id="${instanceId}">
     <div class="exercise-header" data-ex-id="${instanceId}">
@@ -384,12 +397,6 @@ export function buildCard(ex, appState, readOnly = false) {
           <span class="ex-name-text">${displayName}</span>
           ${hasPR ? `<span class="pr-badge" title="Personal Record!">PR</span>` : ''}
         </div>
-        <div class="ex-info-group ex-metadata-row-sub">
-          <span class="ex-metadata-sets-reps">${effEx?.sets ?? '?'} × ${formatReps(effEx?.reps)}</span>
-          ${wStr ? `<span class="ex-metadata-weight-tag ${isOverriddenClass}">${wStr}${overrideIndicator}</span>` : ''}
-          ${stepVal !== undefined ? `<span class="ex-metadata-type-badge">ΔW = ${stepVal}</span>` : ''}
-          ${effEx?.equipmentType ? `<span class="ex-metadata-type-badge">${effEx.equipmentType}</span>` : ''}
-        </div>
       </div>
       <div class="ex-header-right-actions">
         ${loggedBadgeHtml}
@@ -397,12 +404,38 @@ export function buildCard(ex, appState, readOnly = false) {
         ${editBtnHtml}
       </div>
     </div>
+    
+    <div class="ex-hero">
+      <div class="ex-hero-target">
+        ${effEx?.sets ?? '?'} × ${formatReps(effEx?.reps)}
+      </div>
+      <div class="ex-metadata-grid" style="grid-template-columns: repeat(${hasDeltaW ? 4 : 3}, minmax(0, 1fr));">
+        <div class="ex-meta-pill">
+          <span class="ex-meta-val ${isOverriddenClass}">${wStr || '—'}${overrideIndicator}</span>
+          <span class="ex-meta-lbl">Weight</span>
+        </div>
+        <div class="ex-meta-pill">
+          <span class="ex-meta-val">${stepLabel}</span>
+          <span class="ex-meta-lbl">Step</span>
+        </div>
+        ${hasDeltaW ? `
+        <div class="ex-meta-pill">
+          <span class="ex-meta-val">${stepVal > 0 ? '+' : ''}${stepVal} LBS</span>
+          <span class="ex-meta-lbl">ΔW</span>
+        </div>` : ''}
+        <div class="ex-meta-pill">
+          <span class="ex-meta-val">${effEx?.equipmentType || '—'}</span>
+          <span class="ex-meta-lbl">Equipment</span>
+        </div>
+      </div>
+    </div>
+    
+    ${formCueHtml}
     ${editPanelHtml}
-    ${buildNotesRow(ex, appState)}
     ${progressionRowHtml}
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
-    ${readOnly ? '' : `<div class="set-row">
+    ${readOnly ? '' : `<div class="set-row" style="grid-template-columns: repeat(${Math.max(prevSets ? prevSets.filter(s => s.w !== null || s.r !== null).length : 0, sets.length)}, minmax(0, 1fr));">
       ${sets.map((s, i) => buildDot(instanceId, i, s, readOnly, workingWeight, tolerance)).join('')}
     </div>`}
   </div>`;
@@ -465,8 +498,8 @@ export function buildNotesRow(ex, appState) {
 
   if (!hasNotes) return '';
 
-  return `<div class="ex-meta-row">
-    <span class="ex-notes">${effEx.notes}</span>
+  return `<div class="ex-inline-form-cue">
+    ${effEx.notes}
   </div>`;
 }
 
@@ -490,13 +523,20 @@ export function buildPrevRow(prevSets, currSets) {
     const fail = s.s === 'failed' ? ' <span class="prev-x">X</span>' : '';
     const rir = (s.rir !== null && s.rir !== undefined) ? `<span class="prev-rir">(r${s.rir})</span>` : '';
     const deload = s.deload ? ' <span class="prev-deload" style="font-size:0.5rem; color:var(--muted); background:rgba(255,255,255,0.1); padding:1px 3px; border-radius:2px; margin-left:2px;" title="Deload set">DL</span>' : '';
-    return `<span class="prev-set">S${i + 1} <span class="prev-nums">${w}&times;${r}</span>${rir}${fail}${deload}</span>`;
+    return `<div class="prev-set">S${i + 1} <span class="prev-nums">${w}&times;${r}</span>${rir}${fail}${deload}</div>`;
   }).join('');
 
   const deltaHtml = buildDelta(weightDelta, repsDelta);
+  
+  const maxCols = Math.max(logged.length, currSets.length);
 
-  return `<div class="prev-data">
-    <span class="prev-label">LAST</span>${setChips}${deltaHtml}
+  return `<div class="prev-data-container">
+    <div class="prev-data-header">
+      <span class="prev-label">LAST</span>${deltaHtml}
+    </div>
+    <div class="prev-set-grid" style="grid-template-columns: repeat(${maxCols}, minmax(0, 1fr));">
+      ${setChips}
+    </div>
   </div>`;
 }
 
@@ -623,10 +663,11 @@ function buildDistanceChips(dist) {
  */
 export function buildProgressionRow(instanceId, appState, readOnly = false) {
   const ex = EXERCISE_INDEX[instanceId];
-  if (ex?.invariant) return '';
+  if (ex?.invariant) return { html: '', distance: null };
 
   const historyN = query.exerciseHistory(appState, instanceId).length;
   const chips = [];
+  let distance = null;
 
   if (readOnly) {
     // ── Review mode: read committed progressionState ──
@@ -679,7 +720,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
 
     // Controller distance chips (review mode)
     if (ps.controllerDistance) {
-      chips.push(...buildDistanceChips(ps.controllerDistance));
+      distance = ps.controllerDistance;
     }
 
     // ROM quality chips (review mode)
@@ -777,7 +818,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
 
       // Controller distance chips (live)
       if (result.controllerDistance) {
-        chips.push(...buildDistanceChips(result.controllerDistance));
+        distance = result.controllerDistance;
       }
 
       if (result.isDeload) {
@@ -830,14 +871,14 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
 
       // Controller distance chips (pre-session, from persisted state)
       if (prevPs.controllerDistance) {
-        chips.push(...buildDistanceChips(prevPs.controllerDistance));
+        distance = prevPs.controllerDistance;
       }
     }
   }
 
-  if (!chips.length) return '';
+  if (!chips.length) return { html: '', distance };
 
-  return `<div class="prog-row">${chips.join('')}</div>`;
+  return { html: `<div class="prog-row">${chips.join('')}</div>`, distance };
 }
 
 
@@ -872,7 +913,10 @@ export function buildDot(exId, idx, setObj, readOnly = false, workingWeight = nu
 
   // Build RIR/ROM metadata line for logged sets
   const rirVal = setObj.rir;
-  const romVal = setObj.rom;
+  let romVal = setObj.rom;
+  if (romVal === 'partial') romVal = '½';
+  else if (romVal === 'none') romVal = '0';
+
   let metaHtml = '';
   // Show RIR and partial-ROM metadata on done/failed sets in BOTH active and review modes.
   // Previously only shown in readOnly. Extended to active sessions so the user
