@@ -1447,6 +1447,24 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
 }
 
 /**
+ * Re-evaluate progression state from a full history of sessions.
+ * 
+ * @param {Array<{ timestamp: number, sets: object[] }>} historyEntries - chronologically ordered sessions
+ * @param {object} currentOpts - the current exercise progression options
+ * @returns {object} the progression state evaluated from scratch using current options
+ */
+export function calculateProgressionFromHistory(historyEntries, currentOpts = {}) {
+  let state = {};
+  for (const entry of historyEntries) {
+    state = updateProgressionState(state, entry.sets, {
+      ...currentOpts,
+      sessionTimestamp: entry.timestamp
+    });
+  }
+  return state;
+}
+
+/**
  * Return a fail-closed result: previous state unchanged, decision 'hold'.
  * Used when input validation fails.
  * @private

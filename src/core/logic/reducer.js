@@ -5,7 +5,7 @@ import { resolveWeight, resolveReps } from '../utils/helpers.js';
 import { startRestTimer, skipRestTimer } from '../utils/restTimer.js';
 import { updateFatigueAndTau, calculateRecommendedRest } from '../utils/adaptiveRecovery.js';
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
-import { updateProgressionState } from './progression.js';
+import { updateProgressionState, calculateProgressionFromHistory } from './progression.js';
 import { expandImport } from '../../io/compactFormat.js';
 
 export const ALLOWED_ACTIONS = {
@@ -185,13 +185,20 @@ export function reducer(currentState, action) {
       // If the user changed the working weight, immediately reset
       // consecutiveQualifying and update validatedWorkingWeight so
       // stale evidence from the old weight never triggers progression.
-      let nextProgState = currentState.progressionState;
+      let nextState = { ...currentState, runtimeOverrides };
+      
+      if (fields && (fields.deltaW !== undefined || fields.reps !== undefined)) {
+        nextState = rebuildAllProgressions(nextState);
+      }
+
+      let nextProgState = nextState.progressionState || {};
       if (fields && fields.workingWeight !== undefined && fields.workingWeight !== null) {
-        const progCopy = { ...(currentState.progressionState || {}) };
+        const progCopy = { ...nextProgState };
         const prevProg = progCopy[exId] || {};
         if (prevProg.currentWeight !== fields.workingWeight) {
           progCopy[exId] = {
             ...prevProg,
+            currentWeight: fields.workingWeight,
             consecutiveQualifying: 0,
             validatedWorkingWeight: fields.workingWeight,
           };
@@ -199,7 +206,7 @@ export function reducer(currentState, action) {
         }
       }
 
-      return { ...currentState, runtimeOverrides, progressionState: nextProgState };
+      return { ...nextState, progressionState: nextProgState };
     }
 
     case 'RESET_SESSION': {
@@ -275,7 +282,7 @@ export function reducer(currentState, action) {
           ? currentState.activeSessionId
           : (sessions[0]?.id || null)
       }));
-      return updated;
+      return rebuildAllProgressions(updated);
     }
 
     case 'START_SESSION': {
@@ -559,79 +566,9 @@ export function dispatch(type, payload = {}) {
       const session = workouts.find(s => s.id === payload.sessionId);
       if (session) {
         const allExercises = session.blocks.flatMap(b => b.exercises);
-        const newProgState = { ...(nextState.progressionState || {}) };
-        const lastEntry = query.sessionHistory(nextState, payload.sessionId).slice(-1)[0];
-        const currentTimestamp = lastEntry?.timestamp ?? Date.now();
-
-        // ── Progression state (Bug 2: per-exercise isolation) ─────────
-        for (const inst of allExercises) {
-          if (inst.invariant) continue;
-          const instanceId = inst.instanceId;
-          try {
-            const ex   = EXERCISE_INDEX[instanceId] ?? inst;
-            const sets = lastEntry?.exercises[instanceId] || [];
-            const prev = newProgState[instanceId] || {};
-
-            // Rep range from exercise definition
-            const repRange = {
-              min: ex.reps?.min ?? ex.reps ?? 8,
-              max: ex.reps?.max ?? ex.reps?.min ?? ex.reps ?? 8,
-            };
-
-            // Prescribed rest between sets (seconds) for rest-influence detection
-            const prescribedRestSec = ex.restBetweenSets ?? REST_DURATION;
-
-            const updated = updateProgressionState(prev, sets, {
-              repRange,
-              deltaW: nextState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
-              prescribedRestSec,
-              prescribedWeight: ex.baseWeight ?? null,
-              maxW: ex.maxW ?? null,
-              sessionTimestamp: currentTimestamp,
-              exerciseType: ex.exerciseType,
-              equipmentType: ex.equipmentType,
-            });
-            newProgState[instanceId] = {
-              currentWeight:         updated.currentWeight,
-              consecutiveQualifying: updated.consecutiveQualifying,
-              recentOutcomes:        updated.recentOutcomes,
-              dw:                    updated.dw,
-              lastSuggested:         updated.suggestedWeight,
-              lastDecision:          updated.decision,
-              lastClassification:    updated.sessionClassification,
-              lastSessionTimestamp:  currentTimestamp,
-              lastTopWeight:         updated.topWeight ?? null,
-              restInflationFactor:   updated.restInflationFactor,
-              controllerDistance:    updated.controllerDistance,
-              modeDominanceRatio:    updated.modeDominanceRatio,
-              weightAgreement:       updated.weightAgreement,
-              sessionType:           updated.sessionType ?? 'mixed',
-              classifierConfidence:  updated.classifierConfidence ?? 0,
-              isAtMax:               updated.isAtMax ?? false,
-              // ROM/RIR: bounded-memory windows + display-convenience fields.
-              // Derived signals (romTrend, rirTrend, romWarning, rirWarning) are
-              // NOT persisted — recomputed fresh each call to prevent stale-state bugs.
-              romPattern:            updated.romPattern         ?? 'mixed',
-              zeroRirCount:          updated.zeroRirCount       ?? 0,
-              recentRomSummaries:    updated.recentRomSummaries ?? [],
-              recentZeroRir:         updated.recentZeroRir      ?? [],
-              // F3: DOMS adaptation state
-              exposureCount:         updated.exposureCount      ?? 0,
-              domsAdjustmentWindow:  updated.domsAdjustmentWindow ?? false,
-              // F4: Adaptive evidence
-              requiredEvidence:      updated.requiredEvidence   ?? 2,
-              plannedJump:           updated.plannedJump        ?? null,
-              // F7: Evidence invalidation
-              validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
-              lastPerformedWeight:    updated.lastPerformedWeight    ?? null,
-              deloadStreak:           updated.deloadStreak           ?? 0,
-              successfulExposureCount: updated.successfulExposureCount ?? 0,
-              averageRIR:            updated.averageRIR             ?? null,
-            };
-          } catch (err) {
-            console.warn(`[FINISH_WORKOUT] Skipped progression for ${instanceId}:`, err);
-          }
-        }
+        
+        // ── Progression state ─────────
+        nextState = rebuildAllProgressions(nextState);
 
         // ── Bug 3: clear stale workingWeight overrides ────────────────
         // progressionState.currentWeight is now authoritative. Stale
@@ -658,7 +595,6 @@ export function dispatch(type, payload = {}) {
         // the user stays on the tab they just completed.
         nextState = {
           ...nextState,
-          progressionState: newProgState,
           runtimeOverrides: cleanedOverrides,
         };
       }
@@ -679,81 +615,86 @@ export function rebuildAllProgressions(appState) {
   const history = [...appState.history].sort((a, b) => a.timestamp - b.timestamp);
   let newProgState = {};
 
-  for (const entry of history) {
-    const session = (appState.sessions || []).find(s => s.id === entry.sessionId)
-      ?? workouts.find(s => s.id === entry.sessionId);
-    if (!session) continue;
-
-    const allExercises = session.blocks.flatMap(b => b.exercises);
-    const currentTimestamp = entry.timestamp;
-
-    for (const inst of allExercises) {
-      if (inst.invariant) continue;
-      const instanceId = inst.instanceId;
-      try {
-        const ex   = EXERCISE_INDEX[instanceId] ?? inst;
-        const sets = entry.exercises[instanceId] || [];
-        const prev = newProgState[instanceId] || {};
-
-        // Rep range from exercise definition
-        const repRange = {
-          min: ex.reps?.min ?? ex.reps ?? 8,
-          max: ex.reps?.max ?? ex.reps?.min ?? ex.reps ?? 8,
-        };
-
-        // Prescribed rest between sets (seconds)
-        const prescribedRestSec = ex.restBetweenSets ?? REST_DURATION;
-
-        const updated = updateProgressionState(prev, sets, {
-          repRange,
-          deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
-          prescribedRestSec,
-          prescribedWeight: ex.baseWeight ?? null,
-          maxW: ex.maxW ?? null,
-          sessionTimestamp: currentTimestamp,
-          exerciseType: ex.exerciseType,
-          equipmentType: ex.equipmentType,
-        });
-        newProgState[instanceId] = {
-          currentWeight:         updated.currentWeight,
-          consecutiveQualifying: updated.consecutiveQualifying,
-          recentOutcomes:        updated.recentOutcomes,
-          dw:                    updated.dw,
-          lastSuggested:         updated.suggestedWeight,
-          lastDecision:          updated.decision,
-          lastClassification:    updated.sessionClassification,
-          lastSessionTimestamp:  currentTimestamp,
-          lastTopWeight:         updated.topWeight ?? null,
-          restInflationFactor:   updated.restInflationFactor,
-          controllerDistance:    updated.controllerDistance,
-          modeDominanceRatio:    updated.modeDominanceRatio,
-          weightAgreement:       updated.weightAgreement,
-          sessionType:           updated.sessionType ?? 'mixed',
-          classifierConfidence:  updated.classifierConfidence ?? 0,
-          isAtMax:               updated.isAtMax ?? false,
-          // ROM/RIR: bounded-memory windows + display-convenience fields.
-          // Derived signals (romTrend, rirTrend, romWarning, rirWarning) are
-          // NOT persisted — recomputed fresh each call to prevent stale-state bugs.
-          romPattern:            updated.romPattern         ?? 'mixed',
-          zeroRirCount:          updated.zeroRirCount       ?? 0,
-          recentRomSummaries:    updated.recentRomSummaries ?? [],
-          recentZeroRir:         updated.recentZeroRir      ?? [],
-          // F3: DOMS adaptation state
-          exposureCount:         updated.exposureCount      ?? 0,
-          domsAdjustmentWindow:  updated.domsAdjustmentWindow ?? false,
-          // F4: Adaptive evidence
-          requiredEvidence:      updated.requiredEvidence   ?? 2,
-          plannedJump:           updated.plannedJump        ?? null,
-          // F7: Evidence invalidation
-          validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
-          lastPerformedWeight:    updated.lastPerformedWeight    ?? null,
-          deloadStreak:           updated.deloadStreak           ?? 0,
-          successfulExposureCount: updated.successfulExposureCount ?? 0,
-          averageRIR:            updated.averageRIR             ?? null,
-        };
-      } catch (err) {
-        console.warn(`[rebuildAllProgressions] Skipped ${instanceId} (entry ${entry.timestamp}):`, err);
+  const allSessions = appState.sessions || workouts;
+  const allInstances = [];
+  for (const session of allSessions) {
+    for (const block of (session.blocks || [])) {
+      for (const inst of (block.exercises || [])) {
+        if (!inst.invariant) allInstances.push(inst);
       }
+    }
+  }
+
+  for (const inst of allInstances) {
+    const instanceId = inst.instanceId;
+    try {
+      const ex = EXERCISE_INDEX[instanceId] ?? inst;
+      
+      const instanceHistory = [];
+      for (const entry of history) {
+        if (entry.exercises && entry.exercises[instanceId]) {
+          instanceHistory.push({
+            timestamp: entry.timestamp,
+            sets: entry.exercises[instanceId]
+          });
+        }
+      }
+
+      if (instanceHistory.length === 0) continue;
+
+      const repRange = {
+        min: ex.reps?.min ?? ex.reps ?? 8,
+        max: ex.reps?.max ?? ex.reps?.min ?? ex.reps ?? 8,
+      };
+      const prescribedRestSec = ex.restBetweenSets ?? REST_DURATION;
+      
+      const currentOpts = {
+        repRange,
+        deltaW: appState.runtimeOverrides?.[instanceId]?.deltaW ?? ex.deltaW,
+        prescribedRestSec,
+        prescribedWeight: ex.baseWeight ?? null,
+        maxW: ex.maxW ?? null,
+        exerciseType: ex.exerciseType,
+        equipmentType: ex.equipmentType,
+      };
+
+      const updated = calculateProgressionFromHistory(instanceHistory, currentOpts);
+      
+      const currentTimestamp = instanceHistory[instanceHistory.length - 1].timestamp;
+
+      newProgState[instanceId] = {
+        currentWeight:         updated.currentWeight,
+        consecutiveQualifying: updated.consecutiveQualifying,
+        recentOutcomes:        updated.recentOutcomes,
+        dw:                    updated.dw,
+        lastSuggested:         updated.suggestedWeight,
+        lastDecision:          updated.decision,
+        lastClassification:    updated.sessionClassification,
+        lastSessionTimestamp:  currentTimestamp,
+        lastTopWeight:         updated.topWeight ?? null,
+        restInflationFactor:   updated.restInflationFactor,
+        controllerDistance:    updated.controllerDistance,
+        modeDominanceRatio:    updated.modeDominanceRatio,
+        weightAgreement:       updated.weightAgreement,
+        sessionType:           updated.sessionType ?? 'mixed',
+        classifierConfidence:  updated.classifierConfidence ?? 0,
+        isAtMax:               updated.isAtMax ?? false,
+        romPattern:            updated.romPattern         ?? 'mixed',
+        zeroRirCount:          updated.zeroRirCount       ?? 0,
+        recentRomSummaries:    updated.recentRomSummaries ?? [],
+        recentZeroRir:         updated.recentZeroRir      ?? [],
+        exposureCount:         updated.exposureCount      ?? 0,
+        domsAdjustmentWindow:  updated.domsAdjustmentWindow ?? false,
+        requiredEvidence:      updated.requiredEvidence   ?? 2,
+        plannedJump:           updated.plannedJump        ?? null,
+        validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
+        lastPerformedWeight:    updated.lastPerformedWeight    ?? null,
+        deloadStreak:           updated.deloadStreak           ?? 0,
+        successfulExposureCount: updated.successfulExposureCount ?? 0,
+        averageRIR:            updated.averageRIR             ?? null,
+      };
+    } catch (err) {
+      console.warn(`[rebuildAllProgressions] Skipped ${instanceId}:`, err);
     }
   }
 

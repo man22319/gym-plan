@@ -136,7 +136,7 @@
 }
 .ex-hero-target {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 3.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
   text-align: center;
   color: var(--white);
@@ -160,7 +160,7 @@
 }
 .ex-meta-weight .ex-meta-val {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1.75rem; /* ~28px */
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--white);
   line-height: 1;
