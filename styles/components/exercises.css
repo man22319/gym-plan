@@ -6,10 +6,10 @@
 
 /* ── Exercise Card ── */
 .exercise-card {
-  background: rgba(40, 40, 40, 0.55);
+  background: rgba(255, 255, 255, 0.04);
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: none;
   border-radius: 12px;
   margin-bottom: 12px;
   overflow: hidden;
@@ -135,42 +135,61 @@
   gap: 12px;
 }
 .ex-hero-target {
-  font-size: 2rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 3.5rem;
   font-weight: 700;
   text-align: center;
   color: var(--white);
-  letter-spacing: -0.5px;
+  letter-spacing: -1px;
+  line-height: 1;
 }
-.ex-metadata-grid {
-  display: grid;
-  gap: 8px;
+.ex-metadata-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 12px 16px;
+  gap: 16px;
 }
-.ex-meta-pill {
+.ex-meta-weight {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 6px;
-  padding: 6px 4px;
 }
-.ex-meta-val {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.8rem;
-  font-weight: 600;
+.ex-meta-weight .ex-meta-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.75rem; /* ~28px */
+  font-weight: 700;
   color: var(--white);
+  line-height: 1;
+}
+.ex-meta-sub {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.ex-meta-sub .ex-meta-val {
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.875rem; /* ~14px */
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
   white-space: nowrap;
 }
-.ex-meta-val.overridden {
-  color: #fdd835;
+.ex-meta-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.1);
 }
 .ex-meta-lbl {
-  font-size: 0.55rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; /* ~11px */
   color: var(--dim);
   text-transform: uppercase;
   letter-spacing: 1px;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 .ex-header-right-actions {
   display: flex;
@@ -184,9 +203,9 @@
   color: var(--dim);
   letter-spacing: 1px;
   text-transform: uppercase;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  padding: 3px 7px;
+  border: none;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 8px;
   border-radius: 4px;
   transition: all 0.15s ease;
   user-select: none;
@@ -196,7 +215,6 @@
 .ex-history-hint:hover {
   color: var(--white);
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.18);
 }
 .ex-history-hint:active {
   background: rgba(255, 255, 255, 0.14);
@@ -220,10 +238,10 @@
 /* ── Exercise Meta (notes) — display only ── */
 .ex-inline-form-cue {
   padding: 0 16px 12px;
-  font-size: 0.72rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
   color: var(--muted);
   line-height: 1.5;
-  font-style: italic;
 }
 .ex-advice {
   display: flex;
@@ -406,13 +424,13 @@
 }
 .prog-chip {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.6rem;
+  font-size: 11px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  padding: 4px 8px;
   border-radius: 4px;
   white-space: nowrap;
   line-height: 1.5;
@@ -575,8 +593,8 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.6rem;
   color: var(--dim);
-  background: var(--bg3);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
   border-radius: 6px;
   padding: 4px 6px;
   display: flex;
@@ -601,11 +619,11 @@
 }
 .set-dot {
   width: 100%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(20, 20, 20, 0.6);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3), 0 0.5px 0 rgba(255, 255, 255, 0.06);
+  height: 56px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  box-shadow: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -613,7 +631,7 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.72rem;
   color: var(--muted);
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease, color 0.35s ease;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.35s ease, color 0.35s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
@@ -628,16 +646,16 @@
   transform: scale(0.88);
 }
 .set-dot.done {
-  background: var(--white);
-  border-color: var(--white);
+  background: rgba(220, 225, 220, 0.9); /* muted white */
   color: #000;
-  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15), inset 0 -2px 4px rgba(0, 0, 0, 0.08);
+  border: none;
+  box-shadow: none;
 }
 .set-dot.failed {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 59, 48, 0.5);
+  background: rgba(255, 59, 48, 0.15);
+  border: none;
   color: rgba(255, 59, 48, 0.85);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  box-shadow: none;
 }
 .dot-num {
   font-size: 0.8rem;
@@ -662,7 +680,7 @@
   opacity: 0.6;
 }
 .set-dot:not(.done):not(.failed):active {
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* Dot inside a completed (finished this week) session:
@@ -687,8 +705,8 @@
 /* ── Finisher ── */
 .finisher-card {
   margin: 24px 0 8px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
   border-left: 2px solid var(--muted);
   border-radius: 8px;
   padding: 14px 16px;
@@ -722,13 +740,13 @@
   padding: 0 16px 10px;
 }
 .live-note-chip {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.6875rem;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.85rem;
   color: var(--blue);
   background: rgba(66, 165, 245, 0.08);
-  border: 1px solid rgba(66, 165, 245, 0.2);
+  border: none;
   border-radius: 4px;
-  padding: 3px 8px;
+  padding: 4px 8px;
   line-height: 1.4;
 }
 .hist-set-note-indicator {

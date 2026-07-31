@@ -409,23 +409,26 @@ export function buildCard(ex, appState, readOnly = false) {
       <div class="ex-hero-target">
         ${effEx?.sets ?? '?'} × ${formatReps(effEx?.reps)}
       </div>
-      <div class="ex-metadata-grid" style="grid-template-columns: repeat(${hasDeltaW ? 4 : 3}, minmax(0, 1fr));">
-        <div class="ex-meta-pill">
+      <div class="ex-metadata-row">
+        <div class="ex-meta-weight">
           <span class="ex-meta-val ${isOverriddenClass}">${wStr || '—'}${overrideIndicator}</span>
-          <span class="ex-meta-lbl">Weight</span>
+          <span class="ex-meta-lbl">WEIGHT</span>
         </div>
-        <div class="ex-meta-pill">
+        <div class="ex-meta-divider"></div>
+        <div class="ex-meta-sub">
           <span class="ex-meta-val">${stepLabel}</span>
-          <span class="ex-meta-lbl">Step</span>
+          <span class="ex-meta-lbl">STEP</span>
         </div>
         ${hasDeltaW ? `
-        <div class="ex-meta-pill">
+        <div class="ex-meta-divider"></div>
+        <div class="ex-meta-sub">
           <span class="ex-meta-val">${stepVal > 0 ? '+' : ''}${stepVal} LBS</span>
           <span class="ex-meta-lbl">ΔW</span>
         </div>` : ''}
-        <div class="ex-meta-pill">
+        <div class="ex-meta-divider"></div>
+        <div class="ex-meta-sub">
           <span class="ex-meta-val">${effEx?.equipmentType || '—'}</span>
-          <span class="ex-meta-lbl">Equipment</span>
+          <span class="ex-meta-lbl">EQUIP</span>
         </div>
       </div>
     </div>
