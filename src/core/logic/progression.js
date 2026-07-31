@@ -448,31 +448,73 @@ function workingTarget(T, targetReps) {
 /**
  * Compute the number of qualifying sessions required to approve a weight jump.
  *
- * Based on the fractional jump r = ΔW / W and the exercise's coefficient
- * of variation (CV). Uses a statistical power model:
- *   E_req = ⌈(z(q*) / (δ − r/CV))²⌉
+ * Replaces the jump-only model with multi-factor confidence scoring.
  *
- * Three regions:
- *   Region 1 (Normal):    0 ≤ r < CVδ − ε → compute E_req (≥ 2, capped at 5)
- *   Region 2 (Boundary):  CVδ − ε ≤ r < CVδ → reject, recommend intermediate
- *   Region 3 (Invalid):   r ≥ CVδ → reject immediately
- *
- * @param {number} r   — fractional jump ΔW / W
- * @param {number} [cv] — coefficient of variation (default CV_DEFAULT)
- * @returns {{ requiredEvidence: number, reject: boolean, recommendIntermediate: boolean }}
+ * @param {object} params
+ * @param {number} params.jumpSize — proposed step size (lbs)
+ * @param {number} params.currentWeight — current working weight (lbs)
+ * @param {number} params.successfulExposureCount — streak of qualifying sessions at this weight
+ * @param {number|null} params.averageRIR — average reps in reserve from working sets
+ * @param {string} params.exerciseType — 'compound' or 'isolation'
+ * @param {string} params.equipmentType — 'machine', 'dumbbell', etc.
+ * @returns {{ requiredEvidence: number }}
  */
-function computeRequiredEvidence(r, cv = CV_DEFAULT) {
-  // Scale evidence requirement with fractional jump size.
-  // Larger jumps need more confirmation; never reject outright.
-  // Equipment constraints may make intermediate weights impossible.
-  const zStar = 1.0364;
-  const denominator = Math.max(EVIDENCE_DELTA - r / cv, 0.01);
-  const eReq = Math.ceil(Math.pow(zStar / denominator, 2));
-  return {
-    requiredEvidence: Math.max(2, Math.min(5, eReq)),
-    reject: false,
-    recommendIntermediate: r > cv * EVIDENCE_DELTA,
-  };
+function computeAdaptiveEvidence({ jumpSize, currentWeight, successfulExposureCount, averageRIR, exerciseType, equipmentType }) {
+  // 1. Base Evidence Requirement
+  let baseEvidence = 2;
+  if (equipmentType === 'machine') {
+    baseEvidence = 2;
+  } else if (equipmentType === 'dumbbell' && exerciseType === 'compound') {
+    baseEvidence = 3;
+  } else if (exerciseType === 'isolation') {
+    baseEvidence = 2;
+  } else {
+    // Default fallback
+    baseEvidence = 2;
+  }
+
+  // 2. Jump Size Adjustment
+  let jumpAdjustment = 0;
+  if (currentWeight > 0) {
+    const jumpRatio = jumpSize / currentWeight;
+    if (jumpRatio >= 0.15) {
+      jumpAdjustment = 2;
+    } else if (jumpRatio >= 0.10) {
+      jumpAdjustment = 1;
+    }
+  }
+
+  // 3. Successful Exposure Scaling
+  let exposureAdjustment = 0;
+  let forceMinimum = false;
+  if (successfulExposureCount === 2) {
+    exposureAdjustment = 1;
+  } else if (successfulExposureCount >= 3) {
+    forceMinimum = true;
+  }
+
+  // 4. RIR Confidence Adjustment
+  let rirAdjustment = 0;
+  if (averageRIR !== null && averageRIR !== undefined) {
+    if (averageRIR >= 2) {
+      rirAdjustment = -1;
+    } else if (averageRIR < 1) {
+      rirAdjustment = 1;
+    }
+  }
+
+  // Final Requirement
+  const minimumEvidence = 1;
+  const maximumEvidence = 3;
+
+  if (forceMinimum) {
+    return { requiredEvidence: minimumEvidence };
+  }
+
+  const calculated = baseEvidence + jumpAdjustment - exposureAdjustment + rirAdjustment;
+  const requiredEvidence = Math.max(minimumEvidence, Math.min(maximumEvidence, calculated));
+
+  return { requiredEvidence };
 }
 
 // ── F5: Unsafe Jump Prevention ────────────────────────────────────────────────
@@ -808,12 +850,14 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
   // Backward-compatible: missing rom field defaults to 'full' inside analyzeRomPattern.
   const { romPattern, romValues } = analyzeRomPattern(workingSets);
 
-  // ── RIR zero-count ───────────────────────────────────────────────────
+  // ── RIR zero-count and averageRIR ─────────────────────────────────────
   // Count working sets where RIR was explicitly logged as 0.
-  // null/undefined RIR (not logged) does NOT count.
-  const zeroRirCount = workingSets.filter(
-    s => s.rir !== null && s.rir !== undefined && s.rir === 0
-  ).length;
+  // Calculate average RIR across all working sets that have an RIR logged.
+  const rirSets = workingSets.filter(s => s.rir !== null && s.rir !== undefined);
+  const zeroRirCount = rirSets.filter(s => s.rir === 0).length;
+  const averageRIR = rirSets.length > 0
+    ? rirSets.reduce((sum, s) => sum + s.rir, 0) / rirSets.length
+    : null;
 
   const isDeload = (sets || []).some(s => s.deload === true);
 
@@ -821,7 +865,7 @@ export function classifySession(sets, repRange, currentWeight = null, restData =
     classification, workingWeight, topWeight,
     modeDominanceRatio, weightAgreement,
     sessionType, classifierConfidence,
-    romPattern, romValues, zeroRirCount,
+    romPattern, romValues, zeroRirCount, averageRIR,
     isDeload,
   };
 }
@@ -904,6 +948,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const maxW = opts.maxW ?? null;
   const repRange = opts.repRange ?? { min: 8, max: 12 };
   const prevConsecutive = prev.consecutiveQualifying ?? 0;
+  const prevSuccessfulExposure = prev.successfulExposureCount ?? 0;
   const prevOutcomes = Array.isArray(prev.recentOutcomes) ? [...prev.recentOutcomes] : [];
 
   // Pull ROM/RIR rolling windows from persisted prev state.
@@ -937,12 +982,14 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // ── F7: Evidence invalidation on weight change ──────────────────────────
   const prevValidatedWeight = prev.validatedWorkingWeight ?? prevWeight;
   let effectiveConsecutive = prevConsecutive;
+  let effectiveSuccessfulExposure = prevSuccessfulExposure;
   let evidenceInvalidated = false;
   let effectiveOutcomes = prevOutcomes; // Option C: Weight-scoped history
 
   if (prevWeight != null && prevValidatedWeight != null && prevWeight !== prevValidatedWeight) {
     // Weight changed since evidence was last validated — reset streak
     effectiveConsecutive = 0;
+    effectiveSuccessfulExposure = 0;
     effectiveOutcomes = []; // Option C: Clear outcomes on weight change
     evidenceInvalidated = true;
   }
@@ -950,6 +997,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // F6: deconditioning also invalidates evidence
   if (deconditioningApplied) {
     effectiveConsecutive = 0;
+    effectiveSuccessfulExposure = 0;
     effectiveOutcomes = []; // Option C: Clear outcomes on deconditioning
   }
 
@@ -958,13 +1006,13 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // This prevents the controller from producing garbage-shaped certainty
   // on malformed configuration.
   if (repRange.min != null && repRange.max != null && repRange.min > repRange.max) {
-    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight, effectiveSuccessfulExposure, prev.averageRIR);
   }
   if (dw === undefined || dw === null || isNaN(dw) || dw <= 0) {
-    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight, effectiveSuccessfulExposure, prev.averageRIR);
   }
   if (opts.prescribedRestSec != null && opts.prescribedRestSec < 0) {
-    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight, effectiveSuccessfulExposure, prev.averageRIR);
   }
 
   const completedSets = (sets || []).filter(s => s.s === 'done');
@@ -989,6 +1037,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     romPattern,
     romValues,
     zeroRirCount,
+    averageRIR,
+    isDeload,
   } = classifySession(sets, repRange, prevWeight, {
     prescribedRestSec: opts.prescribedRestSec ?? 0,
     prescribedWeight: opts.prescribedWeight ?? null,
@@ -1026,6 +1076,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       lastPerformedWeight: prevPerformedWeight,
       plannedJump: prev.plannedJump ?? null,
       requiredEvidence: prev.requiredEvidence ?? DEFAULTS.qualifyThreshold,
+      successfulExposureCount: effectiveSuccessfulExposure,
+      averageRIR: prev.averageRIR ?? null,
     };
   }
 
@@ -1077,14 +1129,28 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   let plannedJump = null;
   let recommendIntermediate = false;
 
+  let successfulExposureCount = effectiveSuccessfulExposure;
+  if (!isBootstrap && classification != null) {
+    if (classification === 'qualifying' && sessionWorkingWeight === currentWeight && !isDeload) {
+      successfulExposureCount += 1;
+    } else if (classification === 'failing' || isDeload) {
+      successfulExposureCount = 0;
+    }
+  }
+
   if (currentWeight != null && currentWeight > 0) {
     const nextDw = _getDeltaW(dwConfig, currentWeight);
     const proposedJump = nextDw ?? dw;
     if (proposedJump > 0) {
-      const r = proposedJump / currentWeight;
-      const evidenceResult = computeRequiredEvidence(r);
+      const evidenceResult = computeAdaptiveEvidence({
+        jumpSize: proposedJump,
+        currentWeight,
+        successfulExposureCount,
+        averageRIR,
+        exerciseType: opts.exerciseType,
+        equipmentType: opts.equipmentType,
+      });
       requiredEvidence = evidenceResult.requiredEvidence;
-      recommendIntermediate = evidenceResult.recommendIntermediate;
       plannedJump = proposedJump;
     }
   }
@@ -1375,6 +1441,8 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     validatedWorkingWeight,
     lastPerformedWeight: sessionWorkingWeight,
     deloadStreak: currentDeloadStreak,
+    successfulExposureCount,
+    averageRIR,
   };
 }
 
@@ -1383,7 +1451,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
  * Used when input validation fails.
  * @private
  */
-function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null, prevRomSummaries = [], prevZeroRir = [], prevDeloadStreak = 0, prevLastPerformedWeight = null) {
+function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null, prevRomSummaries = [], prevZeroRir = [], prevDeloadStreak = 0, prevLastPerformedWeight = null, prevSuccessfulExposure = 0, prevAverageRIR = null) {
   const cw = maxW != null && prevWeight != null ? Math.min(prevWeight, maxW) : prevWeight;
   return {
     currentWeight: cw,
@@ -1409,6 +1477,8 @@ function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null,
     romWarning: null, rirWarning: null,
     deloadStreak: prevDeloadStreak,
     lastPerformedWeight: prevLastPerformedWeight,
+    successfulExposureCount: prevSuccessfulExposure,
+    averageRIR: prevAverageRIR,
   };
 }
 

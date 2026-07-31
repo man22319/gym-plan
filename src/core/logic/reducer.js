@@ -588,6 +588,8 @@ export function dispatch(type, payload = {}) {
               prescribedWeight: ex.baseWeight ?? null,
               maxW: ex.maxW ?? null,
               sessionTimestamp: currentTimestamp,
+              exerciseType: ex.exerciseType,
+              equipmentType: ex.equipmentType,
             });
             newProgState[instanceId] = {
               currentWeight:         updated.currentWeight,
@@ -622,6 +624,9 @@ export function dispatch(type, payload = {}) {
               // F7: Evidence invalidation
               validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
               lastPerformedWeight:    updated.lastPerformedWeight    ?? null,
+              deloadStreak:           updated.deloadStreak           ?? 0,
+              successfulExposureCount: updated.successfulExposureCount ?? 0,
+              averageRIR:            updated.averageRIR             ?? null,
             };
           } catch (err) {
             console.warn(`[FINISH_WORKOUT] Skipped progression for ${instanceId}:`, err);
@@ -706,6 +711,8 @@ export function rebuildAllProgressions(appState) {
           prescribedWeight: ex.baseWeight ?? null,
           maxW: ex.maxW ?? null,
           sessionTimestamp: currentTimestamp,
+          exerciseType: ex.exerciseType,
+          equipmentType: ex.equipmentType,
         });
         newProgState[instanceId] = {
           currentWeight:         updated.currentWeight,
@@ -741,6 +748,8 @@ export function rebuildAllProgressions(appState) {
           validatedWorkingWeight: updated.validatedWorkingWeight ?? updated.currentWeight,
           lastPerformedWeight:    updated.lastPerformedWeight    ?? null,
           deloadStreak:           updated.deloadStreak           ?? 0,
+          successfulExposureCount: updated.successfulExposureCount ?? 0,
+          averageRIR:            updated.averageRIR             ?? null,
         };
       } catch (err) {
         console.warn(`[rebuildAllProgressions] Skipped ${instanceId} (entry ${entry.timestamp}):`, err);
