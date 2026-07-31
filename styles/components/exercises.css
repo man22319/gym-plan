@@ -816,14 +816,11 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-.set-dot-ring circle {
+.set-dot-ring rect {
   fill: none;
   stroke: var(--white);
   stroke-width: 2.5px;
   stroke-linecap: round;
-  /* Rotation set by CSS so the ring starts at 12 o'clock */
-  transform-origin: center;
-  transform: rotate(-90deg);
   /* The rAF loop drives strokeDashoffset directly via .style;
      this short transition smooths out frame-to-frame jitter */
   transition: stroke-dashoffset 0.02s linear;

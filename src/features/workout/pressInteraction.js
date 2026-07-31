@@ -43,38 +43,52 @@ const STATE = Object.freeze({
 // ── Per-dot active session (only one can be active at a time on touch devices)
 let session = null; // { dot, exId, idx, state, rafId, debounceId, holdId, startTs }
 
-// ── SVG ring geometry ─────────────────────────────────────────────────────────
-const RING_R = 28; // radius — tuned to sit just outside a 52px dot (+3px inset)
-const CIRCUMFERENCE = 2 * Math.PI * RING_R;
-
-function buildRingEl() {
+function buildRingEl(dot) {
+  const dotW = dot.offsetWidth;
+  const dotH = dot.offsetHeight; // e.g. 56px
+  
+  const svgW = dotW + 8;
+  const svgH = dotH + 8;
+  
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('class', 'set-dot-ring');
-  svg.setAttribute('viewBox', '0 0 64 64');
+  svg.setAttribute('width', String(svgW));
+  svg.setAttribute('height', String(svgH));
   svg.setAttribute('aria-hidden', 'true');
 
-  const circle = document.createElementNS(ns, 'circle');
-  circle.setAttribute('cx', '32');
-  circle.setAttribute('cy', '32');
-  circle.setAttribute('r', String(RING_R));
-  circle.style.strokeDasharray  = String(CIRCUMFERENCE);
-  circle.style.strokeDashoffset = String(CIRCUMFERENCE); // starts empty
+  const rect = document.createElementNS(ns, 'rect');
+  
+  const rectW = svgW - 8;
+  const rectH = svgH - 8;
+  const rx = rectH / 2; // fully rounded pill
+  
+  rect.setAttribute('x', '4');
+  rect.setAttribute('y', '4');
+  rect.setAttribute('width', String(rectW));
+  rect.setAttribute('height', String(rectH));
+  rect.setAttribute('rx', String(rx));
+  
+  const straightLength = Math.max(0, rectW - (2 * rx));
+  const circumference = (2 * straightLength) + (Math.PI * rectH);
+  
+  rect.style.strokeDasharray  = String(circumference);
+  rect.style.strokeDashoffset = String(circumference); // starts empty
 
-  svg.appendChild(circle);
-  return { svg, circle };
+  svg.appendChild(rect);
+  return { svg, rect, circumference };
 }
 
 // ── Animation loop ────────────────────────────────────────────────────────────
-function driveRing(circle, holdStartTs) {
+function driveRing(rect, holdStartTs, circumference) {
   const elapsed  = performance.now() - holdStartTs;
   const progress = Math.min(elapsed / HOLD_MS, 1);
   // Linear time → eased visual: ease-out cubic on the offset for smooth decel
   const eased    = 1 - Math.pow(1 - progress, 2);
-  circle.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - eased));
+  rect.style.strokeDashoffset = String(circumference * (1 - eased));
 
   if (progress < 1) {
-    session.rafId = requestAnimationFrame(() => driveRing(circle, holdStartTs));
+    session.rafId = requestAnimationFrame(() => driveRing(rect, holdStartTs, circumference));
   } else {
     // Progress reached 1 — trigger completion
     completePress();
@@ -109,19 +123,19 @@ function enterHolding() {
   navigator.vibrate?.(10);
 
   // Inject SVG ring
-  const { svg, circle } = buildRingEl();
+  const { svg, rect, circumference } = buildRingEl(session.dot);
 
   // Adapt ring color: black on done dots (white bg), white otherwise
   if (session.dot.classList.contains('done')) {
-    circle.style.stroke = '#000';
+    rect.style.stroke = '#000';
   }
 
   session.dot.appendChild(svg);
-  session.ring = { svg, circle };
+  session.ring = { svg, rect, circumference };
 
   // Start rAF-driven fill
   session.holdStartTs = performance.now();
-  session.rafId = requestAnimationFrame(() => driveRing(circle, session.holdStartTs));
+  session.rafId = requestAnimationFrame(() => driveRing(rect, session.holdStartTs, circumference));
 }
 
 function completePress() {
