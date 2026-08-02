@@ -1268,6 +1268,12 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
 
       consecutiveQualifying = 0;  // Reset after progression
       recentOutcomes = [];        // Option C: Weight-scoped history
+      // F4: Reset exposure count — evidence accumulated at the OLD weight must
+      // not carry over to the new weight. Failure to reset this caused
+      // successfulExposureCount ≥ 3 from the prior weight to collapse
+      // requiredEvidence to 1 at the new weight, producing an immediate
+      // re-progression on the very first qualifying session there.
+      successfulExposureCount = 0;
     }
   // Regression: risk detection (window density, high-frequency)
   // Additional precondition: the most recent session must be failing.
@@ -1294,6 +1300,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       suggestedWeight = Math.max(0, currentWeight - regressDw);
       consecutiveQualifying = 0;  // Reset after regression
       recentOutcomes = [];        // Option C: Weight-scoped history
+      successfulExposureCount = 0; // F4: Reset exposure count on weight change (symmetric with progression)
     }
   } else {
     // Hold: keep working at current weight, or candidate weight if confirming

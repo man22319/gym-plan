@@ -535,7 +535,7 @@ export function buildPrevRow(prevSets, currSets) {
 
   return `<div class="prev-data-container">
     <div class="prev-data-header">
-      <span class="prev-label">LAST</span>${deltaHtml}
+      <span class="prev-label">PREV SESSION</span>${deltaHtml}
     </div>
     <div class="prev-set-grid" style="grid-template-columns: repeat(${maxCols}, minmax(0, 1fr));">
       ${setChips}
@@ -682,27 +682,27 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
     const classification = ps.lastClassification;
     const restInflationFactor = ps.restInflationFactor ?? 0;
 
-    // Decision chip
+    // Decision chip — retrospective summary of what was earned this session
     if (suggested !== null && suggested !== undefined) {
       let decisionClass, decisionIcon, decisionLabel;
       if (decision === 'progress') {
         decisionClass = 'prog-chip-progress';
         decisionIcon = '↑';
-        decisionLabel = `PROGRESS → ${suggested} lbs`;
+        decisionLabel = `PROGRESSED → ${suggested} lbs`;
       } else if (decision === 'regress') {
         decisionClass = 'prog-chip-regress';
         decisionIcon = '↓';
-        decisionLabel = `REGRESS → ${suggested} lbs`;
+        decisionLabel = `REGRESSED → ${suggested} lbs`;
       } else {
         decisionClass = 'prog-chip-hold';
         decisionIcon = '→';
-        decisionLabel = `HOLD · ${suggested} lbs`;
+        decisionLabel = `HELD · ${suggested} lbs`;
       }
 
       const sessionLabel = `${historyN} session${historyN !== 1 ? 's' : ''}`;
       chips.push(
         `<span class="prog-chip ${decisionClass}"
-           title="Next session target · ${sessionLabel} of data">
+           title="Outcome of this session · ${sessionLabel} of data">
           ${decisionIcon} <strong>${decisionLabel}</strong>
         </span>`
       );
@@ -798,26 +798,10 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
         );
       }
 
-      // Suggested weight chip
-      if (result.suggestedWeight !== null) {
-        let decisionClass, decisionPrefix;
-        if (result.decision === 'progress') {
-          decisionClass = 'prog-chip-progress';
-          decisionPrefix = 'NEXT ↑';
-        } else if (result.decision === 'regress') {
-          decisionClass = 'prog-chip-regress';
-          decisionPrefix = 'NEXT ↓';
-        } else {
-          decisionClass = 'prog-chip-hold';
-          decisionPrefix = 'NEXT →';
-        }
-        chips.push(
-          `<span class="prog-chip ${decisionClass}"
-             title="Projected next-session weight based on current performance">
-            ${decisionPrefix} <strong>${result.suggestedWeight} lbs</strong>
-          </span>`
-        );
-      }
+      // NEXT chip suppressed during active workout.
+      // The header weight already shows the current prescription;
+      // projecting the next session mid-workout conflicts with the user's
+      // mental model. The live classification chip is the only needed signal.
 
       // Controller distance chips (live)
       if (result.controllerDistance) {
@@ -852,15 +836,23 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       }
 
     } else if (prevPs.lastSuggested !== null && prevPs.lastSuggested !== undefined) {
-      // No sets logged yet — show last committed suggestion as a target
-      chips.push(
-        `<span class="prog-chip prog-chip-preview"
-           title="Target weight from last session">
-          START: <strong>${prevPs.lastSuggested} lbs</strong>
-        </span>`
-      );
+      // No sets logged yet — pre-session state.
+      // Only show the START chip when it adds information the header doesn't.
+      // If lastSuggested equals the current working weight, the header already
+      // communicates the prescription — the chip would be pure duplication.
+      const workingWeight = getWorkingWeight(appState, instanceId);
+      const startChipAddsInfo = prevPs.lastSuggested !== workingWeight;
+      if (startChipAddsInfo) {
+        chips.push(
+          `<span class="prog-chip prog-chip-preview"
+             title="Target weight from last session">
+            START: <strong>${prevPs.lastSuggested} lbs</strong>
+          </span>`
+        );
+      }
 
-      // Show last decision context
+      // Show last decision context — always shown when available; gives the
+      // user immediate confirmation of what was earned in the previous cycle.
       const lastDecision = prevPs.lastDecision;
       if (lastDecision === 'progress') {
         chips.push(

@@ -204,11 +204,11 @@
       "deltaW": [
         {
           "until": 50,
-          "step": 2.5
+          "step": 5
         },
         {
           "until": 160,
-          "step": 5
+          "step": 10
         }
       ],
       "restBetweenSets": 60,
@@ -361,7 +361,7 @@
         "min": 8,
         "max": 12
       },
-      "baseWeight": 100,
+      "baseWeight": 40,
       "maxW": 240,
       "deltaW": [
         {
@@ -386,7 +386,7 @@
         "min": 8,
         "max": 12
       },
-      "baseWeight": 100,
+      "baseWeight": 60,
       "maxW": 240,
       "deltaW": [
         {
