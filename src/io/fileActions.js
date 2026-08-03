@@ -49,7 +49,13 @@ export function exportData() {
     const yy = String(d.getFullYear()).slice(-2);
     const filename = `gym-plan-backup_${mm}${dd}${yy}.json`;
 
-    const blob = new Blob([JSON.stringify(compactExport(state), null, 2)], { type: 'application/json;charset=utf-8' });
+    // Encode as explicit UTF-8 bytes so the file content itself carries the
+    // correct encoding regardless of what charset the receiving platform
+    // (e.g. iOS Share Sheet / Files app) assumes when it reads the blob.
+    // Passing a raw JS string to Blob lets the browser choose the encoding;
+    // passing a Uint8Array bypasses that ambiguity entirely.
+    const utf8Bytes = new TextEncoder().encode(JSON.stringify(compactExport(state), null, 2));
+    const blob = new Blob([utf8Bytes], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
     document.body.appendChild(a);
