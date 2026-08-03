@@ -7,6 +7,7 @@ import { updateFatigueAndTau, calculateRecommendedRest } from '../utils/adaptive
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
 import { updateProgressionState, calculateProgressionFromHistory } from './progression.js';
 import { expandImport } from '../../io/compactFormat.js';
+import { inferMissingWorkouts } from './scheduleSync.js';
 
 export const ALLOWED_ACTIONS = {
   SET_ACTIVE_SESSION:        ['sessionId'],
@@ -225,11 +226,17 @@ export function reducer(currentState, action) {
     }
 
     case 'IMPORT_STATE': {
-      const imported = sanitizeSessions(normalize({
+      let imported = sanitizeSessions(normalize({
         ...payload.data,
         sessionsPerWeek: payload.data.sessionsPerWeek ?? 3,
         activeSessionId: payload.data.activeSessionId ?? payload.data.sessions?.[0]?.id ?? null,
       }));
+      // Resynchronize mesocycle phase before rebuilding progressions.
+      const { augmentedHistory: importAug, inferredCount: importInferred } = inferMissingWorkouts(imported, imported.sessions);
+      if (importInferred > 0) {
+        imported = { ...imported, history: importAug };
+        console.log(`[scheduleSync] Inferred ${importInferred} missing workout(s) on import.`);
+      }
       return rebuildAllProgressions(imported);
     }
 
@@ -332,7 +339,11 @@ export function reducer(currentState, action) {
         startTs = earliest === Infinity ? null : earliest;
       }
 
-      const history = [...(currentState.history || [])];
+      // Strip any inferred placeholder for this session before appending the
+      // real completion.  This prevents duplicate semantic events in history
+      // (inferred + real for the same cycle position).
+      const history = [...(currentState.history || [])]
+        .filter(e => !(e.inferred && e.sessionId === sessionId));
       history.push({
         entryId:          crypto.randomUUID(),
         sessionId,

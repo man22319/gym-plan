@@ -97,12 +97,16 @@ export function compactExport(appState) {
   // Compact live exercise tracking
   out.exercises = compactExercises(appState.exercises ?? {});
 
-  // Compact history entries
+  // Compact history entries — strip ephemeral inferred entries so they are
+  // never written to localStorage or export files.  inferMissingWorkouts()
+  // recomputes them from evidence on every boot / import.
   if (Array.isArray(appState.history)) {
-    out.history = appState.history.map(entry => ({
-      ...entry,
-      exercises: compactExercises(entry.exercises ?? {}),
-    }));
+    out.history = appState.history
+      .filter(e => !e.inferred)
+      .map(entry => ({
+        ...entry,
+        exercises: compactExercises(entry.exercises ?? {}),
+      }));
   }
 
   return out;

@@ -1,6 +1,7 @@
 import { STORAGE_KEY, makeSet, createDefaultState } from './state.js';
 import { defaultWorkoutsData, workouts, state, setState, programDefaults as bootDefaults } from './store.js';
 import { compactExport, expandImport } from '../../io/compactFormat.js';
+import { inferMissingWorkouts } from '../logic/scheduleSync.js';
 
 const KEYS = { primary: STORAGE_KEY, backup: STORAGE_KEY + '_bk', lkg: STORAGE_KEY + '_lkg' };
 let writeCount = 0;
@@ -66,8 +67,18 @@ export function loadState() {
       };
 
       const normal = normalize(merged);
-      const clean  = sanitizeSessions(normal); // surgical repair — history untouched
+      let clean  = sanitizeSessions(normal); // surgical repair — history untouched
       if (validate(clean)) {
+        // ── Mesocycle phase resynchronization (boot-time) ──────────────────
+        // Infer missing history entries that are uniquely proven by their
+        // neighbours.  Augments only runtime state — completedWorkouts and
+        // localStorage are never touched.  Idempotent: re-runs safely on
+        // every page load.
+        const { augmentedHistory, inferredCount } = inferMissingWorkouts(clean, clean.sessions);
+        if (inferredCount > 0) {
+          clean = { ...clean, history: augmentedHistory };
+          console.log(`[scheduleSync] Inferred ${inferredCount} missing workout(s) at boot.`);
+        }
         setState(clean);
         return;
       }
