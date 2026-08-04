@@ -55,7 +55,8 @@ export function exportData() {
     // Passing a raw JS string to Blob lets the browser choose the encoding;
     // passing a Uint8Array bypasses that ambiguity entirely.
     const utf8Bytes = new TextEncoder().encode(JSON.stringify(compactExport(state), null, 2));
-    const blob = new Blob([utf8Bytes], { type: 'application/json' });
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const blob = new Blob([bom, utf8Bytes], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
     document.body.appendChild(a);
