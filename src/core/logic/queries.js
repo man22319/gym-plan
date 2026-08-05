@@ -146,9 +146,9 @@ export const query = {
    * No calendar dependency. Missed sessions do not shift indexing.
    */
   weekAndSession(appState) {
-    // Cycle phase must account for inferred entries, so we use history.length
-    // if available, falling back to completedWorkouts.
-    const n    = appState?.history?.length ?? appState?.completedWorkouts ?? 0;
+    // Cycle phase must account for inferred entries, so we use completedWorkouts
+    // as the primary source of truth, falling back to history.length.
+    const n    = appState?.completedWorkouts ?? appState?.history?.length ?? 0;
     const spw  = Math.max(1, appState?.sessionsPerWeek ?? 3);
     const week    = Math.floor(n / spw) + 1;
     const session = (((n % spw) + spw) % spw) + 1; // handles negative offset safely
@@ -308,8 +308,9 @@ export const query = {
 
   isSessionFinishedInCurrentWeek(appState, sessionId) {
     const spw = appState.sessionsPerWeek ?? 3;
-    // Cycle phase must account for inferred entries, so we use history.length
-    const n   = appState?.history?.length ?? appState?.completedWorkouts ?? 0;
+    // Cycle phase must account for inferred entries, so we use completedWorkouts
+    // as the primary source of truth, falling back to history.length.
+    const n   = appState?.completedWorkouts ?? appState?.history?.length ?? 0;
     const currentCycleCount = n % spw;
     if (currentCycleCount === 0) return false;
 
