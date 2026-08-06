@@ -73,7 +73,6 @@ export class EWMA {
 
     // Clip (winsorize toward bounds, don't reject)
     let x = value;
-    const adaptiveUpper = Math.min(this._mean * (this.clipUpper === Infinity ? Infinity : this.clipUpper), this.clipUpper);
     if (this.clipUpper !== Infinity && this.clipUpper > 1 && this.clipUpper <= 10) {
       // Multiplier-style clipping: clipUpper is a multiplier of current mean
       const upperBound = Math.min(this._mean * this.clipUpper, this.clipUpper === Infinity ? Infinity : 600_000);

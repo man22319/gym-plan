@@ -5,7 +5,7 @@ import { resolveWeight, resolveReps } from '../utils/helpers.js';
 import { startRestTimer, skipRestTimer } from '../utils/restTimer.js';
 import { updateFatigueAndTau, calculateRecommendedRest } from '../utils/adaptiveRecovery.js';
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
-import { updateProgressionState, calculateProgressionFromHistory } from './progression.js';
+import { calculateProgressionFromHistory } from './progression.js';
 import { expandImport } from '../../io/compactFormat.js';
 import { inferMissingWorkouts } from './scheduleSync.js';
 
@@ -257,7 +257,9 @@ export function reducer(currentState, action) {
             reloaded = parsed;
             break;
           }
-        } catch (_) {}
+        } catch {
+          // ignore parsing errors and continue to next fallback
+        }
       }
       if (!reloaded) {
         alert('No importable backup found in storage. Use "Import Data" to load a file first.');

@@ -268,7 +268,6 @@ const DEFAULTS = {
 
 // Rest-inflation detection constants (DIAGNOSTIC ONLY — not consumed by classifier)
 // Rest gap ≥ REST_SATURATION_RATIO × prescribed = fully inflated (inflation = 1.0)
-const REST_SATURATION_RATIO = 5;
 
 // ROM quality tracking constants (DIAGNOSTIC ONLY)
 // Minimum sessions required in the window to fire a cross-session ROM trend warning.
@@ -286,8 +285,6 @@ const DOMS_DROP_THRESHOLD    = 0.30; // fractional drop from anchor to trigger D
 // ── F4: Adaptive Evidence Constants ───────────────────────────────────────────
 // Statistical model for evidence requirement scaling.
 // δ = detectable fraction, CV = coefficient of variation.
-const EVIDENCE_DELTA         = 0.5;
-const CV_DEFAULT             = 0.08;
 
 // ── F5: Unsafe Jump Prevention Constants ──────────────────────────────────────
 const SAFETY_FACTOR          = 1.15; // max allowable working weight = recommendedMax × SAFETY_FACTOR
@@ -461,7 +458,7 @@ function workingTarget(T, targetReps) {
  */
 function computeAdaptiveEvidence({ jumpSize, currentWeight, successfulExposureCount, averageRIR, exerciseType, equipmentType }) {
   // 1. Base Evidence Requirement
-  let baseEvidence = 2;
+  let baseEvidence;
   if (equipmentType === 'machine') {
     baseEvidence = 2;
   } else if (equipmentType === 'dumbbell' && exerciseType === 'compound') {
@@ -965,7 +962,6 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   const nowTimestamp = opts.sessionTimestamp ?? Date.now();
   let latentCapability = null;
   let deconditioningApplied = false;
-  let deconditioningDays = 0;
 
   if (prevWeight != null && prevTimestamp != null) {
     const gapMs = nowTimestamp - prevTimestamp;
@@ -975,7 +971,6 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       // Does NOT mutate historical currentWeight — only affects suggestion.
       latentCapability = prevWeight * Math.exp(-DECAY_LAMBDA * gapDays);
       deconditioningApplied = true;
-      deconditioningDays = gapDays;
     }
   }
 

@@ -27,8 +27,7 @@ const EQUIPMENT_TYPES = [
   { value: 'other',         label: 'Other' },
 ];
 
-// Instance-level override fields (subset of canonical fields)
-const INSTANCE_OVERRIDE_KEYS = ['sets', 'reps', 'baseWeight'];
+
 
 // ── Editor state ─────────────────────────────────────────────────────────────
 
@@ -400,7 +399,7 @@ function renderSessionMain() {
   `;
 }
 
-function renderSessionExerciseCard(inst, blockIdx, exIdx, block, session) {
+function renderSessionExerciseCard(inst, blockIdx, exIdx, block) {
   const canonicalEx = draftLibrary[inst.exerciseRef] || {};
   const instanceId = inst.instanceId;
   const isExpanded = expandedInstanceIds.has(instanceId);
@@ -408,7 +407,7 @@ function renderSessionExerciseCard(inst, blockIdx, exIdx, block, session) {
   // Resolved values (canonical + overrides)
   const resolvedSets = inst.sets ?? canonicalEx.sets ?? 3;
   const resolvedReps = inst.reps ?? canonicalEx.reps ?? { min: 8, max: 12 };
-  const resolvedBaseWeight = inst.baseWeight ?? canonicalEx.baseWeight;
+
 
   // Check which fields are overridden
   const hasSetOverride = inst.sets !== undefined;

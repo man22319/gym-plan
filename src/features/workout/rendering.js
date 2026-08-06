@@ -1,4 +1,4 @@
-import { workouts, programDefaults, EXERCISE_INDEX, EX_SESSION_INDEX, state, defaultWorkoutsData } from '../../core/state/store.js';
+import { workouts, EXERCISE_INDEX, EX_SESSION_INDEX, state, defaultWorkoutsData } from '../../core/state/store.js';
 import { REST_DURATION } from '../../core/state/state.js';
 import { query } from '../../core/logic/queries.js';
 import { getEffectiveExercise, getWorkingWeight, getDeltaW } from '../../core/utils/helpers.js';
@@ -203,7 +203,7 @@ export function buildTabs(appState) {
     const finished = query.isSessionFinishedInCurrentWeek(appState, session.id);
     const ts = query.lastDoneTimestamp(appState, session.id);
 
-    let recency = '';
+    let recency;
     if (ts) {
       const today = new Date();
       const doneDate = new Date(ts);
@@ -247,7 +247,7 @@ export function buildSession(session, appState) {
   const warmupDone = c.warmupDone === true;
   const finisherDone = c.finisherDone === true;
 
-  let bannerHtml = '';
+  let bannerHtml;
   if (finished) {
     // Derive a friendly timestamp from the last history entry for this session
     const lastEntry = query.lastSession(appState, session.id);
@@ -612,45 +612,7 @@ function _deriveRirTrend(recentZeroRir) {
  *   '1F → ↓'  — 1 more failing session until regression
  *
  * These are exact controller-state arithmetic, not probability
- * estimates.  See computeControllerDistance() in progression.js.
- *
- * Suppressed when the distance is at its default (no useful signal)
- * or when progression/regression has already been decided.
- *
- * @param {{ qualifyingNeeded: number, failingCapacity: number }} dist
- * @returns {string[]} Array of HTML chip strings (0-2 elements)
- */
-function buildDistanceChips(dist) {
-  if (!dist) return [];
-  const chips = [];
-  const { qualifyingNeeded = 0, failingCapacity = 0 } = dist;
 
-  // Show progress distance until progression is triggered
-  if (qualifyingNeeded > 0) {
-    const label = `${qualifyingNeeded} TO ↑`;
-    chips.push(
-      `<span class="prog-chip prog-chip-distance prog-chip-dist-progress"
-         title="${qualifyingNeeded} more qualifying session${qualifyingNeeded !== 1 ? 's' : ''} to trigger progression">
-        ${label}
-      </span>`
-    );
-  }
-
-  // Show regress distance when it's getting tight (1 failure away)
-  if (failingCapacity > 0 && failingCapacity <= 1) {
-    const label = `${failingCapacity} TO ↓`;
-    chips.push(
-      `<span class="prog-chip prog-chip-distance prog-chip-dist-regress"
-         title="${failingCapacity} more failing session${failingCapacity !== 1 ? 's' : ''} before regression triggers">
-        ${label}
-      </span>`
-    );
-  }
-
-  return chips;
-}
-
-/**
  * Compute and render the coaching row for an exercise card.
  *
  * Active session (readOnly = false):
@@ -680,7 +642,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
     const suggested = ps.lastSuggested;
     const decision = ps.lastDecision ?? 'hold';
     const classification = ps.lastClassification;
-    const restInflationFactor = ps.restInflationFactor ?? 0;
+
 
     // Decision chip — retrospective summary of what was earned this session
     if (suggested !== null && suggested !== undefined) {
@@ -899,7 +861,7 @@ function getSetFeedback(setObj, workingWeight, tolerance = 0.1) {
 export function buildDot(exId, idx, setObj, readOnly = false, workingWeight = null, tolerance = 0.1) {
   const { s, w, r } = setObj;
   let cls = 'set-dot';
-  let inner = '';
+  let inner;
 
   const hasData = w !== null || r !== null;
 
@@ -1156,7 +1118,7 @@ let _cachedConfidence = null;
 let _cachedIntervalMs = null;
 let _cachedLastCompletionTs = null;
 let _cachedOverheadMs = 0;
-let _cachedSessionStart = null;
+
 
 /**
  * Update the ETA display elements in the DOM.
@@ -1184,7 +1146,6 @@ function updateETADisplay(appState) {
       _cachedIntervalMs = eta.sessionIntervalMs;
       _cachedLastCompletionTs = eta.lastCompletionTs;
       _cachedOverheadMs = eta.overheadMs || 0;
-      _cachedSessionStart = eta.sessionStart;
     }
   } else {
     _cachedDepartureMs = null;
@@ -1194,7 +1155,6 @@ function updateETADisplay(appState) {
     _cachedIntervalMs = null;
     _cachedLastCompletionTs = null;
     _cachedOverheadMs = 0;
-    _cachedSessionStart = null;
   }
 
   // Derive live countdown from cached departure, with overshoot adjustment.

@@ -29,7 +29,7 @@ import { EWMA } from './ewma.js';
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const EWMA_ALPHA          = 0.3;    // learning rate — biased toward recent intervals
-const OUTLIER_MULTIPLIER  = 3.0;    // clip intervals > 3× the current EWMA
+
 const MIN_INTERVAL_MS     = 10_000; // 10s — below this is probably a misfire/double-tap
 const MAX_INTERVAL_MS     = 600_000;// 10 min — hard ceiling for any single interval
 const DEFAULT_WORKING_MS  = 30_000; // 30s default working time per set
@@ -509,7 +509,7 @@ function bestPriorEstimate(block, appState, sessionId, totalSets) {
  * @returns {{ remainingMs: number, ewma: object }}
  */
 function estimateBlockRemaining(block, exercises, sessionEWMA, appState, sessionId, totalSets) {
-  const { total, completed, remaining } = blockSetCounts(block, exercises);
+  const { remaining } = blockSetCounts(block, exercises);
 
   if (remaining <= 0) return { remainingMs: 0, ewma: { ewma: 0, variance: 0, count: 0 } };
 

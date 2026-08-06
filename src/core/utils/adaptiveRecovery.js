@@ -8,9 +8,7 @@ const RIR_REFERENCE = 2;
 const K_EFFORT = 0.15;
 const MAX_REST_CHANGE_PER_SET = 30;
 
-const GAMMA = 0.15; // base adaptation rate
-const LOG_CLIP = 0.4; // max log(performanceRatio) magnitude per update
-const CONFIDENCE_K = 10; // rate constant for confidence growth
+
 
 // Constant tau (fatigue decay rate) for the session (in seconds).
 // Previously this was learned per-exercise, but long-term fatigue tracking is removed.
@@ -98,7 +96,7 @@ export function calculateRecommendedRest(
   // C = exp(-F_remaining) = TARGET_CAPACITY -> F_remaining = -ln(TARGET_CAPACITY)
   // T = tau * ln(F / -ln(TARGET_CAPACITY))
   const targetF = -Math.log(TARGET_CAPACITY);
-  let adaptiveRest = 0;
+  let adaptiveRest;
   
   if (fatigueDebt > targetF) {
     adaptiveRest = CONSTANT_TAU * Math.log(fatigueDebt / targetF);

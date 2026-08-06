@@ -1,5 +1,5 @@
 import { STORAGE_KEY, makeSet, createDefaultState } from './state.js';
-import { defaultWorkoutsData, workouts, state, setState, programDefaults as bootDefaults } from './store.js';
+import { defaultWorkoutsData, workouts, state, setState } from './store.js';
 import { compactExport, expandImport } from '../../io/compactFormat.js';
 import { inferMissingWorkouts } from '../logic/scheduleSync.js';
 
@@ -82,7 +82,9 @@ export function loadState() {
         setState(clean);
         return;
       }
-    } catch (_) {}
+    } catch {
+      // ignore parse errors and fallback
+    }
   }
   // All slots failed — start fresh
   setState(createDefaultState(defaultWorkoutsData));

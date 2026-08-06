@@ -1,4 +1,4 @@
-import { workouts, state, setState, defaultWorkoutsData, resolveInstance, hydrateInstanceIds } from '../core/state/store.js';
+import { state, setState, defaultWorkoutsData, resolveInstance, hydrateInstanceIds } from '../core/state/store.js';
 import { dispatch } from '../core/logic/reducer.js';
 import { formatReps, render } from '../features/workout/rendering.js';
 import { persist, normalize, sanitizeSessions } from '../core/state/persistence.js';

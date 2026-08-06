@@ -99,7 +99,7 @@ export function openHistoryModal(exId) {
     const volume = doneSets.reduce((n, s) => n + s.w * s.r, 0);
     const maxRM   = doneSets.length ? Math.max(...doneSets.map(s => est1RM(s.w, s.r) ?? 0)) : null;
 
-    const setCells = entry.sets.map((s, i) => {
+    const setCells = entry.sets.map((s) => {
       if (s.w === null && s.r === null) return `<span class="hist-set-empty">—</span>`;
       const cls = s.s === 'failed' ? 'hist-set-fail' : 'hist-set-done';
       
@@ -310,7 +310,7 @@ export function openSessionSummaryModal(entry, appState, isCycleComplete = false
 
   const allEx = session.blocks.flatMap(b => b.exercises);
 
-  let totalVolume = 0, completedEx = 0, failedSets = 0, totalSets = 0;
+  let totalVolume = 0, completedEx = 0, failedSets = 0;
   for (const ex of allEx) {
     const instanceId = ex.instanceId;
     const sets = entry.exercises[instanceId] || [];
@@ -320,7 +320,6 @@ export function openSessionSummaryModal(entry, appState, isCycleComplete = false
     if (exComplete) completedEx++;
     done.forEach(s => { totalVolume += s.w * s.r; });
     failedSets += failed.length;
-    totalSets  += sets.length;
   }
 
   const durationMs = entry.startTimestamp ? entry.timestamp - entry.startTimestamp : null;
@@ -747,7 +746,7 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
     }
   }
 
-  function onPointerUp(e) {
+  function onPointerUp() {
     if (!isDragging) return;
 
     const dragDuration = (Date.now() - startTime) / 1000; // in seconds
@@ -786,7 +785,7 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
     }
   }
 
-  function onPointerCancel(e) {
+  function onPointerCancel() {
     if (!isDragging) return;
     cleanup();
     modalEl.style.transition = 'transform 0.2s ease-out';
@@ -804,7 +803,7 @@ function enableDragToDismiss(modalEl, handleEl, onClose) {
   function cleanup() {
     isDragging = false;
     if (activePointerId !== null) {
-      try { handleEl.releasePointerCapture(activePointerId); } catch (e) {}
+      try { handleEl.releasePointerCapture(activePointerId); } catch { /* ignore */ }
       activePointerId = null;
     }
     handleEl.removeEventListener('pointermove', onPointerMove);
