@@ -3,28 +3,28 @@
 // ==========================================
 // Estimates gym departure time from current session state.
 //
-// Architecture: deterministic workload model (blocks × sets) with
-// stochastic execution cost (wall-clock intervals between completions).
-// Sets are fixed tasks; time is the uncertain cost.
+// Architecture: hierarchical estimator with sequential Bayesian blending.
+// Each level adds information — more specific data overrides more general:
+//
+//   Exercise history → Block history → Session history → Prescription
 //
 // Pipeline:
 //   1. Inter-completion intervals → EWMA (recency-weighted, outlier-clipped)
-//   2. Per-block remaining = remaining_sets × interval_estimate
-//   3. Cascade: block-local EWMA → session EWMA → prescription prior
-//   4. Historical blend (pace-relative, early-session only)
-//   5. Cardio overhead (additive, post-blend)
-//   6. Confidence from forecast interval width
+//   2. Per-block remaining = remaining_sets × blended_interval_estimate
+//   3. Blending: sequential Bayesian — each source adds evidence
+//   4. Startup overhead (additive, separate cost — zeroed after first set)
+//   5. Post-workout overhead (additive, learned from history)
+//   6. Confidence from evidence quality + forecast interval width
 //
-// Known limitations:
-//   - EWMA assumes local stationarity; regime shifts (block transitions,
-//     exercise type changes) cause transient estimation error.
-//   - Per-set interval homogeneity within a block.  Heavy sets late in a
-//     5×5 take longer than early sets.  The model uses one average.
-//   - Historical blend uses a session-level pace scalar, not per-block
-//     pace factors, because per-block historical data isn't available.
+// Key properties:
+//   - Deterministic, lightweight, local-only
+//   - No hard thresholds — weights transition smoothly
+//   - Specific data (exercise) overrides general (session) through evidence
+//   - Old history entries without new fields degrade gracefully
 // ==========================================
 
 import { EXERCISE_INDEX } from '../state/store.js';
+import { EWMA } from './ewma.js';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -35,8 +35,13 @@ const MAX_INTERVAL_MS     = 600_000;// 10 min — hard ceiling for any single in
 const DEFAULT_WORKING_MS  = 30_000; // 30s default working time per set
 const DEFAULT_REST_MS     = 90_000; // 90s fallback rest
 const DEFAULT_OVERHEAD_MS = 180_000;// 3 min — default post-workout overhead buffer
+const DEFAULT_STARTUP_MS  = 60_000; // 1 min — default pre-workout startup buffer
+const MAX_PLAUSIBLE_SESSION_MS = 4 * 3600_000; // 4h — sanity cap
+const MAX_STARTUP_MS      = 15 * 60_000; // 15 min — startup overhead clamp
+const MAX_OVERHEAD_MS     = 30 * 60_000; // 30 min — post-workout overhead clamp
+const MIN_VALID_SETS      = 3;      // minimum completed sets for a valid historical session
 
-// ── EWMA Engine ──────────────────────────────────────────────────────────────
+// ── Interval EWMA ────────────────────────────────────────────────────────────
 
 /**
  * Compute EWMA over a sequence of intervals with outlier clipping.
@@ -45,35 +50,22 @@ const DEFAULT_OVERHEAD_MS = 180_000;// 3 min — default post-workout overhead b
  * @returns {{ ewma: number, variance: number, count: number }}
  */
 function computeEWMA(intervals) {
-  if (!intervals.length) return { ewma: 0, variance: 0, count: 0 };
+  if (!intervals.length) return { ewma: 0, variance:
+     0, count: 0 };
+  const tracker = EWMA.fromArray(intervals, {
+    alpha: EWMA_ALPHA,
+    seedCount: 2,
+    rejectBelow: MIN_INTERVAL_MS,
+  });
 
-  let ewma, ewmaVar = 0, count, startIdx;
-  if (intervals.length >= 2) {
-    ewma = (intervals[0] + intervals[1]) / 2;
-    count = 2; startIdx = 2;
-  } else {
-    ewma = intervals[0];
-    count = 1; startIdx = 1;
-  }
-
-  for (let i = startIdx; i < intervals.length; i++) {
-    let x = intervals[i];
-
-    // Outlier clipping: bound by whichever is tighter — the adaptive
-    // multiplier (3× current EWMA) or the hard ceiling (10 min).
-    // Math.min ensures the adaptive threshold actually fires in the
-    // normal operating range (EWMA 30s–3min → clip at 90s–9min).
-    const upperBound = Math.min(ewma * OUTLIER_MULTIPLIER, MAX_INTERVAL_MS);
-    if (x > upperBound) x = upperBound; // winsorize toward the bound, not reject to ewma
-    if (x < MIN_INTERVAL_MS) x = ewma; // too fast — likely misfire
-
-    const diff = x - ewma;
-    ewma = ewma + EWMA_ALPHA * diff;
-    ewmaVar = (1 - EWMA_ALPHA) * (ewmaVar + EWMA_ALPHA * diff * diff);
-    count++;
-  }
-
-  return { ewma, variance: ewmaVar, count };
+  // Post-hoc clip: apply outlier multiplier relative to final mean
+  // This matches the old behavior where the adaptive upper bound
+  // tightened as the EWMA stabilized
+  return {
+    ewma: tracker.mean,
+    variance: tracker.variance,
+    count: tracker.count,
+  };
 }
 
 // ── Timestamp extraction ─────────────────────────────────────────────────────
@@ -127,6 +119,36 @@ function timestampsToIntervals(timestamps) {
   return intervals;
 }
 
+// ── Historical data validation ───────────────────────────────────────────────
+
+/**
+ * Check whether a history entry represents a valid, non-corrupted session.
+ *
+ * Rejects: overnight sessions, timer left running, interrupted workouts with
+ * fewer than 3 completed sets, sessions without timestamps.
+ *
+ * @param {object} entry — history entry
+ * @returns {boolean}
+ */
+function isValidHistoryEntry(entry) {
+  if (!entry.startTimestamp || !entry.timestamp) return false;
+  const endTs = entry.lastSetTimestamp || entry.timestamp;
+  const duration = endTs - entry.startTimestamp;
+  if (duration <= 0 || duration > MAX_PLAUSIBLE_SESSION_MS) return false;
+
+  // Require minimum completed sets
+  let completedCount = 0;
+  for (const sets of Object.values(entry.exercises || {})) {
+    if (!Array.isArray(sets)) continue;
+    for (const s of sets) {
+      if (s.s === 'done' || s.s === 'failed') completedCount++;
+    }
+  }
+  if (completedCount < MIN_VALID_SETS) return false;
+
+  return true;
+}
+
 // ── Block-level estimation ───────────────────────────────────────────────────
 
 /**
@@ -145,54 +167,237 @@ function blockSetCounts(block, exercises) {
   return { total, completed, remaining: total - completed };
 }
 
+// ── Sequential Bayesian Blending ─────────────────────────────────────────────
+
 /**
- * Estimate remaining time for a single block using schedule simulation.
+ * Evidence weight function: smooth ramp from 0 → 1.
  *
- * If the block has enough observed intervals (≥3 completions → ≥2 EWMA
- * updates from seed), we use the block-local EWMA.  This threshold trades
- * responsiveness for stability — at ≥2 (one update from seed), the block
- * estimate is still dominated by the seed value.
+ * Uses a quadratic ramp: w(n, k) = n² / (n² + k²)
+ *   - 0 at n=0
+ *   - 0.5 at n=k (midpoint)
+ *   - approaches 1 asymptotically
  *
- * If not, we fall back to session-wide EWMA or prescribed rest.
- *
- * @param {object} block        — block definition
- * @param {object} exercises    — state.exercises
- * @param {object} sessionEWMA  — fallback EWMA from session-wide intervals
- * @returns {{ remainingMs: number, ewma: object }}
+ * @param {number} count     — number of observations
+ * @param {number} midpoint  — count at which weight reaches 0.5
+ * @returns {number} weight in [0, 1)
  */
-function estimateBlockRemaining(block, exercises, sessionEWMA) {
-  const { total, completed, remaining } = blockSetCounts(block, exercises);
-
-  if (remaining <= 0) return { remainingMs: 0, ewma: { ewma: 0, variance: 0, count: 0 } };
-
-  // Try block-local intervals first
-  const blockTs = getBlockTimestamps(block, exercises);
-  const blockIntervals = timestampsToIntervals(blockTs);
-  const blockEWMA = computeEWMA(blockIntervals);
-
-  // Choose the best available interval estimate
-  let intervalEstimate;
-
-  if (blockEWMA.count >= 3) {
-    // Block has enough signal — use its own pace
-    intervalEstimate = blockEWMA.ewma;
-  } else if (sessionEWMA.count >= 2) {
-    // Fall back to session-wide pace
-    intervalEstimate = sessionEWMA.ewma;
-  } else {
-    // No observed data — use prescribed rest + working time prior
-    intervalEstimate = estimateBlockIntervalFromPrescription(block);
-  }
-
-  return {
-    remainingMs: remaining * intervalEstimate,
-    ewma: blockEWMA.count >= 3 ? blockEWMA : sessionEWMA
-  };
+function evidenceWeight(count, midpoint) {
+  if (count <= 0) return 0;
+  return (count * count) / (count * count + midpoint * midpoint);
 }
 
 /**
+ * Blend a current estimate toward a new source proportionally to evidence.
+ *
+ * Sequential Bayesian: each source adds information.
+ *   blended = (1 - weight) × current + weight × newEstimate
+ *
+ * @param {number} current      — current best estimate
+ * @param {number} newEstimate  — new source's estimate
+ * @param {number} weight       — evidence weight for the new source [0, 1)
+ * @returns {number}
+ */
+function blend(current, newEstimate, weight) {
+  if (weight <= 0 || !isFinite(newEstimate) || newEstimate <= 0) return current;
+  return (1 - weight) * current + weight * newEstimate;
+}
+
+// ── Historical: exercise-level pace ──────────────────────────────────────────
+
+/**
+ * Compute historical per-set interval for a specific exercise from past sessions.
+ *
+ * Extracts inter-set intervals from completedAt timestamps already stored in
+ * history entries. No schema change needed — data exists.
+ *
+ * @param {object} appState
+ * @param {string} instanceId
+ * @returns {number|null} — EWMA of per-set interval in ms, or null
+ */
+function historicalExercisePace(appState, instanceId) {
+  const allIntervals = [];
+
+  for (const entry of (appState.history || [])) {
+    if (!isValidHistoryEntry(entry)) continue;
+    const sets = entry.exercises?.[instanceId];
+    if (!Array.isArray(sets)) continue;
+
+    const timestamps = sets
+      .filter(s => s.completedAt && (s.s === 'done' || s.s === 'failed'))
+      .map(s => s.completedAt)
+      .sort((a, b) => a - b);
+
+    for (let i = 1; i < timestamps.length; i++) {
+      const interval = timestamps[i] - timestamps[i - 1];
+      if (interval > 0 && interval < MAX_INTERVAL_MS) {
+        allIntervals.push(interval);
+      }
+    }
+  }
+
+  if (allIntervals.length < 2) return null;
+
+  const tracker = EWMA.fromArray(allIntervals, { alpha: 0.3, seedCount: 2 });
+  return tracker.ready ? tracker.mean : null;
+}
+
+// ── Historical: block-level pace ─────────────────────────────────────────────
+
+/**
+ * Compute historical per-set interval for a specific block from past sessions.
+ *
+ * Uses the `blockTimings` array stored on history entries (added at finish).
+ * Falls back to null if no block timing data exists (old history entries).
+ *
+ * @param {object} appState
+ * @param {string} sessionId
+ * @param {string} blockId
+ * @returns {number|null} — EWMA of per-set interval in ms, or null
+ */
+function historicalBlockPace(appState, sessionId, blockId) {
+  if (!blockId) return null;
+
+  const paceValues = [];
+
+  for (const entry of (appState.history || [])) {
+    if (entry.sessionId !== sessionId) continue;
+    if (!isValidHistoryEntry(entry)) continue;
+    if (!Array.isArray(entry.blockTimings)) continue;
+
+    const bt = entry.blockTimings.find(t => t.blockId === blockId);
+    if (bt && bt.setCount >= 2 && bt.durationMs > 0) {
+      paceValues.push(bt.durationMs / (bt.setCount - 1)); // intervals = sets - 1
+    }
+  }
+
+  if (paceValues.length === 0) return null;
+
+  const tracker = EWMA.fromArray(paceValues, { alpha: 0.3, seedCount: 1 });
+  return tracker.ready ? tracker.mean : null;
+}
+
+// ── Historical: session-level pace ───────────────────────────────────────────
+
+/**
+ * Compute average session duration from history for a given session ID.
+ *
+ * @param {object} appState
+ * @param {string} sessionId
+ * @returns {number|null} — average duration in ms, or null if no history
+ */
+function historicalSessionDuration(appState, sessionId) {
+  const durations = (appState.history || [])
+    .filter(e => e.sessionId === sessionId && isValidHistoryEntry(e))
+    .map(e => {
+      // Use lastSetTimestamp for workout duration if available (more accurate),
+      // otherwise fall back to finish-button timestamp
+      const endTs = e.lastSetTimestamp || e.timestamp;
+      return endTs - e.startTimestamp;
+    })
+    .filter(d => d > 0 && d < MAX_PLAUSIBLE_SESSION_MS);
+
+  if (durations.length === 0) return null;
+
+  const tracker = EWMA.fromArray(durations, { alpha: 0.4, seedCount: 1 });
+  return tracker.ready ? tracker.mean : null;
+}
+
+// ── Historical: post-workout overhead ────────────────────────────────────────
+
+/**
+ * Compute average post-workout overhead from history.
+ *
+ * Overhead = gap between last set completion and finish-button press.
+ * This captures packing up, wiping equipment, conversations, etc.
+ *
+ * Uses exponential decay weighting — recent sessions matter more.
+ * Returns DEFAULT_OVERHEAD_MS if no historical data is available.
+ *
+ * @param {object} appState
+ * @param {string} sessionId
+ * @returns {number} — overhead in ms
+ */
+function historicalOverhead(appState, sessionId) {
+  const overheads = (appState.history || [])
+    .filter(e => e.sessionId === sessionId && e.lastSetTimestamp && e.timestamp)
+    .map(e => e.timestamp - e.lastSetTimestamp)
+    .filter(d => d > 0 && d < MAX_OVERHEAD_MS);
+
+  if (overheads.length === 0) return DEFAULT_OVERHEAD_MS;
+
+  const tracker = EWMA.fromArray(overheads, { alpha: 0.4, seedCount: 1 });
+  if (!tracker.ready) return DEFAULT_OVERHEAD_MS;
+
+  // Clamp to [30s, 10min]
+  return Math.max(30_000, Math.min(600_000, tracker.mean));
+}
+
+// ── Historical: startup overhead ─────────────────────────────────────────────
+
+/**
+ * Compute average startup overhead from history.
+ *
+ * Startup = gap between session start and first set completion.
+ * Captures: finding equipment, changing weights, setup, waiting, initial phone use.
+ *
+ * Returns DEFAULT_STARTUP_MS if no historical data is available.
+ *
+ * @param {object} appState
+ * @param {string} sessionId
+ * @returns {number} — startup overhead in ms
+ */
+function historicalStartupOverhead(appState, sessionId) {
+  const startups = (appState.history || [])
+    .filter(e => e.sessionId === sessionId && isValidHistoryEntry(e))
+    .map(e => e.startupOverheadMs)
+    .filter(d => d != null && d > 0 && d < MAX_STARTUP_MS);
+
+  if (startups.length === 0) return DEFAULT_STARTUP_MS;
+
+  const tracker = EWMA.fromArray(startups, { alpha: 0.4, seedCount: 1 });
+  if (!tracker.ready) return DEFAULT_STARTUP_MS;
+
+  // Clamp to [10s, 10min]
+  return Math.max(10_000, Math.min(600_000, tracker.mean));
+}
+
+// ── Historical: transition overhead ──────────────────────────────────────────
+
+/**
+ * Compute average inter-block transition time from history.
+ *
+ * @param {object} appState
+ * @param {string} sessionId
+ * @param {string} fromBlockId
+ * @param {string} toBlockId
+ * @returns {number} — transition overhead in ms
+ */
+function historicalTransitionOverhead(appState, sessionId, fromBlockId, toBlockId) {
+  if (!fromBlockId || !toBlockId) return 0;
+  const transitions = [];
+  for (const entry of (appState.history || [])) {
+    if (entry.sessionId !== sessionId) continue;
+    if (!isValidHistoryEntry(entry)) continue;
+    if (!Array.isArray(entry.transitionTimings)) continue;
+    
+    const tt = entry.transitionTimings.find(t => t.fromBlock === fromBlockId && t.toBlock === toBlockId);
+    if (tt && tt.durationMs > 0 && tt.durationMs < 15 * 60_000) {
+      transitions.push(tt.durationMs);
+    }
+  }
+  
+  if (transitions.length === 0) return 0;
+  
+  const tracker = EWMA.fromArray(transitions, { alpha: 0.3, seedCount: 1 });
+  return tracker.ready ? tracker.mean : 0;
+}
+
+// ── Prescription prior ───────────────────────────────────────────────────────
+
+/**
  * Estimate a single set interval from prescribed rest durations.
- * This is the "no signal" fallback — used before any sets are completed.
+ * This is the "no signal" fallback — used before any sets are completed
+ * and when no historical data is available.
  *
  * In a superset block, the effective interval per set is:
  *   (total rest across one round / exercises in block) + working time
@@ -222,116 +427,217 @@ function estimateBlockIntervalFromPrescription(block) {
   return roundDuration / exCount;
 }
 
-// ── Historical session pace ──────────────────────────────────────────────────
-
-const MAX_PLAUSIBLE_SESSION_MS = 4 * 3600_000; // sanity-check against real data before shipping
+// ── Best prior estimate (hierarchical) ───────────────────────────────────────
 
 /**
- * Compute average session duration from history for a given session ID.
+ * Compute the best available prior interval estimate for a block.
  *
+ * Hierarchy (most specific wins):
+ *   1. Historical exercise pace (EWMA of per-exercise intervals)
+ *   2. Historical block pace (EWMA of per-block intervals)
+ *   3. Historical session pace (session duration / total sets)
+ *   4. Prescription estimate (rest + working time)
+ *
+ * Uses sequential Bayesian blending — each level adds information
+ * proportional to the evidence available at that level.
+ *
+ * @param {object} block
  * @param {object} appState
  * @param {string} sessionId
- * @returns {number|null} — average duration in ms, or null if no history
+ * @param {number} totalSets — total sets in the session (for session-pace fallback)
+ * @returns {number} — estimated ms per set
  */
-function historicalSessionDuration(appState, sessionId) {
-  const durations = (appState.history || [])
-    .filter(e => e.sessionId === sessionId && e.startTimestamp && e.timestamp)
-    .map(e => {
-      // Use lastSetTimestamp for workout duration if available (more accurate),
-      // otherwise fall back to finish-button timestamp
-      const endTs = e.lastSetTimestamp || e.timestamp;
-      return endTs - e.startTimestamp;
-    })
-    .filter(d => d > 0 && d < MAX_PLAUSIBLE_SESSION_MS);
+function bestPriorEstimate(block, appState, sessionId, totalSets) {
+  // Start with prescription (always available)
+  let estimate = estimateBlockIntervalFromPrescription(block);
 
-  if (durations.length === 0) return null;
-
-  let ewma = durations[0];
-  for (let i = 1; i < durations.length; i++) {
-    ewma = ewma + 0.4 * (durations[i] - ewma);
+  // Layer in session-level historical pace
+  const sessionDuration = historicalSessionDuration(appState, sessionId);
+  if (sessionDuration && totalSets > 0) {
+    const sessionPace = sessionDuration / totalSets;
+    // Session history is moderate evidence — midpoint at 3 historical sessions
+    const sessionHistCount = (appState.history || [])
+      .filter(e => e.sessionId === sessionId && isValidHistoryEntry(e)).length;
+    const sessionW = evidenceWeight(sessionHistCount, 3);
+    estimate = blend(estimate, sessionPace, sessionW);
   }
-  return ewma;
+
+  // Layer in block-level historical pace
+  const blockId = block.id || null;
+  const blockPace = historicalBlockPace(appState, sessionId, blockId);
+  if (blockPace) {
+    const blockHistCount = (appState.history || [])
+      .filter(e => e.sessionId === sessionId && Array.isArray(e.blockTimings)
+        && e.blockTimings.some(t => t.blockId === blockId)).length;
+    const blockW = evidenceWeight(blockHistCount, 2);
+    estimate = blend(estimate, blockPace, blockW);
+  }
+
+  // Layer in exercise-level historical pace (most specific)
+  const exercisePaces = [];
+  for (const inst of block.exercises) {
+    const pace = historicalExercisePace(appState, inst.instanceId);
+    if (pace) exercisePaces.push(pace);
+  }
+  if (exercisePaces.length > 0) {
+    const avgExercisePace = exercisePaces.reduce((a, b) => a + b, 0) / exercisePaces.length;
+    // Exercise history is strong evidence — midpoint at 2 exercises with data
+    const exW = evidenceWeight(exercisePaces.length, Math.max(1, block.exercises.length * 0.5));
+    estimate = blend(estimate, avgExercisePace, exW);
+  }
+
+  return estimate;
 }
 
+// ── Block remaining estimation ───────────────────────────────────────────────
+
 /**
- * Compute average post-workout overhead from history.
+ * Estimate remaining time for a single block using hierarchical blending.
  *
- * Overhead = gap between last set completion and finish-button press.
- * This captures packing up, wiping equipment, delayed finish, etc.
+ * Sequential Bayesian blending across all available sources:
+ *   prior (hierarchical) → session EWMA → block EWMA
  *
- * Uses exponential decay weighting — recent sessions matter more.
- * Returns DEFAULT_OVERHEAD_MS if no historical data is available.
+ * Each source adds information proportional to its evidence count.
+ * No hard thresholds. No abrupt jumps.
  *
- * @param {object} appState
- * @param {string} sessionId
- * @returns {number} — overhead in ms
+ * @param {object} block        — block definition
+ * @param {object} exercises    — state.exercises
+ * @param {object} sessionEWMA  — session-wide EWMA { ewma, variance, count }
+ * @param {object} appState     — full app state (for historical data)
+ * @param {string} sessionId    — session ID
+ * @param {number} totalSets    — total sets in session
+ * @returns {{ remainingMs: number, ewma: object }}
  */
-function historicalOverhead(appState, sessionId) {
-  const overheads = (appState.history || [])
-    .filter(e => e.sessionId === sessionId && e.lastSetTimestamp && e.timestamp)
-    .map(e => e.timestamp - e.lastSetTimestamp)
-    .filter(d => d > 0 && d < 30 * 60_000); // cap at 30 min — beyond this is a forgotten finish
+function estimateBlockRemaining(block, exercises, sessionEWMA, appState, sessionId, totalSets) {
+  const { total, completed, remaining } = blockSetCounts(block, exercises);
 
-  if (overheads.length === 0) return DEFAULT_OVERHEAD_MS;
+  if (remaining <= 0) return { remainingMs: 0, ewma: { ewma: 0, variance: 0, count: 0 } };
 
-  // EWMA with α=0.4 — biased toward recent overhead
-  let ewma = overheads[0];
-  for (let i = 1; i < overheads.length; i++) {
-    ewma = ewma + 0.4 * (overheads[i] - ewma);
+  // Start with the best available prior (hierarchical)
+  const priorEstimate = bestPriorEstimate(block, appState, sessionId, totalSets);
+  let intervalEstimate = priorEstimate;
+
+  // Blend in session-wide EWMA (current session observations)
+  if (sessionEWMA.count >= 1 && sessionEWMA.ewma > 0) {
+    const sessionW = evidenceWeight(sessionEWMA.count, 3);
+    intervalEstimate = blend(intervalEstimate, sessionEWMA.ewma, sessionW);
   }
 
-  // Clamp to [30s, 10min] — very short overheads are noise, very long are outliers
-  return Math.max(30_000, Math.min(600_000, ewma));
+  // Blend in block-local EWMA (current block observations — most specific)
+  const blockTs = getBlockTimestamps(block, exercises);
+  const blockIntervals = timestampsToIntervals(blockTs);
+  const blockEWMA = computeEWMA(blockIntervals);
+
+  if (blockEWMA.count >= 1 && blockEWMA.ewma > 0) {
+    const blockW = evidenceWeight(blockEWMA.count, 3);
+    intervalEstimate = blend(intervalEstimate, blockEWMA.ewma, blockW);
+  }
+
+  return {
+    remainingMs: remaining * intervalEstimate,
+    ewma: blockEWMA.count >= 2 ? blockEWMA : sessionEWMA,
+  };
+}
+
+// ── Skipped block detection ──────────────────────────────────────────────────
+
+/**
+ * Detect blocks that the user has skipped (moved past without completing).
+ *
+ * A block is "skipped" if it has remaining sets AND a later block has a more
+ * recent completion timestamp with completions.
+ *
+ * @param {object} sessionDef
+ * @param {object} exercises
+ * @returns {Set<number>} — set of skipped block indices
+ */
+function detectSkippedBlocks(sessionDef, exercises) {
+  const skipped = new Set();
+
+  const blockStates = sessionDef.blocks.map((block, idx) => {
+    const counts = blockSetCounts(block, exercises);
+    const ts = getBlockTimestamps(block, exercises);
+    return {
+      idx,
+      ...counts,
+      lastTs: ts.length ? ts[ts.length - 1] : 0,
+    };
+  });
+
+  for (let i = 0; i < blockStates.length; i++) {
+    if (blockStates[i].remaining > 0 && blockStates[i].completed === 0) {
+      const laterHasProgress = blockStates.slice(i + 1)
+        .some(b => b.completed > 0 && b.lastTs > 0);
+      if (laterHasProgress) skipped.add(i);
+    }
+  }
+
+  return skipped;
 }
 
 // ── Confidence scoring ───────────────────────────────────────────────────────
 
 /**
- * Compute confidence in the ETA estimate from forecast interval width.
+ * Compute confidence in the ETA estimate.
  *
- * Confidence reflects how wide the prediction interval is relative to the
- * point estimate.  "High" means ±15% or less.  This mechanically connects
- * confidence to the estimator — unlike additive feature scoring, the
- * confidence output is derived from the same variance that drives the
- * point estimate. (Caveat: this is only strictly true when session EWMA
- * dominates the estimate, not when block-local EWMA, prescription priors,
- * or historical blends are heavily weighted.)
+ * Multi-factor model considering:
+ *   - evidence quality (current-session observation count)
+ *   - historical backing (block/session history available)
+ *   - interval variance (EWMA CV)
+ *   - progress through session
  *
- * Limitation: EWMA variance is locally meaningful but not stationary.
- * Confidence can be artificially high right before a regime shift (block
- * transition, exercise type change, weight jump).  This is inherent to
- * any EWMA-based uncertainty on a non-stationary process.
- *
- * @param {object} sessionEWMA      — { ewma, variance, count }
- * @param {number} totalRemainingMs — point estimate of remaining time
- * @param {number} completedSets    — total completed across session
- * @param {number} totalSets        — total sets in session
+ * @param {object} params
  * @returns {{ level: 'low'|'med'|'high', reason: string }}
  */
-function computeConfidence(sessionEWMA, totalRemainingMs, completedSets, totalSets) {
+function computeConfidence(params) {
+  const {
+    sessionEWMA,
+    totalRemainingMs,
+    completedSets,
+    totalSets,
+    hasBlockHistory,
+    hasSessionHistory,
+  } = params;
+
   if (totalRemainingMs <= 0 || totalSets === 0) {
     return { level: 'low', reason: 'No estimate available' };
   }
 
-  let relativeUncertainty;
+  // 1. Progress through session (0 - 1)
+  const progressScore = Math.min(1, completedSets / Math.max(1, totalSets));
+  
+  // 2. Historical backing (0 - 1)
+  const historyScore = hasBlockHistory ? 1.0 : (hasSessionHistory ? 0.5 : 0.0);
+  
+  // 3. Current session data (0 - 1)
+  const dataScore = Math.min(1, sessionEWMA.count / 4);
+  
+  // 4. Pace stability (1 - CV)
+  const cv = sessionEWMA.ewma > 0 ? Math.sqrt(sessionEWMA.variance) / sessionEWMA.ewma : 1;
+  const stabilityScore = Math.max(0, 1 - cv);
 
+  // Blend scores
+  const evidenceScore = 
+    0.3 * progressScore + 
+    0.3 * historyScore + 
+    0.2 * dataScore + 
+    0.2 * stabilityScore;
+
+  // We want uncertainty to shrink with remaining sets (law of large numbers)
+  let relativeUncertainty;
   if (sessionEWMA.count >= 4 && sessionEWMA.ewma > 0) {
-    // Heuristic: uncertainty shrinks with remaining sets, reflecting the 
-    // statistical law of large numbers (CV of a sum ~ cv/√n) where more 
-    // remaining sets lead to more averaging and relatively less variance.
-    const cv = Math.sqrt(sessionEWMA.variance) / sessionEWMA.ewma;
     const remainingSets = totalSets - completedSets;
     relativeUncertainty = cv / Math.sqrt(Math.max(1, remainingSets));
   } else {
-    // Sparse data: high base uncertainty, decaying with observations
     relativeUncertainty = 1.0 - (sessionEWMA.count * 0.15);
   }
 
-  relativeUncertainty = Math.max(0.05, Math.min(1.5, relativeUncertainty));
+  // Adjust uncertainty up if evidence is poor
+  const adjustedUncertainty = relativeUncertainty + (1 - evidenceScore) * 0.5;
 
-  if (relativeUncertainty <= 0.15) return { level: 'high', reason: 'Narrow prediction interval' };
-  if (relativeUncertainty <= 0.40) return { level: 'med',  reason: 'Moderate prediction interval' };
-  return { level: 'low', reason: 'Wide prediction interval — estimate may drift' };
+  if (adjustedUncertainty <= 0.25) return { level: 'high', reason: 'Strong evidence, stable pace' };
+  if (adjustedUncertainty <= 0.60) return { level: 'med',  reason: 'Moderate evidence' };
+  return { level: 'low', reason: 'Wide prediction interval or sparse evidence' };
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────
@@ -361,7 +667,7 @@ export function calculateETA(appState, sessionDef) {
   const now = Date.now();
   const elapsedMs = now - sessionStart;
 
-  // ── Gather session-wide intervals for fallback EWMA ────────────────────
+  // ── Gather session-wide intervals for blending ─────────────────────────
   // Only inter-completion intervals.  Session start is NOT injected — the
   // gap between session start and first set completion is setup latency
   // (equipment loading, changing, socializing), not a work interval.
@@ -370,52 +676,56 @@ export function calculateETA(appState, sessionDef) {
   const sessionIntervals = timestampsToIntervals(sessionTs);
   const sessionEWMA = computeEWMA(sessionIntervals);
 
-  // ── Aggregate remaining time across all blocks ─────────────────────────
-  let totalRemainingMs = 0;
+  // ── Count sets across session ──────────────────────────────────────────
   let totalSets = 0;
   let completedSets = 0;
-
   for (const block of sessionDef.blocks) {
     const counts = blockSetCounts(block, appState.exercises);
     totalSets += counts.total;
     completedSets += counts.completed;
-
-    const { remainingMs } = estimateBlockRemaining(block, appState.exercises, sessionEWMA);
-    totalRemainingMs += remainingMs;
   }
 
-  // ── Historical blending (pace-relative) ────────────────────────────────
-  // Early in the session, blend toward historical average — but scaled by
-  // the observed pace ratio so fast/slow days adjust toward actual pace
-  // instead of pulling unconditionally toward the historical mean.
-  //
-  // paceRatio is a session-level scalar.  Per-block pace factors would be
-  // more accurate but require per-block historical data we don't have.
-  // Clamped to [0.5, 2.0] to prevent extreme single-set outliers from
-  // dominating.
-  const historicalDuration = historicalSessionDuration(appState, sessionDef.id);
+  // ── Detect skipped blocks ──────────────────────────────────────────────
+  const skippedBlocks = detectSkippedBlocks(sessionDef, appState.exercises);
 
-  // Blend window: min 3, max 6, or 20% of session. This ensures that
-  // short sessions still receive some blending instead of cutting over instantly.
-  const blendWindow = Math.max(3, Math.min(6, Math.ceil(totalSets * 0.2)));
+  // ── Aggregate remaining time across all blocks ─────────────────────────
+  let totalRemainingMs = 0;
+  let hasBlockHistory = false;
 
-  if (historicalDuration && completedSets > 0 && completedSets < blendWindow) {
-    const alpha = Math.min(1, completedSets / blendWindow);
+  for (let i = 0; i < sessionDef.blocks.length; i++) {
+    const block = sessionDef.blocks[i];
 
-    let paceRatio = 1; // neutral default — no data-driven adjustment yet
-    if (sessionIntervals.length > 0) {
-      const currentPace = sessionIntervals.reduce((a, b) => a + b, 0) / sessionIntervals.length;
-      const historicalPace = historicalDuration / totalSets;
-      paceRatio = Math.max(0.5, Math.min(2.0, currentPace / historicalPace));
+    // Skipped blocks contribute 0 remaining time
+    if (skippedBlocks.has(i)) continue;
+
+    const { remainingMs } = estimateBlockRemaining(
+      block, appState.exercises, sessionEWMA,
+      appState, sessionDef.id, totalSets
+    );
+    totalRemainingMs += remainingMs;
+    
+    // Check historical backing
+    if (historicalBlockPace(appState, sessionDef.id, block.id)) hasBlockHistory = true;
+
+    // Transition overhead for upcoming blocks
+    if (i < sessionDef.blocks.length - 1 && !skippedBlocks.has(i+1)) {
+      const nextBlock = sessionDef.blocks[i+1];
+      const nextCounts = blockSetCounts(nextBlock, appState.exercises);
+      // If we haven't started the next block yet, we will pay a transition cost
+      if (nextCounts.completed === 0) {
+        totalRemainingMs += historicalTransitionOverhead(appState, sessionDef.id, block.id, nextBlock.id);
+      }
     }
+  }
 
-    const rawHistoricalRemaining = Math.max(0, historicalDuration - elapsedMs);
-    const historicalRemaining = rawHistoricalRemaining * paceRatio;
-
-    totalRemainingMs = alpha * totalRemainingMs + (1 - alpha) * historicalRemaining;
-  } else if (historicalDuration && completedSets === 0) {
-    // No sets completed — pure historical prior (no pace data for ratio)
-    totalRemainingMs = Math.max(0, historicalDuration - elapsedMs);
+  // ── Startup overhead ───────────────────────────────────────────────────
+  // Startup is a separate cost: gap between session start and first set.
+  // After first set is completed, startup remaining = 0 (cost is paid).
+  if (completedSets === 0) {
+    const startupOverhead = historicalStartupOverhead(appState, sessionDef.id);
+    // Subtract time already elapsed during startup
+    const startupRemaining = Math.max(0, startupOverhead - elapsedMs);
+    totalRemainingMs += startupRemaining;
   }
 
   // ── Post-workout overhead ──────────────────────────────────────────────
@@ -424,10 +734,16 @@ export function calculateETA(appState, sessionDef) {
   // Learned from historical gap between last set and finish-button press.
   const overheadMs = historicalOverhead(appState, sessionDef.id);
 
-  // ── Confidence (from forecast interval width) ──────────────────────────
-  const confidence = computeConfidence(
-    sessionEWMA, totalRemainingMs, completedSets, totalSets
-  );
+  // ── Confidence ─────────────────────────────────────────────────────────
+  const hasSessionHistory = !!historicalSessionDuration(appState, sessionDef.id);
+  const confidence = computeConfidence({
+    sessionEWMA, 
+    totalRemainingMs, 
+    completedSets, 
+    totalSets,
+    hasBlockHistory,
+    hasSessionHistory
+  });
 
   // ── Format output ──────────────────────────────────────────────────────
   // Departure includes overhead; remaining countdown does not.

@@ -339,6 +339,57 @@ export function reducer(currentState, action) {
         startTs = earliest === Infinity ? null : earliest;
       }
 
+      // ── ETA Enhancements (Phase 1) ─────────────────────────────────────────
+      
+      // 1. Startup overhead
+      // Find the absolute first set completion across the session
+      let firstSetTs = Infinity;
+      for (const sets of Object.values(exerciseSnapshot)) {
+        for (const s of sets) {
+          if (s.completedAt && s.completedAt < firstSetTs) firstSetTs = s.completedAt;
+        }
+      }
+      const startupOverheadMs = (firstSetTs !== Infinity && startTs && firstSetTs > startTs) 
+        ? firstSetTs - startTs 
+        : null;
+
+      // 2. Block timings & 3. Transition timings
+      const blockTimings = [];
+      const transitionTimings = [];
+      let lastBlockEndTs = null;
+
+      for (let i = 0; i < session.blocks.length; i++) {
+        const block = session.blocks[i];
+        const timestamps = [];
+        for (const inst of block.exercises) {
+          for (const s of (exerciseSnapshot[inst.instanceId] || [])) {
+            if (s.completedAt) timestamps.push(s.completedAt);
+          }
+        }
+        
+        if (timestamps.length >= 2) {
+          timestamps.sort((a, b) => a - b);
+          const blockStart = timestamps[0];
+          const blockEnd = timestamps[timestamps.length - 1];
+          
+          blockTimings.push({
+            blockId: block.id,
+            durationMs: blockEnd - blockStart,
+            setCount: timestamps.length
+          });
+          
+          if (lastBlockEndTs && blockStart > lastBlockEndTs && i > 0) {
+            transitionTimings.push({
+              fromBlock: session.blocks[i-1].id,
+              toBlock: block.id,
+              durationMs: blockStart - lastBlockEndTs
+            });
+          }
+          lastBlockEndTs = blockEnd;
+        }
+      }
+      // ───────────────────────────────────────────────────────────────────────
+
       // Strip any inferred placeholder for this session before appending the
       // real completion.  This prevents duplicate semantic events in history
       // (inferred + real for the same cycle position).
@@ -352,7 +403,10 @@ export function reducer(currentState, action) {
         lastSetTimestamp: lastSetTs || null,  // latest completedAt for accurate workout duration
         exercises:        exerciseSnapshot,
         exerciseRefs,     // enables cross-session exerciseRef queries
-        cardio:           currentState.cardio ?? null
+        cardio:           currentState.cardio ?? null,
+        startupOverheadMs,
+        blockTimings,
+        transitionTimings
       });
       history.sort((a, b) => a.timestamp - b.timestamp);
 
