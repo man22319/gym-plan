@@ -6,22 +6,6 @@
     "restBetweenExercises": 60
   },
   "exercises": {
-    "rdl_db": {
-      "name": "Dumbbell Romanian Deadlift",
-      "equipmentType": "dumbbell",
-      "sets": 3,
-      "reps": {
-        "min": 10,
-        "max": 12
-      },
-      "baseWeight": 25,
-      "maxW": 75,
-      "deltaW": 5,
-      "restBetweenSets": 120,
-      "restBetweenExercises": 60,
-      "notes": "Hinge at hips, soft knee, lower until hamstring stretch, drive hips forward to return.",
-      "exerciseType": "compound"
-    },
     "abdominal_crunch": {
       "name": "Abdominal Crunch",
       "equipmentType": "machine",
@@ -54,54 +38,6 @@
       "notes": "Find comfortable grip! Press in an arc from in front of face to overhead. Rotation is passive, not forced. Stop before lower back takes over.",
       "exerciseType": "compound"
     },
-    "barbell_curl": {
-      "name": "Barbell Curl",
-      "equipmentType": "barbell",
-      "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 10
-      },
-      "baseWeight": 40,
-      "maxW": 70,
-      "deltaW": 10,
-      "restBetweenSets": 60,
-      "restBetweenExercises": 60,
-      "notes": "Keep elbows still. Small body swing is OK only near hard reps. Do not turn it into a hip drive.",
-      "exerciseType": "isolation"
-    },
-    "bench_db": {
-      "name": "Dumbbell Bench Press",
-      "equipmentType": "dumbbell",
-      "sets": 4,
-      "reps": {
-        "min": 6,
-        "max": 8
-      },
-      "baseWeight": 25,
-      "maxW": 75,
-      "deltaW": 2.5,
-      "restBetweenSets": 120,
-      "restBetweenExercises": 60,
-      "notes": "Lower slow. Press straight up. Do not bounce or rush the bottom.",
-      "exerciseType": "compound"
-    },
-    "bench_db_incline": {
-      "name": "Incline Dumbbell Bench Press",
-      "equipmentType": "dumbbell",
-      "sets": 4,
-      "reps": {
-        "min": 8,
-        "max": 12
-      },
-      "baseWeight": 25,
-      "maxW": 75,
-      "deltaW": 2.5,
-      "restBetweenSets": 120,
-      "restBetweenExercises": 60,
-      "notes": "Press up and slightly in. Do not turn into shoulder press.",
-      "exerciseType": "compound"
-    },
     "back_ext": {
       "name": "Back Extension Machine",
       "equipmentType": "machine",
@@ -113,34 +49,114 @@
       "baseWeight": 140,
       "maxW": 240,
       "deltaW": 10,
-      "restBetweenSets": 90,
+      "restBetweenSets": 120,
       "restBetweenExercises": 60,
       "notes": "Move at hips. Stop when body is straight. Do not lean past straight.",
       "exerciseType": "isolation"
     },
-    "reverse_pd": {
-      "name": "Reverse Peck Deck",
+    "barbell_curl": {
+      "name": "Barbell Curl",
+      "equipmentType": "barbell",
+      "sets": 3,
+      "reps": {
+        "min": 10,
+        "max": 12
+      },
+      "baseWeight": 40,
+      "maxW": 70,
+      "deltaW": 10,
+      "restBetweenSets": 60,
+      "restBetweenExercises": 60,
+      "notes": "Keep elbows still. Small body swing is OK only near hard reps. Do not turn it into a hip drive.",
+      "exerciseType": "isolation"
+    },
+    "chest_press_machine": {
+      "name": "Chest Press Machine",
       "equipmentType": "machine",
+      "sets": 3,
+      "reps": {
+        "min": 8,
+        "max": 12
+      },
+      "baseWeight": 60,
+      "maxW": 240,
+      "deltaW": [
+        {
+          "until": 120,
+          "step": 5
+        },
+        {
+          "until": 240,
+          "step": 10
+        }
+      ],
+      "restBetweenSets": 90,
+      "restBetweenExercises": 60,
+      "notes": "Press smoothly. Keep shoulders down and back. Control the return.",
+      "exerciseType": "compound"
+    },
+    "db_bench": {
+      "name": "Dumbbell Flat Bench Press",
+      "equipmentType": "dumbbell",
+      "sets": 4,
+      "reps": {
+        "min": 6,
+        "max": 8
+      },
+      "baseWeight": 25,
+      "maxW": 75,
+      "deltaW": 2.5,
+      "restBetweenSets": 150,
+      "restBetweenExercises": 60,
+      "notes": "Lower slow. Press straight up. Do not bounce or rush the bottom.",
+      "exerciseType": "compound"
+    },
+    "db_bench_incline": {
+      "name": "Incline Dumbbell Bench Press",
+      "equipmentType": "dumbbell",
+      "sets": 4,
+      "reps": {
+        "min": 8,
+        "max": 12
+      },
+      "baseWeight": 25,
+      "maxW": 75,
+      "deltaW": 2.5,
+      "restBetweenSets": 150,
+      "restBetweenExercises": 60,
+      "notes": "Press up and slightly in. Do not turn into shoulder press.",
+      "exerciseType": "compound"
+    },
+    "db_shrug": {
+      "name": "Dumbbell Shrug",
+      "equipmentType": "dumbbell",
+      "sets": 4,
+      "reps": {
+        "min": 10,
+        "max": 15
+      },
+      "baseWeight": 35,
+      "maxW": 75,
+      "deltaW": 5,
+      "restBetweenSets": 60,
+      "restBetweenExercises": 60,
+      "notes": "Shrug straight up. Pause briefly. Lower under control.",
+      "exerciseType": "isolation"
+    },
+    "db_wrist_curl": {
+      "name": "Dumbbell Wrist Curl",
+      "equipmentType": "dumbbell",
       "sets": 3,
       "reps": {
         "min": 12,
         "max": 15
       },
-      "baseWeight": 40,
-      "maxW": 300,
-      "deltaW": [
-        {
-          "until": 100,
-          "step": 5
-        },
-        {
-          "until": 300,
-          "step": 10
-        }
-      ],
+      "baseWeight": 15,
+      "maxW": 75,
+      "deltaW": 2.5,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Pull out and back. Do not use traps or momentum.",
+      "notes": "Brace forearms on thighs or bench. Curl wrists upward through full range. Lower slowly under control.",
       "exerciseType": "isolation"
     },
     "glute_kickback": {
@@ -154,7 +170,7 @@
       "baseWeight": 80,
       "maxW": 140,
       "deltaW": 10,
-      "restBetweenSets": 90,
+      "restBetweenSets": 120,
       "restBetweenExercises": 60,
       "notes": "Push back with heel. Keep hips still. Squeeze at the top.",
       "exerciseType": "isolation"
@@ -186,10 +202,26 @@
       "baseWeight": 80,
       "maxW": 240,
       "deltaW": 10,
-      "restBetweenSets": 90,
+      "restBetweenSets": 150,
       "restBetweenExercises": 60,
       "notes": "Pull down to chest. Keep body still. No swinging.",
       "exerciseType": "compound"
+    },
+    "db_lat_raise": {
+      "name": "Dumbbell Lateral Raise",
+      "equipmentType": "dumbbell",
+      "sets": 3,
+      "reps": {
+        "min": 12,
+        "max": 15
+      },
+      "baseWeight": 10,
+      "maxW": 75,
+      "deltaW": 2.5,
+      "restBetweenSets": 60,
+      "restBetweenExercises": 60,
+      "notes": "Raise out to the sides. Slight elbow bend stays the same. No swinging, Slow eccentric.",
+      "exerciseType": "isolation"
     },
     "lateral_raise_machine": {
       "name": "Seated Lateral Raise Machine",
@@ -216,22 +248,6 @@
       "notes": "Controlled reps only. Keep constant tension, stop at shoulder height, no shrugging. Stay in the rep range even on fatigued days.",
       "exerciseType": "isolation"
     },
-    "lat_raise": {
-      "name": "Lateral Raise",
-      "equipmentType": "dumbbell",
-      "sets": 3,
-      "reps": {
-        "min": 12,
-        "max": 15
-      },
-      "baseWeight": 10,
-      "maxW": 75,
-      "deltaW": 2.5,
-      "restBetweenSets": 60,
-      "restBetweenExercises": 60,
-      "notes": "Raise out to the sides. Slight elbow bend stays the same. No swinging, Slow eccentric.",
-      "exerciseType": "isolation"
-    },
     "leg_curl": {
       "name": "Seated Leg Curl",
       "equipmentType": "machine",
@@ -243,7 +259,7 @@
       "baseWeight": 60,
       "maxW": 200,
       "deltaW": 10,
-      "restBetweenSets": 90,
+      "restBetweenSets": 120,
       "restBetweenExercises": 60,
       "notes": "Curl down and back. Control the return. Do not cut range short, curl to 90°+.",
       "exerciseType": "isolation"
@@ -259,13 +275,13 @@
       "baseWeight": 160,
       "maxW": 240,
       "deltaW": 10,
-      "restBetweenSets": 120,
+      "restBetweenSets": 150,
       "restBetweenExercises": 60,
       "notes": "Push smoothly. Control depth. Do not lift hips. Knees track over toes, lower to 90°.",
       "exerciseType": "compound"
     },
-    "ohp": {
-      "name": "Overhead Press",
+    "db_ohp": {
+      "name": "Dumbbell Overhead Press",
       "equipmentType": "dumbbell",
       "sets": 3,
       "reps": {
@@ -280,6 +296,63 @@
       "notes": "Press straight up. Keep body tight. Do not lean back. Lock out at top.",
       "exerciseType": "compound"
     },
+    "rdl_db": {
+      "name": "Dumbbell Romanian Deadlift",
+      "equipmentType": "dumbbell",
+      "sets": 3,
+      "reps": {
+        "min": 10,
+        "max": 12
+      },
+      "baseWeight": 25,
+      "maxW": 75,
+      "deltaW": 5,
+      "restBetweenSets": 150,
+      "restBetweenExercises": 60,
+      "notes": "Hinge at hips, soft knee, lower until hamstring stretch, drive hips forward to return.",
+      "exerciseType": "compound"
+    },
+    "reverse_curl": {
+      "name": "Reverse Curl",
+      "equipmentType": "barbell",
+      "sets": 4,
+      "reps": {
+        "min": 10,
+        "max": 15
+      },
+      "baseWeight": 30,
+      "maxW": 70,
+      "deltaW": 10,
+      "restBetweenSets": 60,
+      "restBetweenExercises": 60,
+      "notes": "Keep palms down. Curl without swinging. Control the lowering.",
+      "exerciseType": "isolation"
+    },
+    "reverse_pd": {
+      "name": "Reverse Peck Deck",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": {
+        "min": 12,
+        "max": 15
+      },
+      "baseWeight": 40,
+      "maxW": 300,
+      "deltaW": [
+        {
+          "until": 100,
+          "step": 5
+        },
+        {
+          "until": 300,
+          "step": 10
+        }
+      ],
+      "restBetweenSets": 60,
+      "restBetweenExercises": 60,
+      "notes": "Pull out and back. Do not use traps or momentum.",
+      "exerciseType": "isolation"
+    },
     "row_dumbbell": {
       "name": "Supported Single-Arm Row",
       "equipmentType": "dumbbell",
@@ -291,7 +364,7 @@
       "baseWeight": 30,
       "maxW": 75,
       "deltaW": 2.5,
-      "restBetweenSets": 120,
+      "restBetweenSets": 150,
       "restBetweenExercises": 60,
       "notes": "Pull to your side. Keep body still. Do not twist. Row to hip, not shoulder.",
       "exerciseType": "compound"
@@ -307,9 +380,34 @@
       "baseWeight": 70,
       "maxW": 240,
       "deltaW": 10,
-      "restBetweenSets": 120,
+      "restBetweenSets": 150,
       "restBetweenExercises": 60,
       "notes": "Drive elbows back, pause 1s at peak contraction. Do not rock your body.",
+      "exerciseType": "compound"
+    },
+    "shoulder_press_machine": {
+      "name": "Shoulder Press Machine",
+      "equipmentType": "machine",
+      "sets": 3,
+      "reps": {
+        "min": 8,
+        "max": 12
+      },
+      "baseWeight": 40,
+      "maxW": 240,
+      "deltaW": [
+        {
+          "until": 120,
+          "step": 5
+        },
+        {
+          "until": 240,
+          "step": 10
+        }
+      ],
+      "restBetweenSets": 150,
+      "restBetweenExercises": 60,
+      "notes": "Press overhead smoothly. Keep elbows slightly forward, avoid shrugging, and control the return.",
       "exerciseType": "compound"
     },
     "skull_crushers": {
@@ -351,88 +449,6 @@
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
       "notes": "Push down and lock out. Keep elbows in place, controlled return.",
-      "exerciseType": "isolation"
-    },
-    "shoulder_press_machine": {
-      "name": "Shoulder Press Machine",
-      "equipmentType": "machine",
-      "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 12
-      },
-      "baseWeight": 40,
-      "maxW": 240,
-      "deltaW": [
-        {
-          "until": 120,
-          "step": 5
-        },
-        {
-          "until": 240,
-          "step": 10
-        }
-      ],
-      "restBetweenSets": 90,
-      "restBetweenExercises": 60,
-      "notes": "Press overhead smoothly. Keep elbows slightly forward, avoid shrugging, and control the return.",
-      "exerciseType": "compound"
-    },
-    "chest_press_machine": {
-      "name": "Chest Press Machine",
-      "equipmentType": "machine",
-      "sets": 3,
-      "reps": {
-        "min": 8,
-        "max": 12
-      },
-      "baseWeight": 60,
-      "maxW": 240,
-      "deltaW": [
-        {
-          "until": 120,
-          "step": 5
-        },
-        {
-          "until": 240,
-          "step": 10
-        }
-      ],
-      "restBetweenSets": 90,
-      "restBetweenExercises": 60,
-      "notes": "Press smoothly. Keep shoulders down and back. Control the return.",
-      "exerciseType": "compound"
-    },
-    "reverse_curl": {
-      "name": "Reverse Curl",
-      "equipmentType": "barbell",
-      "sets": 4,
-      "reps": {
-        "min": 10,
-        "max": 15
-      },
-      "baseWeight": 30,
-      "maxW": 70,
-      "deltaW": 10,
-      "restBetweenSets": 60,
-      "restBetweenExercises": 60,
-      "notes": "Keep palms down. Curl without swinging. Control the lowering.",
-      "exerciseType": "isolation"
-    },
-    "db_shrug": {
-      "name": "Dumbbell Shrug",
-      "equipmentType": "dumbbell",
-      "sets": 4,
-      "reps": {
-        "min": 10,
-        "max": 15
-      },
-      "baseWeight": 35,
-      "maxW": 75,
-      "deltaW": 5,
-      "restBetweenSets": 60,
-      "restBetweenExercises": 60,
-      "notes": "Shrug straight up. Pause briefly. Lower under control.",
       "exerciseType": "isolation"
     }
   }

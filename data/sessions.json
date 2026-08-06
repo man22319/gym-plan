@@ -17,17 +17,18 @@
           "id": "thu_chest_delts",
           "label": "Upper Chest + Side Delts",
           "exercises": [
-            { "exerciseRef": "bench_db_incline", "letter": "A" },
+            { "exerciseRef": "db_bench_incline", "letter": "A" },
             { "exerciseRef": "reverse_pd", "letter": "B" },
             { "exerciseRef": "lateral_raise_machine", "letter": "C" }
           ]
         },
         {
           "id": "thu_arms",
-          "label": "Arms",
+          "label": "Arms + Forearms",
           "exercises": [
             { "exerciseRef": "hammer_curl", "letter": "A" },
-            { "exerciseRef": "tri_press", "letter": "B" }
+            { "exerciseRef": "tri_press", "letter": "B" },
+            { "exerciseRef": "db_wrist_curl", "letter": "C" }
           ]
         },
         {
@@ -46,7 +47,7 @@
       "blocks": [
         {
           "id": "sat_back_shoulders",
-          "label": "Back Thickness + Shoulders + Traps + Forearms",
+          "label": "Back + Delts + Forearms",
           "exercises": [
             { "exerciseRef": "row_machine", "letter": "A" },
             { "exerciseRef": "arnold_press", "letter": "B" },
@@ -59,7 +60,7 @@
         },
         {
           "id": "sat_lower_body",
-          "label": "Lower Body (Primary, not maintenance)",
+          "label": "Lower Body (Secondary Volume)",
           "exercises": [
             { "exerciseRef": "leg_press", "letter": "A" },
             { "exerciseRef": "leg_curl", "letter": "B" },
@@ -82,7 +83,7 @@
       "blocks": [
         {
           "id": "mon_back_traps",
-          "label": "Back Volume + Traps",
+          "label": "Back + Traps",
           "exercises": [
             { "exerciseRef": "lat_pull", "letter": "A" },
             { "exerciseRef": "row_machine", "letter": "B" },
@@ -91,21 +92,22 @@
         },
         {
           "id": "mon_shoulders_chest",
-          "label": "Shoulder Cap + Upper Chest",
+          "label": "Upper Chest + Delts",
           "exercises": [
-            { "exerciseRef": "lateral_raise_machine", "letter": "A" },
-            { "exerciseRef": "reverse_pd", "letter": "B" },
-            { "exerciseRef": "bench_db_incline", "letter": "C" },
-            { "exerciseRef": "chest_press_machine", "letter": "D" }
+            { "exerciseRef": "db_bench_incline", "letter": "A" },
+            { "exerciseRef": "chest_press_machine", "letter": "B" },
+            { "exerciseRef": "lateral_raise_machine", "letter": "C" },
+            { "exerciseRef": "reverse_pd", "letter": "D" }
           ]
         },
         {
           "id": "mon_arms",
-          "label": "Arms",
+          "label": "Arms + Forearms",
           "exercises": [
             { "exerciseRef": "barbell_curl", "letter": "A" },
             { "exerciseRef": "reverse_curl", "letter": "B" },
-            { "exerciseRef": "tri_press", "letter": "C" }
+            { "exerciseRef": "tri_press", "letter": "C" },
+            { "exerciseRef": "db_wrist_curl", "letter": "D" }
           ]
         },
         {
