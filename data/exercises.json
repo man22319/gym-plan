@@ -19,7 +19,7 @@
       "deltaW": 10,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Brace your core and curl your ribcage toward your pelvis. Pause briefly at peak contraction, return without letting the stack drop.",
+      "notes": "Curl your ribcage toward your pelvis, then return under control. Do not let the stack drop.",
       "exerciseType": "isolation"
     },
     "arnold_press": {
@@ -35,7 +35,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Find comfortable grip! Press in an arc from in front of face to overhead. Rotation is passive, not forced. Stop before lower back takes over.",
+      "notes": "Find comfortable grip or you will hurt your hands! Rotation is passive, not forced. Stop before lower back takes over.",
       "exerciseType": "compound"
     },
     "back_ext": {
@@ -51,7 +51,7 @@
       "deltaW": 10,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Move at hips. Stop when body is straight. Do not lean past straight.",
+      "notes": "Bend and extend through your hips, not your lower back. Stop when your body is straight. Control the return.",
       "exerciseType": "isolation"
     },
     "barbell_curl": {
@@ -67,7 +67,7 @@
       "deltaW": 10,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Keep elbows still. Small body swing is OK only near hard reps. Do not turn it into a hip drive.",
+      "notes": "Keep elbows still and tucked. A small body swing is OK only on your final difficult reps.",
       "exerciseType": "isolation"
     },
     "chest_press_machine": {
@@ -92,7 +92,7 @@
       ],
       "restBetweenSets": 90,
       "restBetweenExercises": 60,
-      "notes": "Press smoothly. Keep shoulders down and back. Control the return.",
+      "notes": "Press smoothly with both arms together. Keep shoulders down and back. Control the return.",
       "exerciseType": "compound"
     },
     "db_bench": {
@@ -124,7 +124,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 150,
       "restBetweenExercises": 60,
-      "notes": "Press up and slightly in. Do not turn into shoulder press.",
+      "notes": "Please find a comfortable grip or you will hurt yourself! Set bench to Notch 2 (30°) or Notch 1 (15°/20°) to isolate the upper chest. Plant feet. Rotate dumbbells slightly inward (10°-15° maximum)",
       "exerciseType": "compound"
     },
     "db_shrug": {
@@ -140,7 +140,7 @@
       "deltaW": 5,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Shrug straight up. Pause briefly. Lower under control.",
+      "notes": "Shrug straight up. Pause briefly. Don't roll your shoulders.",
       "exerciseType": "isolation"
     },
     "db_wrist_curl": {
@@ -188,7 +188,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Neutral grip throughout. Curl to shoulder. No swinging. Slow down on the way down.",
+      "notes": "Keep a neutral grip throughout. Tilt the dumbbells slightly inward toward your shoulders. Curl smoothly and lower under control.",
       "exerciseType": "isolation"
     },
     "lat_pull": {
@@ -204,7 +204,7 @@
       "deltaW": 10,
       "restBetweenSets": 150,
       "restBetweenExercises": 60,
-      "notes": "Pull down to chest. Keep body still. No swinging.",
+      "notes": "Pull down to chest. Keep body still. Pull elbows down toward your sides. Keep chest up and avoid swinging.",
       "exerciseType": "compound"
     },
     "db_lat_raise": {
@@ -245,7 +245,7 @@
       ],
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Controlled reps only. Keep constant tension, stop at shoulder height, no shrugging. Stay in the rep range even on fatigued days.",
+      "notes": "Lower seat height. Stop at shoulder height, no shrugging. Stop before your shoulders shrug or your wrists bend excessively.",
       "exerciseType": "isolation"
     },
     "leg_curl": {
@@ -261,7 +261,7 @@
       "deltaW": 10,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Curl down and back. Control the return. Do not cut range short, curl to 90°+.",
+      "notes": "Control the return. Do not shorten the range. Curl as far as you comfortably can.",
       "exerciseType": "isolation"
     },
     "leg_press": {
@@ -277,7 +277,7 @@
       "deltaW": 10,
       "restBetweenSets": 150,
       "restBetweenExercises": 60,
-      "notes": "Push smoothly. Control depth. Do not lift hips. Knees track over toes, lower to 90°.",
+      "notes": "Control depth. Keep knees pointed in the same direction as your toes. Lower under control to a comfortable depth. Adjust seat depth.",
       "exerciseType": "compound"
     },
     "db_ohp": {
@@ -325,7 +325,7 @@
       "deltaW": 10,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Keep palms down. Curl without swinging. Control the lowering.",
+      "notes": "Keep elbows still. Curl the weight soothly without letting your shoulders take over. Use a curled EZ bar.",
       "exerciseType": "isolation"
     },
     "reverse_pd": {
@@ -350,7 +350,7 @@
       ],
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Pull out and back. Do not use traps or momentum.",
+      "notes": "Do not use momentum. Thumbless grip.",
       "exerciseType": "isolation"
     },
     "row_dumbbell": {
@@ -382,7 +382,7 @@
       "deltaW": 10,
       "restBetweenSets": 150,
       "restBetweenExercises": 60,
-      "notes": "Drive elbows back, pause 1s at peak contraction. Do not rock your body.",
+      "notes": "Pause 1 second when the handle reaches your body. Pull elbows back, keep chest against the pad, and sit tall.",
       "exerciseType": "compound"
     },
     "shoulder_press_machine": {
@@ -407,7 +407,7 @@
       ],
       "restBetweenSets": 150,
       "restBetweenExercises": 60,
-      "notes": "Press overhead smoothly. Keep elbows slightly forward, avoid shrugging, and control the return.",
+      "notes": "Adjust seat depth and use narrow grip. Keep elbows slightly forward, avoid shrugging, and control the return.",
       "exerciseType": "compound"
     },
     "skull_crushers": {
@@ -448,7 +448,7 @@
       ],
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Push down and lock out. Keep elbows in place, controlled return.",
+      "notes": "Push down and lock out. Keep elbows still. Raise the seat height if needed.",
       "exerciseType": "isolation"
     }
   }
