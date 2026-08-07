@@ -438,7 +438,7 @@ export function buildCard(ex, appState, readOnly = false) {
     ${progressionRowHtml}
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}
-    ${readOnly ? '' : `<div class="set-row" style="grid-template-columns: repeat(${Math.max(prevSets ? prevSets.filter(s => s.w !== null || s.r !== null).length : 0, sets.length)}, minmax(0, 1fr));">
+    ${readOnly ? '' : `<div class="set-row" style="grid-template-columns: repeat(${sets.length}, minmax(0, 1fr));">
       ${sets.map((s, i) => buildDot(instanceId, i, s, readOnly, workingWeight, tolerance)).join('')}
     </div>`}
   </div>`;
@@ -512,11 +512,16 @@ export function buildNotesRow(ex, appState) {
 
 export function buildPrevRow(prevSets, currSets) {
   if (!prevSets) return '';
-  const logged = prevSets.filter(s => s.w !== null || s.r !== null);
+  let logged = prevSets.filter(s => s.w !== null || s.r !== null);
+  
+  if (logged.length > currSets.length) {
+    logged = logged.slice(0, currSets.length);
+  }
+
   if (!logged.length) return '';
 
   const { weightDelta, repsDelta } = query.compareSets(
-    prevSets,
+    logged,
     currSets.filter(s => s.w !== null || s.r !== null)
   );
 
@@ -531,7 +536,7 @@ export function buildPrevRow(prevSets, currSets) {
 
   const deltaHtml = buildDelta(weightDelta, repsDelta);
   
-  const maxCols = Math.max(logged.length, currSets.length);
+  const maxCols = currSets.length;
 
   return `<div class="prev-data-container">
     <div class="prev-data-header">
