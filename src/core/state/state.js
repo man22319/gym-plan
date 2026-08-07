@@ -55,8 +55,8 @@ export function makeDefaultExercises(sessions, exerciseLibrary = {}) {
     (session.blocks || []).forEach(block =>
       (block.exercises || []).forEach(ex => {
         const key  = ex.instanceId;
-        // Resolve sets: instance override → library definition → fallback 3
-        const sets = ex.sets ?? exerciseLibrary[ex.exerciseRef]?.sets ?? 3;
+        // Resolve sets: overrides sub-object > legacy flat key > library > fallback 3
+        const sets = (ex.overrides?.sets ?? ex.sets) ?? exerciseLibrary[ex.exerciseRef]?.sets ?? 3;
         if (key) result[key] = Array.from({ length: sets }, () => makeSet());
       })
     )

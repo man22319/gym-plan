@@ -12,8 +12,11 @@
 //   instanceId   — placement identity (key in all runtime state)
 //                  computed as dayLabel.toLowerCase() + '_' + exerciseRef
 //
-// Four-layer resolution (resolveInstance handles layers 1–3):
-//   programDefaults → exerciseLibrary[ref] → instance overrides → runtimeOverrides
+// Five-layer resolution (resolveInstance handles layers 1–3):
+//   programDefaults → exerciseLibrary[ref] → legacy flat keys → inst.overrides → runtimeOverrides
+//
+//   inst.overrides  — new canonical location for session-level prescription changes
+//   inst.field      — legacy flat keys (read-only compatibility; new writes use inst.overrides)
 // ==========================================
 
 // ── Module-level caches (rebuilt from state on every setState) ──────────────
@@ -37,24 +40,43 @@ const INSTANCE_OVERRIDE_KEYS = ['sets', 'reps', 'baseWeight', 'restBetweenSets',
 /**
  * Resolve a session exercise instance into a fully merged exercise object.
  *
- * Merge order (more specific wins):
- *   defaults (layer 1) < library[exerciseRef] (layer 2) < instance overrides (layer 3)
+ * Merge order (most specific wins):
+ *   defaults (layer 1)
+ *   < library[exerciseRef] (layer 2)
+ *   < legacy flat instance keys (layer 3 — read for backward compatibility only)
+ *   < inst.overrides keys (layer 4 — canonical new location, wins over flat keys)
  *
- * @param {object} instance   — session exercise: { instanceId, exerciseRef, letter?, sets?, ... }
+ * Only keys in INSTANCE_OVERRIDE_KEYS are accepted from inst.overrides to prevent
+ * accidental schema pollution from unknown fields.
+ *
+ * @param {object} instance   — session exercise: { instanceId, exerciseRef, letter?, overrides?, ... }
  * @param {object} library    — exerciseLibrary keyed by exerciseRef
  * @param {object} defaults   — programDefaults (restBetweenSets, restBetweenExercises, etc.)
  * @returns {object}          — fully resolved exercise
  */
 export function resolveInstance(instance, library, defaults = {}) {
   const base = library[instance.exerciseRef] ?? {};
-  const instanceOverrides = {};
+
+  // Layer 3: legacy flat keys on the instance (backward compatibility)
+  const flatOverrides = {};
   for (const k of INSTANCE_OVERRIDE_KEYS) {
-    if (instance[k] !== undefined) instanceOverrides[k] = instance[k];
+    if (instance[k] !== undefined) flatOverrides[k] = instance[k];
   }
+
+  // Layer 4: inst.overrides sub-object (canonical going forward)
+  // Only accept known keys — prevents garbage from polluting the resolved object.
+  const nestedOverrides = {};
+  for (const k of INSTANCE_OVERRIDE_KEYS) {
+    if (instance.overrides?.[k] !== undefined) nestedOverrides[k] = instance.overrides[k];
+  }
+
+  // Nested wins over flat; flat wins over library; library wins over defaults.
+  const instanceOverrides = { ...flatOverrides, ...nestedOverrides };
+
   return {
     ...defaults,           // layer 1: program fallbacks
     ...base,               // layer 2: exercise-specific values
-    ...instanceOverrides,  // layer 3: placement-specific overrides
+    ...instanceOverrides,  // layers 3–4: placement-specific overrides
     instanceId:  instance.instanceId,
     exerciseRef: instance.exerciseRef,
     letter:      instance.letter ?? '',

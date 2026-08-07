@@ -157,7 +157,8 @@ function isValidHistoryEntry(entry) {
 function blockSetCounts(block, exercises) {
   let total = 0, completed = 0;
   for (const inst of block.exercises) {
-    const exSets = inst.sets ?? EXERCISE_INDEX[inst.instanceId]?.sets ?? 3;
+    // EXERCISE_INDEX already merges all layers (defaults → library → overrides)
+    const exSets = EXERCISE_INDEX[inst.instanceId]?.sets ?? 3;
     const sets = exercises[inst.instanceId] || [];
     const instCompleted = sets.filter(s => s.s === 'done' || s.s === 'failed').length;
     

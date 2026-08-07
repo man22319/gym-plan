@@ -403,22 +403,34 @@ function renderSessionExerciseCard(inst, blockIdx, exIdx, block) {
   const canonicalEx = draftLibrary[inst.exerciseRef] || {};
   const instanceId = inst.instanceId;
   const isExpanded = expandedInstanceIds.has(instanceId);
+  const ov = inst.overrides ?? {}; // canonical override sub-object
 
-  // Resolved values (canonical + overrides)
-  const resolvedSets = inst.sets ?? canonicalEx.sets ?? 3;
-  const resolvedReps = inst.reps ?? canonicalEx.reps ?? { min: 8, max: 12 };
+  // Resolved values: overrides > legacy flat key > library > fallback
+  const resolvedSets = ov.sets ?? inst.sets ?? canonicalEx.sets ?? 3;
+  const resolvedReps = ov.reps ?? inst.reps ?? canonicalEx.reps ?? { min: 8, max: 12 };
 
-
-  // Check which fields are overridden
-  const hasSetOverride = inst.sets !== undefined;
-  const hasRepOverride = inst.reps !== undefined;
-  const hasBaseWeightOverride = inst.baseWeight !== undefined;
+  // Override detection: prefer overrides sub-object, fall back to legacy flat keys
+  const hasSetOverride          = ov.sets              !== undefined || inst.sets              !== undefined;
+  const hasRepOverride          = ov.reps              !== undefined || inst.reps              !== undefined;
+  const hasBaseWeightOverride   = ov.baseWeight        !== undefined || inst.baseWeight        !== undefined;
+  const hasRestSetsOverride     = ov.restBetweenSets   !== undefined;
+  const hasRestExerciseOverride = ov.restBetweenExercises !== undefined;
 
   const overrideBadges = [
-    hasSetOverride ? '<span class="te-override-badge" title="Sets overridden">sets</span>' : '',
-    hasRepOverride ? '<span class="te-override-badge" title="Reps overridden">reps</span>' : '',
-    hasBaseWeightOverride ? '<span class="te-override-badge" title="Base weight overridden">weight</span>' : '',
+    hasSetOverride          ? '<span class="te-override-badge" title="Sets overridden">sets</span>'           : '',
+    hasRepOverride          ? '<span class="te-override-badge" title="Reps overridden">reps</span>'           : '',
+    hasBaseWeightOverride   ? '<span class="te-override-badge" title="Base weight overridden">weight</span>' : '',
+    hasRestSetsOverride     ? '<span class="te-override-badge" title="Rest between sets overridden">rest·sets</span>' : '',
+    hasRestExerciseOverride ? '<span class="te-override-badge" title="Rest between exercises overridden">rest·ex</span>' : '',
   ].filter(Boolean).join('');
+
+  // Current values in inputs — prefer inst.overrides, fall back to legacy flat key
+  const curSets     = ov.sets            ?? inst.sets            ?? '';
+  const curRepsMin  = ov.reps?.min       ?? inst.reps?.min       ?? '';
+  const curRepsMax  = ov.reps?.max       ?? inst.reps?.max       ?? '';
+  const curBW       = ov.baseWeight      ?? inst.baseWeight      ?? '';
+  const curRestSets = ov.restBetweenSets ?? '';
+  const curRestEx   = ov.restBetweenExercises ?? '';
 
   let expandedHtml = '';
   if (isExpanded) {
@@ -438,7 +450,7 @@ function renderSessionExerciseCard(inst, blockIdx, exIdx, block) {
               ${hasSetOverride ? '<span class="te-override-dot" title="Overridden">●</span>' : ''}
             </label>
             <div class="te-override-input-group">
-              <input type="number" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="sets" value="${inst.sets ?? ''}" placeholder="${canonicalEx.sets ?? 3}" min="1" max="10" />
+              <input type="number" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="sets" value="${curSets}" placeholder="${canonicalEx.sets ?? 3}" min="1" max="10" />
               ${hasSetOverride ? `<button class="te-clear-override-btn" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="sets" title="Clear override">✕</button>` : ''}
             </div>
           </div>
@@ -450,11 +462,11 @@ function renderSessionExerciseCard(inst, blockIdx, exIdx, block) {
             <div class="te-field-row">
               <div class="te-field-sm">
                 <label class="te-field-label">Min</label>
-                <input type="number" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps.min" value="${inst.reps?.min ?? ''}" placeholder="${canonicalEx.reps?.min ?? 8}" />
+                <input type="number" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps.min" value="${curRepsMin}" placeholder="${canonicalEx.reps?.min ?? 8}" />
               </div>
               <div class="te-field-sm">
                 <label class="te-field-label">Max</label>
-                <input type="number" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps.max" value="${inst.reps?.max ?? ''}" placeholder="${canonicalEx.reps?.max ?? 12}" />
+                <input type="number" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps.max" value="${curRepsMax}" placeholder="${canonicalEx.reps?.max ?? 12}" />
               </div>
             </div>
             ${hasRepOverride ? `<button class="te-clear-override-btn" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="reps" title="Clear override">✕ Clear reps override</button>` : ''}
@@ -465,8 +477,28 @@ function renderSessionExerciseCard(inst, blockIdx, exIdx, block) {
               ${hasBaseWeightOverride ? '<span class="te-override-dot" title="Overridden">●</span>' : ''}
             </label>
             <div class="te-override-input-group">
-              <input type="number" step="any" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="baseWeight" value="${inst.baseWeight ?? ''}" placeholder="${canonicalEx.baseWeight ?? 'BW'}" />
+              <input type="number" step="any" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="baseWeight" value="${curBW}" placeholder="${canonicalEx.baseWeight ?? 'BW'}" />
               ${hasBaseWeightOverride ? `<button class="te-clear-override-btn" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="baseWeight" title="Clear override">✕</button>` : ''}
+            </div>
+          </div>
+          <div class="te-field">
+            <label class="te-field-label">
+              Rest Between Sets (s)
+              ${hasRestSetsOverride ? '<span class="te-override-dot" title="Overridden">●</span>' : ''}
+            </label>
+            <div class="te-override-input-group">
+              <input type="number" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="restBetweenSets" value="${curRestSets}" placeholder="${canonicalEx.restBetweenSets ?? 90}" min="0" />
+              ${hasRestSetsOverride ? `<button class="te-clear-override-btn" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="restBetweenSets" title="Clear override">✕</button>` : ''}
+            </div>
+          </div>
+          <div class="te-field">
+            <label class="te-field-label">
+              Rest Between Exercises (s)
+              ${hasRestExerciseOverride ? '<span class="te-override-dot" title="Overridden">●</span>' : ''}
+            </label>
+            <div class="te-override-input-group">
+              <input type="number" class="te-input te-inst-field" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="restBetweenExercises" value="${curRestEx}" placeholder="${canonicalEx.restBetweenExercises ?? 60}" min="0" />
+              ${hasRestExerciseOverride ? `<button class="te-clear-override-btn" data-block-idx="${blockIdx}" data-ex-idx="${exIdx}" data-field="restBetweenExercises" title="Clear override">✕</button>` : ''}
             </div>
           </div>
         </div>
@@ -666,7 +698,9 @@ function setupEditorEvents() {
       return;
     }
 
-    // ── Instance field editing ─────────────────────────────────────────────────
+    // ── Instance field editing (writes to inst.overrides sub-object) ───────────
+    // New writes always go to inst.overrides.*.
+    // Legacy flat keys (inst.sets, etc.) are preserved on load but not written here.
 
     if (e.target.classList.contains('te-inst-field')) {
       const currentSession = draftSessions.find(s => s.id === selectedSessionId);
@@ -679,28 +713,58 @@ function setupEditorEvents() {
 
       const value = e.target.value;
 
+      // Helper: clean up empty overrides object
+      function cleanOverrides(i) {
+        if (i.overrides && Object.keys(i.overrides).length === 0) delete i.overrides;
+      }
+
       if (fieldPath === 'letter') {
+        // Letter is identity metadata — stays on inst directly
         inst.letter = value.toUpperCase();
       } else if (fieldPath === 'sets') {
+        if (!inst.overrides) inst.overrides = {};
         if (value === '') {
-          delete inst.sets;
+          delete inst.overrides.sets;
+          cleanOverrides(inst);
         } else {
-          inst.sets = parseInt(value, 10) || undefined;
-          if (!inst.sets) delete inst.sets;
+          const parsed = parseInt(value, 10);
+          if (parsed > 0) inst.overrides.sets = parsed;
         }
       } else if (fieldPath.startsWith('reps.')) {
-        const sub = fieldPath.split('.')[1];
-        if (value === '' && inst.reps) {
-          // If both min and max are empty, clear the override
-          delete inst.reps[sub];
-          if (Object.keys(inst.reps).length === 0) delete inst.reps;
-        } else if (value !== '') {
-          if (!inst.reps) inst.reps = {};
-          inst.reps[sub] = parseInt(value, 10) || 0;
+        const sub = fieldPath.split('.')[1]; // 'min' or 'max'
+        if (!inst.overrides) inst.overrides = {};
+        if (!inst.overrides.reps) inst.overrides.reps = {};
+        if (value === '') {
+          delete inst.overrides.reps[sub];
+          if (Object.keys(inst.overrides.reps).length === 0) delete inst.overrides.reps;
+          cleanOverrides(inst);
+        } else {
+          inst.overrides.reps[sub] = parseInt(value, 10) || 0;
         }
       } else if (fieldPath === 'baseWeight') {
-        if (value === '') delete inst.baseWeight;
-        else inst.baseWeight = parseFloat(value) || 0;
+        if (!inst.overrides) inst.overrides = {};
+        if (value === '') {
+          delete inst.overrides.baseWeight;
+          cleanOverrides(inst);
+        } else {
+          inst.overrides.baseWeight = parseFloat(value) || 0;
+        }
+      } else if (fieldPath === 'restBetweenSets') {
+        if (!inst.overrides) inst.overrides = {};
+        if (value === '') {
+          delete inst.overrides.restBetweenSets;
+          cleanOverrides(inst);
+        } else {
+          inst.overrides.restBetweenSets = parseInt(value, 10) || 0;
+        }
+      } else if (fieldPath === 'restBetweenExercises') {
+        if (!inst.overrides) inst.overrides = {};
+        if (value === '') {
+          delete inst.overrides.restBetweenExercises;
+          cleanOverrides(inst);
+        } else {
+          inst.overrides.restBetweenExercises = parseInt(value, 10) || 0;
+        }
       }
       return;
     }
@@ -1056,7 +1120,7 @@ function setupEditorEvents() {
       return;
     }
 
-    // Clear instance override
+    // Clear instance override — deletes from inst.overrides sub-object
     const clearOverrideBtn = e.target.closest('.te-clear-override-btn');
     if (clearOverrideBtn && currentSession) {
       const blockIdx = parseInt(clearOverrideBtn.dataset.blockIdx, 10);
@@ -1064,6 +1128,12 @@ function setupEditorEvents() {
       const field = clearOverrideBtn.dataset.field;
       const inst = currentSession.blocks?.[blockIdx]?.exercises?.[exIdx];
       if (inst) {
+        // Clear from canonical overrides sub-object
+        if (inst.overrides) {
+          delete inst.overrides[field];
+          if (Object.keys(inst.overrides).length === 0) delete inst.overrides;
+        }
+        // Also clear any legacy flat key with the same name
         delete inst[field];
         renderBody();
       }

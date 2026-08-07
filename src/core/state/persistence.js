@@ -47,7 +47,7 @@ export function loadState() {
             const oldDef = oldLib[ref];
             const newDef = freshLibrary[ref];
             if (!oldDef || !newDef || JSON.stringify(oldDef) !== JSON.stringify(newDef)) {
-              const sets = inst.sets ?? newDef?.sets ?? 3;
+              const sets = (inst.overrides?.sets ?? inst.sets) ?? newDef?.sets ?? 3;
               exercises[id] = Array.from({ length: sets }, () => makeSet());
             }
           }
@@ -108,7 +108,8 @@ export function normalize(appState) {
       (block.exercises || []).forEach(ex => {
         const key  = ex.instanceId;  // instanceId is required in v1
         if (!key) return;            // skip malformed instances (sanitizeSessions handles them)
-        const sets = ex.sets ?? lib[ex.exerciseRef]?.sets ?? 3;
+        // Resolve sets: overrides sub-object > legacy flat key > library > fallback 3
+        const sets = (ex.overrides?.sets ?? ex.sets) ?? lib[ex.exerciseRef]?.sets ?? 3;
         const arr  = exercises[key];
         if (!Array.isArray(arr)) {
           exercises[key] = Array.from({ length: sets }, () => makeSet());

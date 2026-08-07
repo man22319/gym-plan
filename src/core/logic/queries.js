@@ -124,7 +124,8 @@ export const query = {
     const lib    = appState.exerciseLibrary ?? {};
     const allEx  = session.blocks.flatMap(b => b.exercises);
     const total  = allEx.reduce((n, inst) => {
-      const sets = inst.sets ?? EXERCISE_INDEX[inst.instanceId]?.sets ?? lib[inst.exerciseRef]?.sets ?? 3;
+      // EXERCISE_INDEX already merges all layers (defaults → library → overrides)
+      const sets = EXERCISE_INDEX[inst.instanceId]?.sets ?? lib[inst.exerciseRef]?.sets ?? 3;
       return n + sets;
     }, 0);
     if (!total) return 0;
