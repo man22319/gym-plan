@@ -400,7 +400,7 @@ export function buildCard(ex, appState, readOnly = false) {
       </div>
       <div class="ex-header-right-actions">
         ${loggedBadgeHtml}
-        <div class="ex-history-hint" role="button" tabindex="0" aria-label="View history for ${displayName}" ${readOnly ? 'style="display:none;"' : ''}>HISTORY</div>
+        <div class="ex-history-hint" role="button" tabindex="0" aria-label="View history for ${displayName}">HISTORY</div>
         ${editBtnHtml}
       </div>
     </div>

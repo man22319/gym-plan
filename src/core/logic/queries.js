@@ -38,6 +38,37 @@ export const query = {
     );
   },
 
+  // All notes for a given exerciseRef across all sessions.
+  getExerciseNotes(appState, exerciseRef) {
+    const grouped = [];
+    const history = this.exerciseRefHistory(appState, exerciseRef);
+    history.forEach(entry => {
+      const session = workouts.find(s => s.id === entry.sessionId)
+        ?? (appState.sessions || []).find(s => s.id === entry.sessionId);
+      
+      const instanceIds = Object.keys(entry.exerciseRefs || {}).filter(k => entry.exerciseRefs[k] === exerciseRef);
+      
+      const sessionNotes = [];
+      instanceIds.forEach(instId => {
+        const sets = entry.exercises[instId] || [];
+        sets.forEach((s) => {
+          if (s.n && s.n.trim()) {
+            sessionNotes.push(s.n.trim());
+          }
+        });
+      });
+      
+      if (sessionNotes.length > 0) {
+        grouped.push({
+          session: session ? (session.dayLabel || session.sessionLabel || 'Unknown') : 'Unknown',
+          timestamp: entry.timestamp,
+          notes: sessionNotes
+        });
+      }
+    });
+    return grouped;
+  },
+
   // Last N entries for an exercise (for trend analysis).
   exerciseHistory(appState, exId, n = Infinity) {
     return this.chronological(appState)

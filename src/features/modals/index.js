@@ -200,7 +200,7 @@ export function openHistoryModal(exId) {
 
   const trendHtml = `<div id="trend-section-wrapper">${renderTrendSection()}</div>`;
 
-  const notesHistoryHtml = buildNotesHistory(history);
+  const notesHistoryHtml = buildNotesHistory(state, ex.exerciseRef);
 
   const tableHtml = hasHistory ? `
     <div class="hist-table-wrap">
@@ -265,35 +265,27 @@ export function closeHistoryModal() {
   if (activeHistoryModal) { activeHistoryModal.remove(); activeHistoryModal = null; }
 }
 
-export function buildNotesHistory(history) {
-  const notes = [];
-  history.forEach(entry => {
-    (entry.sets || []).forEach((s, idx) => {
-      if (s.n && s.n.trim()) {
-        notes.push({
-          date: formatDate(entry.timestamp),
-          note: s.n.trim(),
-          setNum: idx + 1
-        });
-      }
-    });
-  });
+export function buildNotesHistory(appState, exerciseRef) {
+  const groupedNotes = query.getExerciseNotes(appState, exerciseRef);
 
-  if (notes.length === 0) return '';
+  if (groupedNotes.length === 0) return '';
 
-  const recentNotes = notes.slice(-10);
+  const recentNotes = groupedNotes.slice(-10).reverse();
 
-  const itemsHtml = recentNotes.map(item => `
-    <div class="hist-note-item">
-      <span class="hist-note-date">${item.date} (Set ${item.setNum})</span>
-      <span class="hist-note-text">${item.note}</span>
-    </div>
-  `).join('');
+  const itemsHtml = recentNotes.map(group => {
+    const notesHtml = group.notes.map(n => `<span class="hist-note-text" style="display: block; margin-top: 2px;">${n}</span>`).join('');
+    return `
+      <div class="hist-note-item" style="margin-bottom: 12px;">
+        <span class="hist-note-date" style="font-weight: 500;">${formatDate(group.timestamp)} · ${group.session}</span>
+        ${notesHtml}
+      </div>
+    `;
+  }).join('');
 
   return `
     <div class="hist-notes-section">
-      <div class="hist-section-label" style="padding: 0 20px 8px;">RECENT NOTES</div>
-      <div class="hist-notes-list" style="padding: 0 20px 16px; display: flex; flex-direction: column; gap: 6px;">
+      <div class="hist-section-label" style="padding: 0 20px 8px;">ALL NOTES</div>
+      <div class="hist-notes-list" style="padding: 0 20px 16px; display: flex; flex-direction: column;">
         ${itemsHtml}
       </div>
     </div>
