@@ -41,7 +41,7 @@
     "back_ext": {
       "name": "Back Extension Machine",
       "equipmentType": "machine",
-      "sets": 3,
+      "sets": 4,
       "reps": {
         "min": 12,
         "max": 15
@@ -144,7 +144,7 @@
       "exerciseType": "isolation"
     },
     "db_wrist_curl": {
-      "name": "Dumbbell Wrist Curl",
+      "name": "Wrist Curl",
       "equipmentType": "dumbbell",
       "sets": 3,
       "reps": {
@@ -251,7 +251,7 @@
     "leg_curl": {
       "name": "Seated Leg Curl",
       "equipmentType": "machine",
-      "sets": 3,
+      "sets": 4,
       "reps": {
         "min": 10,
         "max": 12
@@ -429,7 +429,7 @@
     "tri_press": {
       "name": "Triceps Press Machine",
       "equipmentType": "machine",
-      "sets": 3,
+      "sets": 4,
       "reps": {
         "min": 12,
         "max": 15
