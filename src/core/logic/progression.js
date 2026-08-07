@@ -376,15 +376,17 @@ function analyzeRomPattern(workingSets) {
  * @param {string[]} recentRomSummaries  — persisted window of ≤3 past romPattern values
  * @returns {'consistent-degradation'|'sustained-partial'|'stable'}
  */
-function analyzeRomTrend(recentRomSummaries) {
+export function analyzeRomTrend(recentRomSummaries) {
   if (!Array.isArray(recentRomSummaries) || recentRomSummaries.length === 0) return 'stable';
 
   const window = recentRomSummaries.slice(-ROM_TREND_WINDOW);
+  const currentPattern = window[window.length - 1];
+
   const degradingCount = window.filter(p => p === 'degrading').length;
   const partialCount   = window.filter(p => p === 'consistent-partial').length;
 
-  if (degradingCount >= ROM_TREND_THRESHOLD) return 'consistent-degradation';
-  if (partialCount   >= ROM_TREND_THRESHOLD) return 'sustained-partial';
+  if (degradingCount >= ROM_TREND_THRESHOLD && currentPattern === 'degrading') return 'consistent-degradation';
+  if (partialCount   >= ROM_TREND_THRESHOLD && currentPattern === 'consistent-partial') return 'sustained-partial';
   return 'stable';
 }
 
@@ -401,10 +403,15 @@ function analyzeRomTrend(recentRomSummaries) {
  * @param {number[]} recentZeroRir  — persisted window of ≤3 past zeroRirCount values
  * @returns {'repeated-zero-rir'|'normal'}
  */
-function analyzeRirTrend(recentZeroRir) {
+export function analyzeRirTrend(recentZeroRir) {
   if (!Array.isArray(recentZeroRir) || recentZeroRir.length === 0) return 'normal';
 
   const window = recentZeroRir.slice(-RIR_TREND_WINDOW);
+  
+  // Current session must have ≥1 zero-RIR set to fire the trend
+  const currentCount = window[window.length - 1];
+  if (currentCount <= 0) return 'normal';
+
   const zeroCount = window.filter(c => c > 0).length;  // sessions with ≥1 zero-RIR set
   return zeroCount >= RIR_TREND_THRESHOLD ? 'repeated-zero-rir' : 'normal';
 }

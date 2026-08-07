@@ -2,7 +2,7 @@ import { workouts, EXERCISE_INDEX, EX_SESSION_INDEX, state, defaultWorkoutsData 
 import { REST_DURATION } from '../../core/state/state.js';
 import { query } from '../../core/logic/queries.js';
 import { getEffectiveExercise, getWorkingWeight, getDeltaW } from '../../core/utils/helpers.js';
-import { updateProgressionState } from '../../core/logic/progression.js';
+import { updateProgressionState, analyzeRomTrend, analyzeRirTrend } from '../../core/logic/progression.js';
 import { calculateETA } from '../../core/utils/eta.js';
 
 
@@ -564,43 +564,7 @@ export function buildDelta(weightDelta, repsDelta) {
   return parts.length ? `<span class="delta-group">${parts.join('')}</span>` : '';
 }
 
-// ── ROM / RIR trend helpers (rendering-layer only) ────────────────────────────
-// Mirror the logic from progression.js without importing private functions.
-// These are used in buildProgressionRow to derive trend labels from persisted
-// windows for the review-mode chips (the active-mode chips read directly from
-// the updateProgressionState() result which already includes romTrend/rirTrend).
 
-const _ROM_TREND_THRESHOLD = 2;
-const _RIR_TREND_THRESHOLD = 2;
-
-/**
- * Derive ROM trend from a persisted recentRomSummaries window.
- * Mirrors analyzeRomTrend() in progression.js.
- *
- * @param {string[]} recentRomSummaries
- * @returns {'consistent-degradation'|'sustained-partial'|'stable'}
- */
-function _deriveRomTrend(recentRomSummaries) {
-  if (!Array.isArray(recentRomSummaries) || recentRomSummaries.length === 0) return 'stable';
-  const degradingCount = recentRomSummaries.filter(p => p === 'degrading').length;
-  const partialCount   = recentRomSummaries.filter(p => p === 'consistent-partial').length;
-  if (degradingCount >= _ROM_TREND_THRESHOLD) return 'consistent-degradation';
-  if (partialCount   >= _ROM_TREND_THRESHOLD) return 'sustained-partial';
-  return 'stable';
-}
-
-/**
- * Derive RIR trend from a persisted recentZeroRir window.
- * Mirrors analyzeRirTrend() in progression.js.
- *
- * @param {number[]} recentZeroRir
- * @returns {'repeated-zero-rir'|'normal'}
- */
-function _deriveRirTrend(recentZeroRir) {
-  if (!Array.isArray(recentZeroRir) || recentZeroRir.length === 0) return 'normal';
-  const zeroCount = recentZeroRir.filter(c => c > 0).length;
-  return zeroCount >= _RIR_TREND_THRESHOLD ? 'repeated-zero-rir' : 'normal';
-}
 
 // ── Layer B: Live Progression Row ─────────────────────────────────────────────
 
@@ -694,7 +658,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
       const recentRomSummaries = ps.recentRomSummaries ?? [];
       const prevWindow = recentRomSummaries.slice(0, -1);  // exclude current session entry
       const romPattern = ps.romPattern ?? 'mixed';
-      const romTrend   = _deriveRomTrend(recentRomSummaries);
+      const romTrend   = analyzeRomTrend(recentRomSummaries);
       const hasRomWarning =
         romTrend === 'consistent-degradation' ||
         (romPattern === 'degrading' && prevWindow.some(p => p === 'degrading'));
@@ -712,7 +676,7 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
 
     // RIR trend chip (review mode)
     if (ps.recentZeroRir) {
-      const rirTrend = _deriveRirTrend(ps.recentZeroRir);
+      const rirTrend = analyzeRirTrend(ps.recentZeroRir);
       if (rirTrend === 'repeated-zero-rir') {
         chips.push(
           `<span class="prog-chip prog-chip-info" title="Repeatedly reaching 0 RIR may indicate the current weight is near your limit for this rep range, insufficient recovery, or that this exercise has a higher difficulty profile. Interpret alongside ROM quality, failure patterns, and progression history.">0 RIR TREND</span>`
