@@ -54,8 +54,8 @@
             { "exerciseRef": "shoulder_press_machine", "letter": "C" },
             { "exerciseRef": "lateral_raise_machine", "letter": "D" },
             { "exerciseRef": "reverse_pd", "letter": "E" },
-            { "exerciseRef": "db_shrug", "letter": "G" },
-            { "exerciseRef": "reverse_curl", "letter": "H" }
+            { "exerciseRef": "db_shrug", "letter": "F" },
+            { "exerciseRef": "reverse_curl", "letter": "G" }
           ]
         },
         {
@@ -96,8 +96,7 @@
           "exercises": [
             { "exerciseRef": "db_bench_incline", "letter": "A" },
             { "exerciseRef": "chest_press_machine", "letter": "B" },
-            { "exerciseRef": "lateral_raise_machine", "letter": "C" },
-            { "exerciseRef": "reverse_pd", "letter": "D" }
+            { "exerciseRef": "lateral_raise_machine", "letter": "C" }
           ]
         },
         {
@@ -105,9 +104,8 @@
           "label": "Arms + Forearms",
           "exercises": [
             { "exerciseRef": "barbell_curl", "letter": "A" },
-            { "exerciseRef": "reverse_curl", "letter": "B" },
-            { "exerciseRef": "tri_press", "letter": "C" },
-            { "exerciseRef": "db_wrist_curl", "letter": "D" }
+            { "exerciseRef": "tri_press", "letter": "B" },
+            { "exerciseRef": "db_wrist_curl", "letter": "C" }
           ]
         },
         {
@@ -116,13 +114,6 @@
           "exercises": [
             { "exerciseRef": "leg_press", "letter": "A" },
             { "exerciseRef": "leg_curl", "letter": "B" }
-          ]
-        },
-        {
-          "id": "mon_core",
-          "label": "Core",
-          "exercises": [
-            { "exerciseRef": "abdominal_crunch", "letter": "A" }
           ]
         }
       ]
