@@ -372,7 +372,7 @@ export function buildCard(ex, appState, readOnly = false) {
   }
 
   const crossDayHtml = crossDayHints.length > 0 
-    ? `<div class="cross-day-hints-container" style="margin: 0 1rem 0.5rem 1rem; display: flex; flex-direction: column; gap: 4px;">${crossDayHints.map(hint => `<div class="cross-day-hint" style="font-size: 0.75rem; color: var(--muted); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; display: inline-block; align-self: flex-start;">${hint}</div>`).join('')}</div>`
+    ? `<div class="cross-day-hints-container" style="margin: 0 1rem 0.5rem 1rem; display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px;">${crossDayHints.map(hint => `<div class="cross-day-hint" style="font-size: 0.75rem; color: var(--muted); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; display: inline-block;">${hint}</div>`).join('')}</div>`
     : '';
 
   const isOverridden = !!appState?.runtimeOverrides?.[instanceId]?.workingWeight;
