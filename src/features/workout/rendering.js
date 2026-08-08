@@ -1,7 +1,7 @@
 import { workouts, EXERCISE_INDEX, EX_SESSION_INDEX, state, defaultWorkoutsData } from '../../core/state/store.js';
 import { REST_DURATION } from '../../core/state/state.js';
 import { query } from '../../core/logic/queries.js';
-import { getEffectiveExercise, getWorkingWeight, getDeltaW } from '../../core/utils/helpers.js';
+import { getEffectiveExercise, getWorkingWeight, getRecordedWorkingWeight, getDeltaW } from '../../core/utils/helpers.js';
 import { updateProgressionState, analyzeRomTrend, analyzeRirTrend } from '../../core/logic/progression.js';
 import { calculateETA } from '../../core/utils/eta.js';
 
@@ -344,8 +344,38 @@ export function buildCard(ex, appState, readOnly = false) {
   const effEx = getEffectiveExercise(appState, instanceId);
   const displayName = effEx?.name ?? ex.name ?? instanceId;
   const workingWeight = getWorkingWeight(appState, instanceId);
-  const isOverridden = !!appState?.runtimeOverrides?.[instanceId]?.workingWeight;
 
+  // Cross-Day Hint Logic
+  const crossDayHints = [];
+  if (ex.exerciseRef && appState.sessions) {
+    const currentSession = appState.sessions.find(s => s.blocks?.some(b => b.exercises?.some(e => e.instanceId === instanceId)));
+    const currentSessionId = currentSession?.id;
+
+    for (const session of appState.sessions) {
+      if (session.id === currentSessionId) continue;
+      
+      const sessionOccurrences = new Set();
+      for (const block of session.blocks || []) {
+        for (const otherEx of block.exercises || []) {
+          if (otherEx.exerciseRef === ex.exerciseRef) {
+            const rw = getRecordedWorkingWeight(appState, otherEx.instanceId);
+            if (rw !== null) {
+              sessionOccurrences.add(rw);
+            }
+          }
+        }
+      }
+      for (const rw of sessionOccurrences) {
+        crossDayHints.push(`Other day: ${session.dayLabel} · ${rw} lb`);
+      }
+    }
+  }
+
+  const crossDayHtml = crossDayHints.length > 0 
+    ? `<div class="cross-day-hints-container" style="margin: 0 1rem 0.5rem 1rem; display: flex; flex-direction: column; gap: 4px;">${crossDayHints.map(hint => `<div class="cross-day-hint" style="font-size: 0.75rem; color: var(--muted); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; display: inline-block; align-self: flex-start;">${hint}</div>`).join('')}</div>`
+    : '';
+
+  const isOverridden = !!appState?.runtimeOverrides?.[instanceId]?.workingWeight;
   const wStr = formatWeight(workingWeight);
   const stepVal = getDeltaW(effEx?.deltaW, workingWeight);
   const prs = query.currentSetPRs(appState, instanceId);
@@ -435,6 +465,7 @@ export function buildCard(ex, appState, readOnly = false) {
     
     ${formCueHtml}
     ${editPanelHtml}
+    ${crossDayHtml}
     ${progressionRowHtml}
     ${buildPrevRow(prevSets, sets)}
     ${currentNotesHtml}

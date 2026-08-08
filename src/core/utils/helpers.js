@@ -32,6 +32,19 @@ export function getWorkingWeight(appState, instanceId) {
 }
 
 /**
+ * Returns the working weight only when one has actually been established 
+ * in progression state. Does not fall back to baseWeight.
+ * 
+ * @param {object} appState
+ * @param {string} instanceId
+ * @returns {number|null}
+ */
+export function getRecordedWorkingWeight(appState, instanceId) {
+  const ps = appState?.progressionState?.[instanceId];
+  return ps?.validatedWorkingWeight ?? ps?.currentWeight ?? null;
+}
+
+/**
  * Resolve the effective exercise for a given instanceId.
  *
  * Applies layer 4 (runtimeOverrides) on top of the EXERCISE_INDEX entry

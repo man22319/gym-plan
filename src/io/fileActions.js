@@ -3,6 +3,7 @@ import { dispatch } from '../core/logic/reducer.js';
 import { formatReps, render } from '../features/workout/rendering.js';
 import { persist, normalize, sanitizeSessions } from '../core/state/persistence.js';
 import { compactExport, expandImport } from './compactFormat.js';
+import { getWorkingWeight } from '../core/utils/helpers.js';
 
 
 
@@ -121,8 +122,9 @@ export function copyWorkout(btn) {
       lines.push(block.label);
       (block.exercises ?? []).forEach(inst => {
         const ex = resolveInstance(inst, library, defaults);
+        const weight = getWorkingWeight(state, inst.instanceId);
         lines.push(`  ${ex.letter ?? ''}  ${ex.name}`);
-        lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${ex.baseWeight != null ? ex.baseWeight + ' lbs' : 'BW'}`);
+        lines.push(`     ${ex.sets} × ${formatReps(ex.reps)}  ${weight != null ? weight + ' lbs' : 'BW'}`);
         if (ex.notes) lines.push(`     Note: ${ex.notes}`);
       });
       lines.push('');

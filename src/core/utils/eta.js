@@ -410,8 +410,9 @@ function historicalTransitionOverhead(appState, sessionId, fromBlockId, toBlockI
  * @param {object} block
  * @returns {number} estimated ms per set
  */
-function estimateBlockIntervalFromPrescription(block) {
+function estimateBlockIntervalFromPrescription(block, exercises) {
   const exCount = block.exercises.length || 1;
+  const { remaining } = blockSetCounts(block, exercises || {});
 
   // Use the max rest in the block (superset rest happens once per round)
   let maxRest = 0;
@@ -422,10 +423,17 @@ function estimateBlockIntervalFromPrescription(block) {
     if (rest > maxRest) maxRest = rest;
   }
 
+  // If no sets remain, we can return a default interval
+  if (remaining <= 0) {
+    return ((exCount * DEFAULT_WORKING_MS) + maxRest) / exCount;
+  }
+
   // One round = working time for each exercise + one rest period
-  // Per-set interval = round duration / exercises in block
-  const roundDuration = (exCount * DEFAULT_WORKING_MS) + maxRest;
-  return roundDuration / exCount;
+  const remainingRounds = Math.ceil(remaining / exCount);
+  const restIntervals = Math.max(0, remainingRounds - 1);
+  const totalRemaining = (remaining * DEFAULT_WORKING_MS) + (restIntervals * maxRest);
+
+  return totalRemaining / remaining;
 }
 
 // ── Best prior estimate (hierarchical) ───────────────────────────────────────
@@ -450,7 +458,7 @@ function estimateBlockIntervalFromPrescription(block) {
  */
 function bestPriorEstimate(block, appState, sessionId, totalSets) {
   // Start with prescription (always available)
-  let estimate = estimateBlockIntervalFromPrescription(block);
+  let estimate = estimateBlockIntervalFromPrescription(block, appState.exercises);
 
   // Layer in session-level historical pace
   const sessionDuration = historicalSessionDuration(appState, sessionId);

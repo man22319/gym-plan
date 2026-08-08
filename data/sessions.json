@@ -54,7 +54,6 @@
             { "exerciseRef": "shoulder_press_machine", "letter": "C" },
             { "exerciseRef": "lateral_raise_machine", "letter": "D" },
             { "exerciseRef": "reverse_pd", "letter": "E" },
-            { "exerciseRef": "arnold_press", "letter": "F" },
             { "exerciseRef": "db_shrug", "letter": "G" },
             { "exerciseRef": "reverse_curl", "letter": "H" }
           ]
