@@ -124,7 +124,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 150,
       "restBetweenExercises": 60,
-      "notes": "Please find a comfortable grip or you will hurt yourself! Set bench to Notch 2 (30°) or Notch 1 (15°/20°) to isolate the upper chest. Plant feet. Rotate dumbbells slightly inward (10°-15° maximum)",
+      "notes": "Please find a comfortable grip or you will hurt yourself! Set bench to Notch 3 (30°) or Notch 2 (15°/20°) to isolate the upper chest. Plant feet. Rotate dumbbells slightly inward (10°-15° maximum)",
       "exerciseType": "compound"
     },
     "db_shrug": {
@@ -140,7 +140,7 @@
       "deltaW": 5,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Shrug straight up. Pause briefly. Don't roll your shoulders.",
+      "notes": "Lean foward slightly. Pause briefly. Twist weights slighty outward. Don't roll your shoulders.",
       "exerciseType": "isolation"
     },
     "db_wrist_curl": {
@@ -156,7 +156,7 @@
       "deltaW": 2.5,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Brace forearms on thighs or bench. Curl wrists upward through full range. Lower slowly under control.",
+      "notes": "Brace forearms on thighs. Curl wrists upward through full range squeeze at top. Lower slowly under control. Use suicide grip.",
       "exerciseType": "isolation"
     },
     "glute_kickback": {
@@ -204,7 +204,7 @@
       "deltaW": 10,
       "restBetweenSets": 150,
       "restBetweenExercises": 60,
-      "notes": "Pull down to chest. Keep body still. Pull elbows down toward your sides. Keep chest up and avoid swinging.",
+      "notes": "Raise seat height to max. Pull down to chest. Keep body still. Pull elbows down toward your sides. Keep chest up and avoid swinging. Lean back slightly if needed.",
       "exerciseType": "compound"
     },
     "db_lat_raise": {
@@ -245,7 +245,7 @@
       ],
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Lower seat height. Stop at shoulder height, no shrugging. Stop before your shoulders shrug or your wrists bend excessively.",
+      "notes": "Lower seat height two steps below max. Stop at shoulder height, no shrugging. Stop before your shoulders shrug or your wrists bend excessively. Curl your wrists but not too much. Sit up straight.",
       "exerciseType": "isolation"
     },
     "leg_curl": {
@@ -261,7 +261,7 @@
       "deltaW": 10,
       "restBetweenSets": 120,
       "restBetweenExercises": 60,
-      "notes": "Control the return. Do not shorten the range. Curl as far as you comfortably can.",
+      "notes": "Control the return. Do not shorten the range. Curl as far as you comfortably can. Adjust seat depth a bit foward.",
       "exerciseType": "isolation"
     },
     "leg_press": {
@@ -277,7 +277,7 @@
       "deltaW": 10,
       "restBetweenSets": 150,
       "restBetweenExercises": 60,
-      "notes": "Control depth. Keep knees pointed in the same direction as your toes. Lower under control to a comfortable depth. Adjust seat depth.",
+      "notes": "Control depth. Keep knees pointed in the same direction as your toes. Lower under control to a comfortable depth. Adjust seat depth. Slide seat midway until knees begin to bend.",
       "exerciseType": "compound"
     },
     "db_ohp": {
@@ -325,7 +325,7 @@
       "deltaW": 10,
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Keep elbows still. Curl the weight soothly without letting your shoulders take over. Use a curled EZ bar.",
+      "notes": "Keep elbows still. Curl the weight soothly without letting your shoulders take over. Use a curled EZ bar. Keep grip close to center of bar.",
       "exerciseType": "isolation"
     },
     "reverse_pd": {
@@ -350,7 +350,7 @@
       ],
       "restBetweenSets": 60,
       "restBetweenExercises": 60,
-      "notes": "Do not use momentum. Thumbless grip.",
+      "notes": "Do not use momentum. Thumbless grip. Thumbless grip with palm clasped to inner edge of handle.",
       "exerciseType": "isolation"
     },
     "row_dumbbell": {
@@ -382,7 +382,7 @@
       "deltaW": 10,
       "restBetweenSets": 150,
       "restBetweenExercises": 60,
-      "notes": "Pause 1 second when the handle reaches your body. Pull elbows back, keep chest against the pad, and sit tall.",
+      "notes": "Pause 1 second when the handle reaches your body. Tuck and pull elbows back, keep chest against the pad, and sit tall. Pull all the way back don't do half pulls.",
       "exerciseType": "compound"
     },
     "shoulder_press_machine": {
