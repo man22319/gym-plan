@@ -18,8 +18,7 @@
           "label": "Upper Chest + Delts",
           "exercises": [
             { "exerciseRef": "db_bench_incline", "letter": "A" },
-            { "exerciseRef": "reverse_pd", "letter": "B" },
-            { "exerciseRef": "lateral_raise_machine", "letter": "C" }
+            { "exerciseRef": "shoulder_press_machine", "letter": "B" }
           ]
         },
         {
@@ -73,8 +72,7 @@
           "exercises": [
             { "exerciseRef": "db_bench_incline", "letter": "A" },
             { "exerciseRef": "chest_press_machine", "letter": "B" },
-            { "exerciseRef": "lateral_raise_machine", "letter": "C" },
-            { "exerciseRef": "reverse_pd", "letter": "D" }
+            { "exerciseRef": "shoulder_press_machine", "letter": "C" }
           ]
         },
         {
@@ -88,12 +86,12 @@
       ]
     },
     {
-      "id": "session_sat",
-      "dayLabel": "SAT",
+      "id": "session_sun",
+      "dayLabel": "SUN",
       "sessionLabel": "Session 4",
       "blocks": [
         {
-          "id": "sat_lower_body",
+          "id": "sun_lower_body",
           "label": "Lower Body",
           "exercises": [
             { "exerciseRef": "leg_press", "letter": "A" },
@@ -102,7 +100,7 @@
           ]
         },
         {
-          "id": "sat_back_traps",
+          "id": "sun_back_traps",
           "label": "Back + Traps",
           "exercises": [
             { "exerciseRef": "lat_pull", "letter": "A", "overrides": { "sets": 4 } },
@@ -111,7 +109,15 @@
           ]
         },
         {
-          "id": "sat_arms",
+          "id": "sun_delts",
+          "label": "Delts",
+          "exercises": [
+            { "exerciseRef": "lateral_raise_machine", "letter": "A" },
+            { "exerciseRef": "reverse_pd", "letter": "B" }
+          ]
+        },
+        {
+          "id": "sun_arms",
           "label": "Arms + Forearms",
           "exercises": [
             { "exerciseRef": "reverse_curl", "letter": "A", "overrides": { "sets": 3 } },
@@ -119,7 +125,7 @@
           ]
         },
         {
-          "id": "sat_core",
+          "id": "sun_core",
           "label": "Core",
           "exercises": [
             { "exerciseRef": "abdominal_crunch", "letter": "A" }
