@@ -1207,9 +1207,21 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
         evidenceInvalidated = true;
       }
     } else {
-      // User performed a lower weight than recommended: hold target weight but reset streak.
+      // User performed a lower weight than recommended — rebuild/re-acclimation.
+      // The active working-weight anchor must follow the actual session weight so
+      // that future suggestions are based on where the user is, not where they were.
+      // Historical peak (prevHistoricalPeak) remains unchanged — it is informational.
+      //
+      // Only update the anchor on non-failing sessions: a non-failing (adequate or
+      // qualifying) session at a lower weight is a deliberate rebuild step.
+      // A failing session at a lower weight is handled by the regression path instead.
       consecutiveQualifying = 0;
       evidenceInvalidated = true;
+      if (classification !== 'failing' && sessionWorkingWeight != null) {
+        // FIX ERR-PEAK-LEAKAGE: shift active anchor to the actual performed weight.
+        // Prevents HOLD: <historicalPeak> when the user is rebuilding at a lower weight.
+        currentWeight = sessionWorkingWeight;
+      }
     }
   } else if (!isBootstrap && sessionWorkingWeight != null && sessionWorkingWeight === currentWeight) {
     // User performed target weight: normal streak logic.
