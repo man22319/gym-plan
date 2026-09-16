@@ -1,63 +1,54 @@
 {
   "sessions": [
     {
-      "id": "session_mon",
-      "dayLabel": "MON",
+      "id": "session_wed",
+      "dayLabel": "WED",
       "sessionLabel": "Session 1",
       "blocks": [
         {
-          "id": "mon_back",
-          "label": "Back",
+          "id": "wed_chest_delts",
+          "label": "Upper Chest + Side Delts",
           "exercises": [
-            { "exerciseRef": "lat_pull", "letter": "A", "overrides": { "sets": 3 } },
-            { "exerciseRef": "row_machine", "letter": "B", "overrides": { "sets": 3 } }
+            {
+              "exerciseRef": "db_bench_incline",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
+            }
           ]
         },
         {
-          "id": "mon_chest_delts",
-          "label": "Upper Chest + Delts",
-          "exercises": [
-            { "exerciseRef": "db_bench_incline", "letter": "A" },
-            { "exerciseRef": "reverse_pd", "letter": "B" },
-            { "exerciseRef": "lateral_raise_machine", "letter": "C" }
-          ]
-        },
-        {
-          "id": "mon_arms",
+          "id": "wed_arms",
           "label": "Arms",
           "exercises": [
-            { "exerciseRef": "hammer_curl", "letter": "A" },
-            { "exerciseRef": "tri_press", "letter": "B", "overrides": { "sets": 3 } }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "session_wed",
-      "dayLabel": "WED",
-      "sessionLabel": "Session 2",
-      "blocks": [
-        {
-          "id": "wed_lower_body",
-          "label": "Lower Body",
-          "exercises": [
-            { "exerciseRef": "leg_press", "letter": "A" },
-            { "exerciseRef": "leg_curl", "letter": "B" },
-            { "exerciseRef": "back_ext", "letter": "C" }
+            {
+              "exerciseRef": "hammer_curl",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "tri_press",
+              "letter": "B",
+              "overrides": {
+                "sets": 3
+              }
+            }
           ]
         },
         {
           "id": "wed_core",
           "label": "Core",
           "exercises": [
-            { "exerciseRef": "abdominal_crunch", "letter": "A" }
-          ]
-        },
-        {
-          "id": "wed_forearms",
-          "label": "Forearms",
-          "exercises": [
-            { "exerciseRef": "db_wrist_curl", "letter": "A" }
+            {
+              "exerciseRef": "abdominal_crunch",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
+            }
           ]
         }
       ]
@@ -65,64 +56,209 @@
     {
       "id": "session_fri",
       "dayLabel": "FRI",
-      "sessionLabel": "Session 3",
+      "sessionLabel": "Session 2",
       "blocks": [
         {
-          "id": "fri_chest_delts",
-          "label": "Chest + Delts",
+          "id": "fri_back_shoulders",
+          "label": "Back + Shoulders",
           "exercises": [
-            { "exerciseRef": "db_bench_incline", "letter": "A" },
-            { "exerciseRef": "chest_press_machine", "letter": "B" },
-            { "exerciseRef": "lateral_raise_machine", "letter": "C" },
-            { "exerciseRef": "reverse_pd", "letter": "D" }
+            {
+              "exerciseRef": "lat_pull",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "row_machine",
+              "letter": "B",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "shoulder_press_machine",
+              "letter": "C",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "lateral_raise_machine",
+              "letter": "D",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "reverse_pd",
+              "letter": "E",
+              "overrides": {
+                "sets": 3
+              }
+            }
           ]
         },
         {
-          "id": "fri_arms",
-          "label": "Arms",
+          "id": "fri_lower_body",
+          "label": "Lower Body",
           "exercises": [
-            { "exerciseRef": "barbell_curl", "letter": "A" },
-            { "exerciseRef": "tri_press", "letter": "B" }
+            {
+              "exerciseRef": "leg_press",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "leg_curl",
+              "letter": "B",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "back_ext",
+              "letter": "C",
+              "overrides": {
+                "sets": 2
+              }
+            }
           ]
         }
       ]
     },
     {
-      "id": "session_sat",
-      "dayLabel": "SAT",
-      "sessionLabel": "Session 4",
+      "id": "session_sun",
+      "dayLabel": "SUN",
+      "sessionLabel": "Session 3",
       "blocks": [
         {
-          "id": "sat_lower_body",
-          "label": "Lower Body",
-          "exercises": [
-            { "exerciseRef": "leg_press", "letter": "A" },
-            { "exerciseRef": "leg_curl", "letter": "B" },
-            { "exerciseRef": "back_ext", "letter": "C" }
-          ]
-        },
-        {
-          "id": "sat_back_traps",
+          "id": "sun_back_traps",
           "label": "Back + Traps",
           "exercises": [
-            { "exerciseRef": "lat_pull", "letter": "A", "overrides": { "sets": 4 } },
-            { "exerciseRef": "row_machine", "letter": "B", "overrides": { "sets": 3 } },
-            { "exerciseRef": "db_shrug", "letter": "C" }
+            {
+              "exerciseRef": "lat_pull",
+              "letter": "A",
+              "overrides": {
+                "sets": 4
+              }
+            },
+            {
+              "exerciseRef": "row_machine",
+              "letter": "B",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "db_shrug",
+              "letter": "C",
+              "overrides": {
+                "sets": 3
+              }
+            }
           ]
         },
         {
-          "id": "sat_arms",
+          "id": "sun_chest_delts",
+          "label": "Chest + Delts",
+          "exercises": [
+            {
+              "exerciseRef": "db_bench_incline",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "chest_press_machine",
+              "letter": "B",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "lateral_raise_machine",
+              "letter": "C",
+              "overrides": {
+                "sets": 3
+              }
+            }
+          ]
+        },
+        {
+          "id": "sun_arms_forearms",
           "label": "Arms + Forearms",
           "exercises": [
-            { "exerciseRef": "reverse_curl", "letter": "A", "overrides": { "sets": 3 } },
-            { "exerciseRef": "db_wrist_curl", "letter": "B" }
+            {
+              "exerciseRef": "barbell_curl",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "tri_press",
+              "letter": "B",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "reverse_curl",
+              "letter": "C",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "db_wrist_curl",
+              "letter": "D",
+              "overrides": {
+                "sets": 3
+              }
+            }
           ]
         },
         {
-          "id": "sat_core",
+          "id": "sun_lower_body",
+          "label": "Lower Body",
+          "exercises": [
+            {
+              "exerciseRef": "leg_press",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "leg_curl",
+              "letter": "B",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "back_ext",
+              "letter": "C",
+              "overrides": {
+                "sets": 2
+              }
+            }
+          ]
+        },
+        {
+          "id": "sun_core",
           "label": "Core",
           "exercises": [
-            { "exerciseRef": "abdominal_crunch", "letter": "A" }
+            {
+              "exerciseRef": "abdominal_crunch",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
+            }
           ]
         }
       ]
