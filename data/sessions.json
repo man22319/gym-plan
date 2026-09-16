@@ -15,13 +15,6 @@
               "overrides": {
                 "sets": 3
               }
-            },
-            {
-              "exerciseRef": "lateral_raise_machine",
-              "letter": "B",
-              "overrides": {
-                "sets": 3
-              }
             }
           ]
         },
@@ -91,8 +84,15 @@
               }
             },
             {
-              "exerciseRef": "reverse_pd",
+              "exerciseRef": "lateral_raise_machine",
               "letter": "D",
+              "overrides": {
+                "sets": 3
+              }
+            },
+            {
+              "exerciseRef": "reverse_pd",
+              "letter": "E",
               "overrides": {
                 "sets": 3
               }
