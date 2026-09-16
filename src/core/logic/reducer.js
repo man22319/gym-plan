@@ -3,7 +3,7 @@ import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWor
 import { query } from './queries.js';
 import { resolveWeight, resolveReps, getWorkingWeight } from '../utils/helpers.js';
 import { startRestTimer, skipRestTimer } from '../utils/restTimer.js';
-import { updateFatigueAndTau, calculateRecommendedRest } from '../utils/adaptiveRecovery.js';
+import { onSetCompletion, updateRecoveryStateOnSessionEnd, resolveCategory } from '../utils/adaptiveRecovery.js';
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
 import { calculateProgressionFromHistory, computeControllerDistance } from './progression.js';
 import { expandImport } from '../../io/compactFormat.js';
@@ -135,19 +135,27 @@ export function reducer(currentState, action) {
       };
       sets[idx] = newSet;
 
+      // v3: runtime state shape — { fatigueDebt, firstSetReps, previousRecommendation, sessionRestFloor }
       let runtimeRecovery = currentState.activeRecoveryState?.[exId];
       if (!runtimeRecovery || idx === 0) {
-        runtimeRecovery = { fatigueDebt: 0, firstSetReps: null, previousRestSec: null };
+        runtimeRecovery = { fatigueDebt: 0, firstSetReps: null, previousRecommendation: null, sessionRestFloor: null };
       }
 
       const previousSet = idx > 0 ? sets[idx - 1] : null;
 
-      const newRuntime = updateFatigueAndTau(
-        runtimeRecovery,
+      // Resolve exercise category for TAU_PRIORS / legacyRest
+      const ex = EXERCISE_INDEX[exId];
+      const category = resolveCategory(ex?.exerciseType);
+      const exerciseRecovery = currentState.progressionState?.[exId]?.recovery ?? {};
+
+      // Run the full set-completion pipeline (v3)
+      const { runtimeState: newRuntime } = onSetCompletion(
         newSet,
         previousSet,
-        'unknown',
-        null
+        runtimeRecovery,
+        exerciseRecovery,
+        category,
+        null  // estimated1RM — §18: out of scope for this version
       );
 
       // Dynamic Working Weight Override candidate check
@@ -298,7 +306,7 @@ export function reducer(currentState, action) {
         history:               currentState.history          ?? [],
         completedWorkouts:     currentState.completedWorkouts ?? 0,
         progressionState:      currentState.progressionState ?? {},
-        adaptiveRecoveryState: currentState.adaptiveRecoveryState ?? {},
+        // adaptiveRecoveryState removed (v3: recovery lives in progressionState[exId].recovery)
         overrideCandidates:    {},
         ignoredOverrides:      {},
       };
@@ -711,31 +719,14 @@ export function dispatch(type, payload = {}) {
             ? (ex.restBetweenExercises ?? REST_DURATION)
             : (ex.restBetweenSets      ?? REST_DURATION);
 
-          // F1: Dynamic rest scaling using active recovery
+          // v3: Rest recommendation is computed by onSetCompletion in the
+          // reducer and stored as previousRecommendation in runtime state.
+          // Read it directly — no second calculation needed here.
           if (!isLastSet && ex.sets > 1) {
             const runtimeState = nextState.activeRecoveryState?.[exId];
-            
-            if (runtimeState) {
-              const repProgress = idx / (ex.sets - 1);
-              const restMultiplier = 1 + 0.5 * Math.max(0, Math.min(1, repProgress));
-              const legacyRest = Math.min(Math.round(restDuration * restMultiplier), 180);
-              
-              const recommendedRest = calculateRecommendedRest(
-                runtimeState.fatigueDebt,
-                legacyRest,
-                runtimeState.previousRestSec,
-                restDuration
-              );
-              
-              nextState.activeRecoveryState = {
-                ...(nextState.activeRecoveryState || {}),
-                [exId]: {
-                  ...runtimeState,
-                  previousRestSec: recommendedRest
-                }
-              };
-              
-              startRestTimer(recommendedRest);
+
+            if (runtimeState?.previousRecommendation != null) {
+              startRestTimer(runtimeState.previousRecommendation);
             } else {
               startRestTimer(restDuration);
             }
@@ -766,7 +757,33 @@ export function dispatch(type, payload = {}) {
       const session = workouts.find(s => s.id === payload.sessionId);
       if (session) {
         const allExercises = session.blocks.flatMap(b => b.exercises);
-        
+
+        // ── v3: Recovery learning (must run BEFORE rebuildAllProgressions) ──
+        // Update progressionState[exId].recovery for each exercise in the
+        // session using the just-committed history entry.  rebuildAllProgressions
+        // will carry the recovery sub-object through as a passthrough field.
+        const recoveryProgState = { ...(nextState.progressionState || {}) };
+        for (const inst of allExercises) {
+          const instanceId = inst.instanceId;
+          const completedEntry = (nextState.history || []).find(
+            e => !e.inferred && e.sessionId === payload.sessionId
+          );
+          if (completedEntry) {
+            const sets = completedEntry.exercises?.[instanceId] ?? [];
+            const prevRecovery = recoveryProgState[instanceId]?.recovery ?? {};
+            const updatedRecovery = updateRecoveryStateOnSessionEnd(
+              prevRecovery,
+              sets,
+              {} // no explicit override at session level for now
+            );
+            recoveryProgState[instanceId] = {
+              ...(recoveryProgState[instanceId] ?? {}),
+              recovery: updatedRecovery,
+            };
+          }
+        }
+        nextState = { ...nextState, progressionState: recoveryProgState };
+
         // ── Progression state ─────────
         nextState = rebuildAllProgressions(nextState);
 
@@ -896,6 +913,10 @@ export function rebuildAllProgressions(appState) {
         averageRIR:            updated.averageRIR             ?? null,
         historicalPeak:        updated.historicalPeak         ?? null,
         manualOverride:        updated.manualOverride         ?? null,
+        // v3: Carry through the adaptive recovery sub-object.
+        // This is set by updateRecoveryStateOnSessionEnd (runs before rebuildAllProgressions)
+        // and must survive the progression rebuild without being wiped.
+        recovery:              appState.progressionState?.[instanceId]?.recovery ?? {},
       };
     } catch (err) {
       console.warn(`[rebuildAllProgressions] Skipped ${instanceId}:`, err);
