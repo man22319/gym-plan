@@ -859,3 +859,124 @@
   animation: dotCancelSnap 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both !important;
 }
 
+/* ══════════════════════════════════════════════════════
+   Dynamic Working Weight Override Banner
+   Subtle, inline prompt displayed when a lower weight is logged
+══════════════════════════════════════════════════════ */
+.ex-override-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0 16px 12px 16px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  animation: overridePromptEnter 0.25s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+@keyframes overridePromptEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ex-override-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.ex-override-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--silver);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.ex-override-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ex-override-text {
+  font-size: 0.8125rem;
+  color: var(--white);
+  line-height: 1.35;
+}
+
+.ex-override-text strong {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  color: var(--white);
+}
+
+.ex-override-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.2px;
+}
+
+.ex-override-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ex-override-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ex-override-confirm {
+  background: var(--white);
+  color: #000;
+  border: 1px solid var(--white);
+  font-weight: 600;
+}
+
+.ex-override-confirm:hover {
+  background: #eaeaea;
+  border-color: #eaeaea;
+  transform: translateY(-1px);
+}
+
+.ex-override-confirm:active {
+  transform: translateY(0);
+}
+
+.ex-override-ignore {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.ex-override-ignore:hover {
+  color: var(--white);
+  border-color: var(--border-hi);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+

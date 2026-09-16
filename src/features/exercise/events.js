@@ -17,6 +17,27 @@ import { openHistoryModal } from '../modals/index.js';
 
 export function setupExerciseEvents() {
   document.addEventListener('click', e => {
+    // ── Working weight override prompt actions ───────────
+    const confirmBtn = e.target.closest('.ex-override-confirm');
+    if (confirmBtn) {
+      const exId = confirmBtn.dataset.exId;
+      const weight = parseFloat(confirmBtn.dataset.weight);
+      if (exId && !isNaN(weight)) {
+        dispatch('CONFIRM_WORKING_WEIGHT_OVERRIDE', { exId, weight });
+      }
+      return;
+    }
+
+    const ignoreBtn = e.target.closest('.ex-override-ignore');
+    if (ignoreBtn) {
+      const exId = ignoreBtn.dataset.exId;
+      const weight = parseFloat(ignoreBtn.dataset.weight);
+      if (exId && !isNaN(weight)) {
+        dispatch('IGNORE_WORKING_WEIGHT_OVERRIDE', { exId, weight });
+      }
+      return;
+    }
+
     // ── Rest timer controls ──────────────────────────────
     if (e.target.closest('#rest-timer-skip'))   { skipRestTimer();     return; }
     if (e.target.closest('#rest-timer-extend')) { extendRestTimer(30); return; }

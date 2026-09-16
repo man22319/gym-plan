@@ -375,7 +375,7 @@ export function buildCard(ex, appState, readOnly = false) {
     ? `<div class="cross-day-hints-container" style="margin: 0 1rem 0.5rem 1rem; display: flex; flex-direction: row; flex-wrap: wrap; gap: 4px;">${crossDayHints.map(hint => `<div class="cross-day-hint" style="font-size: 0.75rem; color: var(--muted); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; display: inline-block;">${hint}</div>`).join('')}</div>`
     : '';
 
-  const isOverridden = !!appState?.runtimeOverrides?.[instanceId]?.workingWeight;
+  const isOverridden = !!appState?.runtimeOverrides?.[instanceId]?.workingWeight || !!appState?.progressionState?.[instanceId]?.manualOverride;
   const wStr = formatWeight(workingWeight);
   const stepVal = getDeltaW(effEx?.deltaW, workingWeight);
   const prs = query.currentSetPRs(appState, instanceId);
@@ -418,6 +418,28 @@ export function buildCard(ex, appState, readOnly = false) {
   
   // Inline form cue (plain italic text)
   const formCueHtml = buildNotesRow(ex, appState);
+
+  // Dynamic Working Weight Override prompt banner
+  const candidate = (!readOnly && appState?.overrideCandidates?.[instanceId])
+    ? appState.overrideCandidates[instanceId]
+    : null;
+
+  const overrideBannerHtml = candidate ? `
+    <div class="ex-override-prompt" data-ex-id="${instanceId}" data-weight="${candidate.weight}">
+      <div class="ex-override-body">
+        <div class="ex-override-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </div>
+        <div class="ex-override-text-wrap">
+          <div class="ex-override-text">New lower weight logged: <strong>${candidate.weight} lbs</strong>.</div>
+          <div class="ex-override-sub">Set as your new working weight?</div>
+        </div>
+      </div>
+      <div class="ex-override-actions">
+        <button type="button" class="ex-override-btn ex-override-confirm" data-ex-id="${instanceId}" data-weight="${candidate.weight}">Set as Working</button>
+        <button type="button" class="ex-override-btn ex-override-ignore" data-ex-id="${instanceId}" data-weight="${candidate.weight}">Ignore</button>
+      </div>
+    </div>` : '';
 
   return `<div class="exercise-card ${cardClass}" data-ex-id="${instanceId}">
     <div class="exercise-header" data-ex-id="${instanceId}">
@@ -463,6 +485,7 @@ export function buildCard(ex, appState, readOnly = false) {
       </div>
     </div>
     
+    ${overrideBannerHtml}
     ${formCueHtml}
     ${editPanelHtml}
     ${crossDayHtml}
@@ -831,6 +854,15 @@ export function buildProgressionRow(instanceId, appState, readOnly = false) {
         distance = prevPs.controllerDistance;
       }
     }
+  }
+
+  // Display preserved historical peak if higher than active working weight
+  const historicalPeak = query.historicalPeak(appState, instanceId);
+  const currentWW = getWorkingWeight(appState, instanceId);
+  if (historicalPeak !== null && currentWW !== null && historicalPeak > currentWW) {
+    chips.push(
+      `<span class="prog-chip prog-chip-preview" title="Historical peak performance (${historicalPeak} lbs) preserved across baseline resets">PEAK: <strong>${historicalPeak} lbs</strong></span>`
+    );
   }
 
   if (!chips.length) return { html: '', distance };

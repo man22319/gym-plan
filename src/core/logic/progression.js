@@ -981,6 +981,12 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     }
   }
 
+  // ── Manual Working-Weight Override ─────────────────────────────────────
+  // Explicit manual baseline override supersedes automatic historical
+  // peak-matching and progression calculations.
+  const hasManualOverride = opts.manualOverride != null;
+  const activeManualWeight = hasManualOverride ? opts.manualOverride : null;
+
   // ── F7: Evidence invalidation on weight change ──────────────────────────
   const prevValidatedWeight = prev.validatedWorkingWeight ?? prevWeight;
   let effectiveConsecutive = prevConsecutive;
@@ -988,7 +994,13 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   let evidenceInvalidated = false;
   let effectiveOutcomes = prevOutcomes; // Option C: Weight-scoped history
 
-  if (prevWeight != null && prevValidatedWeight != null && prevWeight !== prevValidatedWeight) {
+  if (hasManualOverride) {
+    // Explicit override resets streak and evidence requirements
+    effectiveConsecutive = 0;
+    effectiveSuccessfulExposure = 0;
+    effectiveOutcomes = [];
+    evidenceInvalidated = true;
+  } else if (prevWeight != null && prevValidatedWeight != null && prevWeight !== prevValidatedWeight) {
     // Weight changed since evidence was last validated — reset streak
     effectiveConsecutive = 0;
     effectiveSuccessfulExposure = 0;
@@ -1003,18 +1015,20 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     effectiveOutcomes = []; // Option C: Clear outcomes on deconditioning
   }
 
+  const prevHistoricalPeak = prev.historicalPeak ?? prevValidatedWeight ?? prevWeight ?? null;
+
   // ── Input validation (fail closed) ──────────────────────────────────────
   // Invalid inputs → return previous state unchanged with decision 'hold'.
   // This prevents the controller from producing garbage-shaped certainty
   // on malformed configuration.
   if (repRange.min != null && repRange.max != null && repRange.min > repRange.max) {
-    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight, effectiveSuccessfulExposure, prev.averageRIR);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight, effectiveSuccessfulExposure, prev.averageRIR, prevHistoricalPeak, prev.manualOverride);
   }
   if (dw === undefined || dw === null || isNaN(dw) || dw <= 0) {
-    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight, effectiveSuccessfulExposure, prev.averageRIR);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight, effectiveSuccessfulExposure, prev.averageRIR, prevHistoricalPeak, prev.manualOverride);
   }
   if (opts.prescribedRestSec != null && opts.prescribedRestSec < 0) {
-    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight, effectiveSuccessfulExposure, prev.averageRIR);
+    return _failClosed(prevWeight, effectiveConsecutive, prevOutcomes, dw, maxW, prevRomSummaries, prevZeroRir, prev.deloadStreak, prevPerformedWeight, effectiveSuccessfulExposure, prev.averageRIR, prevHistoricalPeak, prev.manualOverride);
   }
 
   const completedSets = (sets || []).filter(s => s.s === 'done');
@@ -1041,7 +1055,7 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     zeroRirCount,
     averageRIR,
     isDeload,
-  } = classifySession(sets, repRange, prevWeight, {
+  } = classifySession(sets, repRange, activeManualWeight ?? prevWeight, {
     prescribedRestSec: opts.prescribedRestSec ?? 0,
     prescribedWeight: opts.prescribedWeight ?? null,
     dw,
@@ -1049,14 +1063,15 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
 
   // No completed working sets — return state unchanged with no suggestion
   if (classification === null) {
+    const currentAnchor = activeManualWeight ?? prevWeight;
     return {
-      currentWeight: prevWeight,
+      currentWeight: currentAnchor,
       consecutiveQualifying: effectiveConsecutive,
       recentOutcomes: prevOutcomes,
       dw,
-      suggestedWeight: prevWeight,
+      suggestedWeight: currentAnchor,
       decision: 'hold',
-      isFirstSession: prevWeight === null,
+      isFirstSession: currentAnchor === null,
       sessionClassification: null,
       topWeight: topWeight ?? null,
       controllerDistance: computeControllerDistance({ consecutiveQualifying: effectiveConsecutive, recentOutcomes: prevOutcomes }),
@@ -1074,12 +1089,14 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
       // F3/F6/F7 state — carry forward unchanged
       exposureCount,
       domsAdjustmentWindow: false,
-      validatedWorkingWeight: evidenceInvalidated ? prevWeight : prevValidatedWeight,
+      validatedWorkingWeight: activeManualWeight ?? (evidenceInvalidated ? prevWeight : prevValidatedWeight),
       lastPerformedWeight: prevPerformedWeight,
       plannedJump: prev.plannedJump ?? null,
       requiredEvidence: prev.requiredEvidence ?? DEFAULTS.qualifyThreshold,
       successfulExposureCount: effectiveSuccessfulExposure,
       averageRIR: prev.averageRIR ?? null,
+      historicalPeak: prevHistoricalPeak,
+      manualOverride: activeManualWeight ?? prev.manualOverride ?? null,
     };
   }
 
@@ -1105,9 +1122,11 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   // needed after observing real data.
   const BOOTSTRAP_CONFIDENCE_THRESHOLD = 0.75;
 
-  const isBootstrap = prevWeight == null;
+  const isBootstrap = prevWeight == null && !hasManualOverride;
   let currentWeight;
-  if (isBootstrap) {
+  if (hasManualOverride) {
+    currentWeight = activeManualWeight;
+  } else if (isBootstrap) {
     const hasPerformedPrescribed = (sets || []).some(s => s.s === 'done' && s.w === opts.prescribedWeight);
     const safePrescribed = hasPerformedPrescribed ? opts.prescribedWeight : null;
 
@@ -1347,7 +1366,14 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     }
   }
 
-  if (highestValidWorkingWeight !== null) {
+  let historicalPeak = Math.max(prevHistoricalPeak ?? 0, highestValidWorkingWeight ?? 0) || null;
+
+  if (hasManualOverride) {
+    // Explicit manual baseline override supersedes automatic historical peak-matching.
+    // Preserves historicalPeak while anchoring committedWeight and suggestedWeight to the override.
+    committedWeight = activeManualWeight;
+    suggestedWeight = activeManualWeight;
+  } else if (highestValidWorkingWeight !== null) {
     if (committedWeight !== null && committedWeight < highestValidWorkingWeight) {
       console.warn(
         "Invariant violation: committedWeight below historical performance. Forcing up.",
@@ -1377,6 +1403,9 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
   if (maxW != null && suggestedWeight > maxW) {
     suggestedWeight = maxW;
   }
+
+  // Historical peak captures the highest validated or committed working weight
+  historicalPeak = Math.max(historicalPeak ?? 0, committedWeight ?? 0) || null;
 
   // F7: Update validatedWorkingWeight on progression/regression decisions
   const validatedWorkingWeight = (decision === 'progress' || decision === 'regress' || weightChanged)
@@ -1452,22 +1481,30 @@ export function updateProgressionState(prev = {}, sets = [], opts = {}) {
     deloadStreak: currentDeloadStreak,
     successfulExposureCount,
     averageRIR,
+    historicalPeak,
+    manualOverride: activeManualWeight ?? (prev.manualOverride ?? null),
   };
 }
 
 /**
  * Re-evaluate progression state from a full history of sessions.
  * 
- * @param {Array<{ timestamp: number, sets: object[] }>} historyEntries - chronologically ordered sessions
+ * @param {Array<{ timestamp: number, sets: object[], manualOverrides?: object, manualOverride?: number }>} historyEntries - chronologically ordered sessions
  * @param {object} currentOpts - the current exercise progression options
  * @returns {object} the progression state evaluated from scratch using current options
  */
 export function calculateProgressionFromHistory(historyEntries, currentOpts = {}) {
   let state = {};
   for (const entry of historyEntries) {
+    const instId = currentOpts.instanceId;
+    const manualOverride = (instId && entry.manualOverrides?.[instId])
+      ?? entry.manualOverrides?.[instId]
+      ?? entry.manualOverride;
+
     state = updateProgressionState(state, entry.sets, {
       ...currentOpts,
-      sessionTimestamp: entry.timestamp
+      sessionTimestamp: entry.timestamp,
+      ...(manualOverride != null ? { manualOverride } : {})
     });
   }
   return state;
@@ -1478,7 +1515,7 @@ export function calculateProgressionFromHistory(historyEntries, currentOpts = {}
  * Used when input validation fails.
  * @private
  */
-function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null, prevRomSummaries = [], prevZeroRir = [], prevDeloadStreak = 0, prevLastPerformedWeight = null, prevSuccessfulExposure = 0, prevAverageRIR = null) {
+function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null, prevRomSummaries = [], prevZeroRir = [], prevDeloadStreak = 0, prevLastPerformedWeight = null, prevSuccessfulExposure = 0, prevAverageRIR = null, prevHistoricalPeak = null, prevManualOverride = null) {
   const cw = maxW != null && prevWeight != null ? Math.min(prevWeight, maxW) : prevWeight;
   return {
     currentWeight: cw,
@@ -1506,6 +1543,8 @@ function _failClosed(prevWeight, prevConsecutive, prevOutcomes, dw, maxW = null,
     lastPerformedWeight: prevLastPerformedWeight,
     successfulExposureCount: prevSuccessfulExposure,
     averageRIR: prevAverageRIR,
+    historicalPeak: prevHistoricalPeak,
+    manualOverride: prevManualOverride,
   };
 }
 

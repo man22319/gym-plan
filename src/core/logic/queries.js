@@ -241,6 +241,18 @@ export const query = {
     };
   },
 
+  /**
+   * Returns the highest validated performance (historical peak) for an exercise.
+   * Distinct from active working weight (progression anchor).
+   */
+  historicalPeak(appState, exId) {
+    const ps = appState?.progressionState?.[exId];
+    if (ps?.historicalPeak != null) return ps.historicalPeak;
+    const pr = this.personalRecords(appState, exId);
+    if (pr.heaviestSet?.w != null) return pr.heaviestSet.w;
+    return ps?.validatedWorkingWeight ?? ps?.currentWeight ?? null;
+  },
+
   // ── Personal Records ──────────────────────────────────────────────────────
 
   personalRecords(appState, exId) {

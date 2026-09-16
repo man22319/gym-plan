@@ -1,28 +1,31 @@
 import { DEV_MODE, REST_DURATION, makeSet, makeCardio, makeDefaultExercises, createDefaultState, STORAGE_KEY } from '../state/state.js';
 import { workouts, EXERCISE_INDEX, state, setState, EX_SESSION_INDEX, defaultWorkoutsData } from '../state/store.js';
 import { query } from './queries.js';
-import { resolveWeight, resolveReps } from '../utils/helpers.js';
+import { resolveWeight, resolveReps, getWorkingWeight } from '../utils/helpers.js';
 import { startRestTimer, skipRestTimer } from '../utils/restTimer.js';
 import { updateFatigueAndTau, calculateRecommendedRest } from '../utils/adaptiveRecovery.js';
 import { persist, normalize, sanitizeSessions, loadState } from '../state/persistence.js';
-import { calculateProgressionFromHistory } from './progression.js';
+import { calculateProgressionFromHistory, computeControllerDistance } from './progression.js';
 import { expandImport } from '../../io/compactFormat.js';
 import { inferMissingWorkouts } from './scheduleSync.js';
 
 export const ALLOWED_ACTIONS = {
-  SET_ACTIVE_SESSION:        ['sessionId'],
-  TOGGLE_SET:                ['exId', 'idx'],
-  LOG_AND_MARK_DONE:         ['exId', 'idx', 'weight', 'reps', 'note'],
-  RESET_SESSION:             [],
-  RELOAD_IMPORTED_DATA:      [],
-  FACTORY_RESET:             [],
-  IMPORT_STATE:              ['data'],
-  START_SESSION:             [],
-  UPDATE_EXERCISE_OVERRIDE:  ['exId', 'fields'],
-  UPDATE_TEMPLATE:           ['sessions', 'sessionsPerWeek'],  // exerciseLibrary is optional
-  FINISH_WORKOUT:            ['sessionId'],
-  UPDATE_CARDIO:             ['cardio'],
-  UPDATE_PROGRESSION_STATE:  ['progressionState'],
+  SET_ACTIVE_SESSION:              ['sessionId'],
+  TOGGLE_SET:                      ['exId', 'idx'],
+  LOG_AND_MARK_DONE:               ['exId', 'idx', 'weight', 'reps', 'note'],
+  RESET_SESSION:                   [],
+  RELOAD_IMPORTED_DATA:            [],
+  FACTORY_RESET:                   [],
+  IMPORT_STATE:                    ['data'],
+  MERGE_IMPORT:                    ['data'],
+  START_SESSION:                   [],
+  UPDATE_EXERCISE_OVERRIDE:        ['exId', 'fields'],
+  UPDATE_TEMPLATE:                 ['sessions', 'sessionsPerWeek'],  // exerciseLibrary is optional
+  FINISH_WORKOUT:                  ['sessionId'],
+  UPDATE_CARDIO:                   ['cardio'],
+  UPDATE_PROGRESSION_STATE:        ['progressionState'],
+  CONFIRM_WORKING_WEIGHT_OVERRIDE: ['exId', 'weight'],
+  IGNORE_WORKING_WEIGHT_OVERRIDE:  ['exId', 'weight'],
 };
 
 export function validateAction(type, payload) {
@@ -45,7 +48,8 @@ export function reducer(currentState, action) {
   const { type, payload } = action;
 
   // Guard against modifying a session that is already finished in the current week
-  if (type === 'TOGGLE_SET' || type === 'LOG_AND_MARK_DONE' || type === 'UPDATE_EXERCISE_OVERRIDE') {
+  if (type === 'TOGGLE_SET' || type === 'LOG_AND_MARK_DONE' || type === 'UPDATE_EXERCISE_OVERRIDE' ||
+      type === 'CONFIRM_WORKING_WEIGHT_OVERRIDE' || type === 'IGNORE_WORKING_WEIGHT_OVERRIDE') {
     const { exId } = payload;
     const sessionId = EX_SESSION_INDEX[exId];
     if (sessionId && query.isSessionFinishedInCurrentWeek(currentState, sessionId)) {
@@ -146,10 +150,25 @@ export function reducer(currentState, action) {
         null
       );
 
+      // Dynamic Working Weight Override candidate check
+      const currentWorkingWeight = getWorkingWeight(currentState, exId);
+      const isDeload = payload.deload === true;
+      let overrideCandidates = { ...(currentState.overrideCandidates || {}) };
+
+      if (!isDeload && resolvedWeight !== null && currentWorkingWeight !== null && resolvedWeight < currentWorkingWeight) {
+        const isIgnored = (currentState.ignoredOverrides?.[exId] || []).includes(resolvedWeight);
+        if (!isIgnored) {
+          overrideCandidates[exId] = { weight: resolvedWeight, setIdx: idx };
+        }
+      } else if (resolvedWeight !== null && currentWorkingWeight !== null && resolvedWeight >= currentWorkingWeight) {
+        delete overrideCandidates[exId];
+      }
+
       return {
         ...currentState,
         exercises: { ...currentState.exercises, [exId]: sets },
-        activeRecoveryState: { ...(currentState.activeRecoveryState || {}), [exId]: newRuntime }
+        activeRecoveryState: { ...(currentState.activeRecoveryState || {}), [exId]: newRuntime },
+        overrideCandidates,
       };
     }
 
@@ -197,11 +216,14 @@ export function reducer(currentState, action) {
         const progCopy = { ...nextProgState };
         const prevProg = progCopy[exId] || {};
         if (prevProg.currentWeight !== fields.workingWeight) {
+          const prevHistoricalPeak = prevProg.historicalPeak ?? prevProg.validatedWorkingWeight ?? prevProg.currentWeight ?? null;
           progCopy[exId] = {
             ...prevProg,
             currentWeight: fields.workingWeight,
             consecutiveQualifying: 0,
             validatedWorkingWeight: fields.workingWeight,
+            historicalPeak: Math.max(prevHistoricalPeak ?? 0, fields.workingWeight) || null,
+            manualOverride: fields.workingWeight,
           };
           nextProgState = progCopy;
         }
@@ -210,18 +232,75 @@ export function reducer(currentState, action) {
       return { ...nextState, progressionState: nextProgState };
     }
 
+    case 'CONFIRM_WORKING_WEIGHT_OVERRIDE': {
+      const { exId, weight } = payload;
+      const overrideCandidates = { ...(currentState.overrideCandidates || {}) };
+      delete overrideCandidates[exId];
+
+      const progCopy = { ...(currentState.progressionState || {}) };
+      const prevProg = progCopy[exId] || {};
+      const prevHistoricalPeak = prevProg.historicalPeak ?? prevProg.validatedWorkingWeight ?? prevProg.currentWeight ?? null;
+      const historicalPeak = Math.max(prevHistoricalPeak ?? 0, weight) || null;
+
+      progCopy[exId] = {
+        ...prevProg,
+        currentWeight: weight,
+        validatedWorkingWeight: weight,
+        historicalPeak,
+        manualOverride: weight,
+        consecutiveQualifying: 0,
+        recentOutcomes: [],
+        successfulExposureCount: 0,
+        controllerDistance: computeControllerDistance({ consecutiveQualifying: 0, recentOutcomes: [] }),
+        lastSuggested: weight,
+        lastDecision: 'hold',
+      };
+
+      const runtimeOverrides = { ...(currentState.runtimeOverrides || {}) };
+      if (runtimeOverrides[exId]?.workingWeight !== undefined) {
+        runtimeOverrides[exId] = { ...runtimeOverrides[exId], workingWeight: weight };
+      }
+
+      return {
+        ...currentState,
+        progressionState: progCopy,
+        runtimeOverrides,
+        overrideCandidates,
+      };
+    }
+
+    case 'IGNORE_WORKING_WEIGHT_OVERRIDE': {
+      const { exId, weight } = payload;
+      const overrideCandidates = { ...(currentState.overrideCandidates || {}) };
+      delete overrideCandidates[exId];
+
+      const ignoredOverrides = { ...(currentState.ignoredOverrides || {}) };
+      const existing = ignoredOverrides[exId] || [];
+      if (!existing.includes(weight)) {
+        ignoredOverrides[exId] = [...existing, weight];
+      }
+
+      return {
+        ...currentState,
+        overrideCandidates,
+        ignoredOverrides,
+      };
+    }
+
     case 'RESET_SESSION': {
       const defaultState = createDefaultState(defaultWorkoutsData ?? { sessions: workouts });
       return {
         ...defaultState,
-        exerciseLibrary:   currentState.exerciseLibrary  ?? defaultState.exerciseLibrary,
-        programDefaults:   currentState.programDefaults  ?? defaultState.programDefaults,
-        sessions:          currentState.sessions         ?? defaultState.sessions,
-        sessionsPerWeek:   currentState.sessionsPerWeek  ?? 3,
-        history:           currentState.history          ?? [],
-        completedWorkouts: currentState.completedWorkouts ?? 0,
-        progressionState:  currentState.progressionState ?? {},
+        exerciseLibrary:       currentState.exerciseLibrary  ?? defaultState.exerciseLibrary,
+        programDefaults:       currentState.programDefaults  ?? defaultState.programDefaults,
+        sessions:              currentState.sessions         ?? defaultState.sessions,
+        sessionsPerWeek:       currentState.sessionsPerWeek  ?? 3,
+        history:               currentState.history          ?? [],
+        completedWorkouts:     currentState.completedWorkouts ?? 0,
+        progressionState:      currentState.progressionState ?? {},
         adaptiveRecoveryState: currentState.adaptiveRecoveryState ?? {},
+        overrideCandidates:    {},
+        ignoredOverrides:      {},
       };
     }
 
@@ -238,6 +317,48 @@ export function reducer(currentState, action) {
         console.log(`[scheduleSync] Inferred ${importInferred} missing workout(s) on import.`);
       }
       return rebuildAllProgressions(imported);
+    }
+
+    case 'MERGE_IMPORT': {
+      // Merge history from the incoming file into the current state.
+      // Deduplicates by entryId, appends only new entries, and rebuilds progressions.
+      const incoming = payload.data;
+      const incomingHistory = incoming.history || [];
+
+      // Collect existing entryIds for deduplication
+      const existingIds = new Set(
+        (currentState.history || []).map(e => e.entryId)
+      );
+
+      // Find entries in the incoming file that don't already exist
+      const newEntries = incomingHistory.filter(
+        e => e.entryId && !existingIds.has(e.entryId)
+      );
+
+      if (newEntries.length === 0) {
+        console.log('[MERGE_IMPORT] No new history entries found — nothing to merge.');
+        return currentState;
+      }
+
+      // Combine histories and sort chronologically
+      const mergedHistory = [...(currentState.history || []), ...newEntries]
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+      let merged = {
+        ...currentState,
+        history: mergedHistory,
+        completedWorkouts: (currentState.completedWorkouts ?? 0) + newEntries.length,
+      };
+
+      // Resynchronize mesocycle phase
+      const { augmentedHistory: mergeAug, inferredCount: mergeInferred } = inferMissingWorkouts(merged, merged.sessions);
+      if (mergeInferred > 0) {
+        merged = { ...merged, history: mergeAug };
+        console.log(`[scheduleSync] Inferred ${mergeInferred} missing workout(s) on merge.`);
+      }
+
+      console.log(`[MERGE_IMPORT] Merged ${newEntries.length} new entry/entries.`);
+      return rebuildAllProgressions(merged);
     }
 
     case 'RELOAD_IMPORTED_DATA': {
@@ -395,6 +516,14 @@ export function reducer(currentState, action) {
       // Strip any inferred placeholder for this session before appending the
       // real completion.  This prevents duplicate semantic events in history
       // (inferred + real for the same cycle position).
+      const manualOverrides = {};
+      session.blocks.flatMap(b => b.exercises).forEach(inst => {
+        const id = inst.instanceId;
+        if (currentState.progressionState?.[id]?.manualOverride != null) {
+          manualOverrides[id] = currentState.progressionState[id].manualOverride;
+        }
+      });
+
       const history = [...(currentState.history || [])]
         .filter(e => !(e.inferred && e.sessionId === sessionId));
       history.push({
@@ -406,6 +535,7 @@ export function reducer(currentState, action) {
         exercises:        exerciseSnapshot,
         exerciseRefs,     // enables cross-session exerciseRef queries
         cardio:           currentState.cardio ?? null,
+        manualOverrides:  Object.keys(manualOverrides).length > 0 ? manualOverrides : undefined,
         startupOverheadMs,
         blockTimings,
         transitionTimings
@@ -421,7 +551,9 @@ export function reducer(currentState, action) {
         cardio:            null,
         sessionStarted:    null,
         completedWorkouts: nextCompleted,
-        activeRecoveryState: {} // Clear transient runtime state between workouts
+        activeRecoveryState: {}, // Clear transient runtime state between workouts
+        overrideCandidates: {},
+        ignoredOverrides: {},
       };
 
       const spw = currentState.sessionsPerWeek ?? 3;
@@ -536,7 +668,8 @@ export function dispatch(type, payload = {}) {
     persist();
 
     // Use targeted patch for set-level actions; full render for everything else.
-    const isSetAction = type === 'TOGGLE_SET' || type === 'LOG_AND_MARK_DONE';
+    const isSetAction = type === 'TOGGLE_SET' || type === 'LOG_AND_MARK_DONE' ||
+      type === 'CONFIRM_WORKING_WEIGHT_OVERRIDE' || type === 'IGNORE_WORKING_WEIGHT_OVERRIDE';
     if (isSetAction && _patchRenderFn) {
       _patchRenderFn(state, payload.exId);
     } else if (type === 'UPDATE_CARDIO' && _cardioRenderFn) {
@@ -702,7 +835,8 @@ export function rebuildAllProgressions(appState) {
         if (entry.exercises && entry.exercises[instanceId]) {
           instanceHistory.push({
             timestamp: entry.timestamp,
-            sets: entry.exercises[instanceId]
+            sets: entry.exercises[instanceId],
+            manualOverrides: entry.manualOverrides,
           });
         }
       }
@@ -723,6 +857,7 @@ export function rebuildAllProgressions(appState) {
         maxW: ex.maxW ?? null,
         exerciseType: ex.exerciseType,
         equipmentType: ex.equipmentType,
+        instanceId,
       };
 
       const updated = calculateProgressionFromHistory(instanceHistory, currentOpts);
@@ -759,6 +894,8 @@ export function rebuildAllProgressions(appState) {
         deloadStreak:           updated.deloadStreak           ?? 0,
         successfulExposureCount: updated.successfulExposureCount ?? 0,
         averageRIR:            updated.averageRIR             ?? null,
+        historicalPeak:        updated.historicalPeak         ?? null,
+        manualOverride:        updated.manualOverride         ?? null,
       };
     } catch (err) {
       console.warn(`[rebuildAllProgressions] Skipped ${instanceId}:`, err);

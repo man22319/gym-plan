@@ -144,6 +144,8 @@ export function normalize(appState) {
     progressionState,
     adaptiveRecoveryState: appState.adaptiveRecoveryState ?? {},
     activeRecoveryState:   appState.activeRecoveryState ?? {},
+    overrideCandidates:    appState.overrideCandidates ?? {},
+    ignoredOverrides:      appState.ignoredOverrides ?? {},
   };
 }
 
