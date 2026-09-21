@@ -119,20 +119,23 @@
             },
             {
               "exerciseRef": "back_ext",
-              "letter": "C"
-            },
+              "letter": "C",
+              "overrides": {
+                "sets": 3
+              }
+            }
+          ]
+        },
+        {
+          "id": "fri_core",
+          "label": "Core",
+          "exercises": [
             {
-              "id": "fri_core",
-              "label": "Core",
-              "exercises": [
-                {
-                  "exerciseRef": "abdominal_crunch",
-                  "letter": "A",
-                  "overrides": {
-                    "sets": 3
-                  }
-                }
-              ]
+              "exerciseRef": "abdominal_crunch",
+              "letter": "A",
+              "overrides": {
+                "sets": 3
+              }
             }
           ]
         }
