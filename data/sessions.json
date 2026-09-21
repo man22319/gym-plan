@@ -119,10 +119,20 @@
             },
             {
               "exerciseRef": "back_ext",
-              "letter": "C",
-              "overrides": {
-                "sets": 2
-              }
+              "letter": "C"
+            },
+            {
+              "id": "fri_core",
+              "label": "Core",
+              "exercises": [
+                {
+                  "exerciseRef": "abdominal_crunch",
+                  "letter": "A",
+                  "overrides": {
+                    "sets": 3
+                  }
+                }
+              ]
             }
           ]
         }
@@ -241,23 +251,7 @@
             },
             {
               "exerciseRef": "back_ext",
-              "letter": "C",
-              "overrides": {
-                "sets": 2
-              }
-            }
-          ]
-        },
-        {
-          "id": "sun_core",
-          "label": "Core",
-          "exercises": [
-            {
-              "exerciseRef": "abdominal_crunch",
-              "letter": "A",
-              "overrides": {
-                "sets": 3
-              }
+              "letter": "C"
             }
           ]
         }
